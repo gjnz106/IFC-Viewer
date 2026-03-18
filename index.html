@@ -220,9 +220,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
 .tp-panel{position:absolute;bottom:12px;right:12px;display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;z-index:10;opacity:.85;transition:opacity var(--t)}
 .tp-panel:hover{opacity:1}
 
-/* Storey panel */
-.storey-panel{position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;z-index:10}
-
 /* Measure info bar */
 .measure-info{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px 14px;background:var(--bg-panel);border:1px solid var(--blue);border-radius:8px;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.1)}
 
@@ -346,15 +343,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
       <input type="range" id="slOpacity" min="5" max="100" value="100" style="width:120px;height:4px" oninput="setGlobalOpacity(this.value)">
       <span id="opVal" style="font-size:9px;font-family:JetBrains Mono;color:var(--text-dim);min-width:28px">100%</span>
     </div>
-    <!-- Storey filter -->
-    <div class="storey-panel" id="storeyPanel" style="display:none">
-      <span style="font-size:9px;color:var(--text-muted);font-family:JetBrains Mono;font-weight:600">Storey</span>
-      <select id="storeySelect" onchange="filterByStorey(this.value)" style="font-size:10px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);font-family:Outfit;max-width:160px">
-        <option value="all">All Storeys</option>
-      </select>
-    </div>
     <!-- Measure overlay -->
     <div class="measure-info" id="measureInfo" style="display:none">
+      <div style="display:flex;gap:2px;margin-right:6px">
+        <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:9px;padding:2px 8px;border:1px solid var(--blue);border-radius:4px;background:var(--blue-lt);color:var(--blue);cursor:pointer;font-weight:600">📏 Distance</button>
+        <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:9px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer">📐 Level</button>
+      </div>
       <span style="font-family:JetBrains Mono;font-size:11px;font-weight:600" id="measureText">Click 2 points to measure</span>
       <button onclick="clearMeasure()" style="font-size:9px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer;margin-left:8px">Clear</button>
       <button onclick="toggleMeasure()" style="font-size:9px;padding:2px 8px;border:1px solid var(--red);border-radius:4px;background:var(--red-bg);color:var(--red);cursor:pointer;margin-left:4px">✕ Exit</button>
@@ -1075,7 +1069,6 @@ async function loadIFC(idx){
     
     // Build category filter from loaded models
     await buildCatFromModels();
-    await buildStoreyFilter();
   }catch(e){log('Load err:',e.message);st.className='uc-status err';st.textContent='✕ '+e.message}
 }
 
@@ -2234,10 +2227,28 @@ window.captureScreenshot=function(){
 
 // ══ Measurement Tool ══
 let measureMode=false;
+let measureType='distance'; // 'distance' or 'level'
 let measurePoints=[];
 let measureMarkers=[];
 let measureLine=null;
 let measureLabel=null;
+
+window.setMeasureMode=function(type){
+  measureType=type;
+  clearMeasure();
+  // Update button styles
+  const dBtn=document.getElementById('modeDistance');
+  const lBtn=document.getElementById('modeLevel');
+  if(type==='distance'){
+    dBtn.style.borderColor='var(--blue)';dBtn.style.background='var(--blue-lt)';dBtn.style.color='var(--blue)';dBtn.style.fontWeight='600';
+    lBtn.style.borderColor='var(--border)';lBtn.style.background='var(--bg-card)';lBtn.style.color='var(--text-dim)';lBtn.style.fontWeight='400';
+    document.getElementById('measureText').textContent='Click first point';
+  }else{
+    lBtn.style.borderColor='var(--blue)';lBtn.style.background='var(--blue-lt)';lBtn.style.color='var(--blue)';lBtn.style.fontWeight='600';
+    dBtn.style.borderColor='var(--border)';dBtn.style.background='var(--bg-card)';dBtn.style.color='var(--text-dim)';dBtn.style.fontWeight='400';
+    document.getElementById('measureText').textContent='Click a point to read elevation';
+  }
+};
 
 window.toggleMeasure=function(){
   measureMode=!measureMode;
@@ -2246,7 +2257,7 @@ window.toggleMeasure=function(){
   if(!measureMode){
     clearMeasure();
   }else{
-    document.getElementById('measureText').textContent='Click first point';
+    setMeasureMode(measureType);
     renderer.domElement.style.cursor='crosshair';
   }
 };
@@ -2257,14 +2268,17 @@ window.clearMeasure=function(){
   measureMarkers=[];
   if(measureLine){if(measureLine.parent)measureLine.parent.remove(measureLine);measureLine=null}
   if(measureLabel){if(measureLabel.parent)measureLabel.parent.remove(measureLabel);measureLabel=null}
-  if(measureMode)document.getElementById('measureText').textContent='Click first point';
   renderer.domElement.style.cursor=measureMode?'crosshair':'';
+  if(measureMode){
+    document.getElementById('measureText').textContent=measureType==='distance'?'Click first point':'Click a point to read elevation';
+  }
 };
 
 function addMeasurePoint(point){
   // Create sphere marker
   const geo=new THREE.SphereGeometry(0.08,12,12);
-  const mat=new THREE.MeshBasicMaterial({color:0x2563eb,depthTest:false});
+  const color=measureType==='level'?0xf59e0b:0x2563eb;
+  const mat=new THREE.MeshBasicMaterial({color,depthTest:false});
   const sphere=new THREE.Mesh(geo,mat);
   sphere.position.copy(point);
   sphere.renderOrder=999;
@@ -2272,10 +2286,67 @@ function addMeasurePoint(point){
   measureMarkers.push(sphere);
   measurePoints.push(point.clone());
   
+  // ── Level mode: single click = show elevation ──
+  if(measureType==='level'){
+    const el=point.y;
+    const elMM=(el*1000).toFixed(0);
+    
+    // Draw vertical line from point down to Y=0
+    const vPts=[point.clone(),new THREE.Vector3(point.x,0,point.z)];
+    const vGeo=new THREE.BufferGeometry().setFromPoints(vPts);
+    const vMat=new THREE.LineDashedMaterial({color:0xf59e0b,dashSize:0.3,gapSize:0.15,depthTest:false});
+    const vLine=new THREE.Line(vGeo,vMat);
+    vLine.computeLineDistances();
+    vLine.renderOrder=999;
+    scene.add(vLine);
+    measureMarkers.push(vLine);
+    
+    // Draw horizontal reference line at Y=0
+    const refLen=2;
+    const hPts=[new THREE.Vector3(point.x-refLen,0,point.z),new THREE.Vector3(point.x+refLen,0,point.z)];
+    const hGeo=new THREE.BufferGeometry().setFromPoints(hPts);
+    const hMat=new THREE.LineBasicMaterial({color:0x888888,depthTest:false});
+    const hLine=new THREE.Line(hGeo,hMat);
+    hLine.renderOrder=999;
+    scene.add(hLine);
+    measureMarkers.push(hLine);
+    
+    // Draw horizontal line at point elevation
+    const ePts=[new THREE.Vector3(point.x-refLen,el,point.z),new THREE.Vector3(point.x+refLen,el,point.z)];
+    const eGeo=new THREE.BufferGeometry().setFromPoints(ePts);
+    const eMat=new THREE.LineBasicMaterial({color:0xf59e0b,depthTest:false});
+    const eLine=new THREE.Line(eGeo,eMat);
+    eLine.renderOrder=999;
+    scene.add(eLine);
+    measureMarkers.push(eLine);
+    
+    // 3D label
+    const canvas=document.createElement('canvas');
+    canvas.width=256;canvas.height=64;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='rgba(245,158,11,0.9)';
+    ctx.beginPath();ctx.roundRect(0,0,256,64,12);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 26px monospace';ctx.textAlign='center';
+    ctx.fillText('EL '+el.toFixed(3)+'m',128,42);
+    const tex=new THREE.CanvasTexture(canvas);
+    const spriteMat=new THREE.SpriteMaterial({map:tex,depthTest:false,sizeAttenuation:true});
+    measureLabel=new THREE.Sprite(spriteMat);
+    measureLabel.position.set(point.x+1.5,el,point.z);
+    measureLabel.scale.set(2,0.5,1);
+    measureLabel.renderOrder=1000;
+    scene.add(measureLabel);
+    measureMarkers.push(measureLabel); // Track for cleanup
+    
+    document.getElementById('measureText').textContent=`📐 EL ${el.toFixed(3)}m (${elMM}mm) | Click another point or Clear`;
+    
+    // Allow clicking more points without clearing
+    measurePoints=[];
+    return;
+  }
+  
+  // ── Distance mode: 2 points ──
   if(measurePoints.length===1){
-    // Show point 1 elevation
-    const p=measurePoints[0];
-    document.getElementById('measureText').textContent=`Point 1: EL ${p.y.toFixed(3)}m — click second point`;
+    document.getElementById('measureText').textContent='Click second point';
   }
   
   if(measurePoints.length===2){
@@ -2287,6 +2358,7 @@ function addMeasurePoint(point){
     measureLine=new THREE.Line(lineGeo,lineMat);
     measureLine.renderOrder=999;
     scene.add(measureLine);
+    measureMarkers.push(measureLine);
     
     // Draw vertical dashed line for elevation difference
     if(Math.abs(p1.y-p2.y)>0.01){
@@ -2299,7 +2371,6 @@ function addMeasurePoint(point){
       scene.add(vLine);
       measureMarkers.push(vLine);
       
-      // Horizontal dashed line
       const hPts=[p1.clone(),new THREE.Vector3(p2.x,p1.y,p2.z)];
       const hGeo=new THREE.BufferGeometry().setFromPoints(hPts);
       const hMat=new THREE.LineDashedMaterial({color:0x16a34a,dashSize:0.2,gapSize:0.1,depthTest:false});
@@ -2312,37 +2383,34 @@ function addMeasurePoint(point){
     
     // Calculate distances
     const dist=p1.distanceTo(p2);
-    const dx=Math.abs(p2.x-p1.x);
-    const dy=Math.abs(p2.y-p1.y); // elevation diff
-    const dz=Math.abs(p2.z-p1.z);
-    const hDist=Math.sqrt(dx*dx+dz*dz); // horizontal distance
+    const dy=Math.abs(p2.y-p1.y);
+    const hDist=Math.sqrt((p2.x-p1.x)**2+(p2.z-p1.z)**2);
     
-    const info=`📏 ${dist.toFixed(3)}m | ↕ΔEL ${dy.toFixed(3)}m | ↔ ${hDist.toFixed(3)}m | EL₁ ${p1.y.toFixed(3)}m → EL₂ ${p2.y.toFixed(3)}m`;
-    document.getElementById('measureText').textContent=info;
+    document.getElementById('measureText').textContent=`📏 ${dist.toFixed(3)}m | ↕ΔEL ${dy.toFixed(3)}m | ↔ ${hDist.toFixed(3)}m`;
     
-    // Create 3D label at midpoint
+    // 3D label at midpoint
     const mid=new THREE.Vector3().addVectors(p1,p2).multiplyScalar(0.5);
     const canvas=document.createElement('canvas');
-    canvas.width=512;canvas.height=80;
+    canvas.width=256;canvas.height=64;
     const ctx=canvas.getContext('2d');
     ctx.fillStyle='rgba(37,99,235,0.9)';
-    ctx.beginPath();ctx.roundRect(0,0,512,80,12);ctx.fill();
-    ctx.fillStyle='#fff';ctx.font='bold 24px monospace';ctx.textAlign='center';
-    ctx.fillText(dist.toFixed(3)+' m',256,32);
-    ctx.font='16px monospace';
-    ctx.fillText('ΔEL: '+dy.toFixed(3)+'m  H: '+hDist.toFixed(3)+'m',256,58);
+    ctx.beginPath();ctx.roundRect(0,0,256,64,12);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 28px monospace';ctx.textAlign='center';
+    ctx.fillText(dist.toFixed(3)+' m',128,42);
     const tex=new THREE.CanvasTexture(canvas);
     const spriteMat=new THREE.SpriteMaterial({map:tex,depthTest:false,sizeAttenuation:true});
     measureLabel=new THREE.Sprite(spriteMat);
-    measureLabel.position.copy(mid).add(new THREE.Vector3(0,0.4,0));
-    measureLabel.scale.set(dist*0.4+1.2,dist*0.08+0.25,1);
+    measureLabel.position.copy(mid).add(new THREE.Vector3(0,0.3,0));
+    measureLabel.scale.set(dist*0.3+0.8,dist*0.075+0.2,1);
     measureLabel.renderOrder=1000;
     scene.add(measureLabel);
+    measureMarkers.push(measureLabel); // Track for cleanup
     
-    log('Measure: total='+dist.toFixed(3)+'m ΔEL='+dy.toFixed(3)+'m horiz='+hDist.toFixed(3)+'m');
+    log('Measure: '+dist.toFixed(3)+'m');
     renderer.domElement.style.cursor='crosshair';
   }
 }
+
 
 // ══ Global Opacity ══
 window.setGlobalOpacity=function(val){
@@ -2362,114 +2430,6 @@ window.setGlobalOpacity=function(val){
 };
 
 // ══ Storey Filter ══
-let storeyData={}; // {storeyName: {expressIDs:[], elevation:number}}
-
-async function buildStoreyFilter(){
-  storeyData={};
-  const sel=document.getElementById('storeySelect');
-  sel.innerHTML='<option value="all">All Storeys</option>';
-  
-  for(let mi=0;mi<2;mi++){
-    if(!loadedModels[mi])continue;
-    const modelID=loadedModels[mi].modelID;
-    const api=ifcLoader.ifcManager.state.api;
-    
-    try{
-      const lines=api.GetLineIDsWithType(modelID,IFCBUILDINGSTOREY);
-      const cnt=lines.size();
-      log('Model '+mi+': found '+cnt+' storeys');
-      
-      for(let i=0;i<cnt;i++){
-        const sid=lines.get(i);
-        try{
-          const props=await ifcLoader.ifcManager.getItemProperties(modelID,sid,false);
-          if(!props)continue;
-          const name=props.Name?.value||'Storey '+sid;
-          const elev=props.Elevation?.value||0;
-          if(!storeyData[name])storeyData[name]={expressIDs:[],elevation:elev};
-          
-          // Resolve ContainsElements → IfcRelContainedInSpatialStructure → RelatedElements
-          if(props.ContainsElements){
-            const refs=Array.isArray(props.ContainsElements)?props.ContainsElements:[props.ContainsElements];
-            for(const ref of refs){
-              const relId=ref?.value||ref;
-              if(typeof relId!=='number')continue;
-              try{
-                const rel=await ifcLoader.ifcManager.getItemProperties(modelID,relId,false);
-                if(rel?.RelatedElements){
-                  const els=Array.isArray(rel.RelatedElements)?rel.RelatedElements:[rel.RelatedElements];
-                  els.forEach(el=>{
-                    const eid=el?.value||el;
-                    if(typeof eid==='number')storeyData[name].expressIDs.push({mi,eid});
-                  });
-                }
-              }catch(e){}
-            }
-          }
-          log('Storey "'+name+'": '+storeyData[name].expressIDs.length+' elements, elev='+elev);
-        }catch(e){}
-      }
-    }catch(e){log('Storey scan error:',e.message)}
-  }
-  
-  // Build dropdown sorted by elevation (highest first)
-  const sorted=Object.entries(storeyData).sort((a,b)=>(b[1].elevation||0)-(a[1].elevation||0));
-  sorted.forEach(([name,data])=>{
-    const opt=document.createElement('option');
-    opt.value=name;
-    const elevStr=data.elevation?(' ['+data.elevation.toFixed(1)+'m]'):'';
-    opt.textContent=name+' ('+data.expressIDs.length+')'+elevStr;
-    sel.appendChild(opt);
-  });
-  if(sorted.length>0)document.getElementById('storeyPanel').style.display='flex';
-  log('Storey filter ready: '+sorted.length+' storeys');
-}
-
-window.filterByStorey=function(storeyName){
-  if(storeyName==='all'){
-    for(let i=0;i<2;i++){
-      if(!loadedModels[i])continue;
-      visSubsets=visSubsets.filter(s=>{if(s.userData?.srcModelIdx===i&&s.userData?.storeyFilter){if(s.parent)s.parent.remove(s);return false}return true});
-      if(hiddenExpressIDs.size===0&&!isolatedIDs){
-        loadedModels[i].visible=document.getElementById(i===0?'visA':'visB').checked;
-      }
-    }
-    return;
-  }
-  
-  const data=storeyData[storeyName];
-  if(!data||data.expressIDs.length===0){log('Storey empty: '+storeyName);return}
-  
-  const byModel={};
-  data.expressIDs.forEach(({mi,eid})=>{
-    if(!byModel[mi])byModel[mi]=[];
-    byModel[mi].push(eid);
-  });
-  
-  for(let i=0;i<2;i++){
-    if(!loadedModels[i])continue;
-    const vis=document.getElementById(i===0?'visA':'visB').checked;
-    if(!vis)continue;
-    
-    loadedModels[i].visible=false;
-    visSubsets=visSubsets.filter(s=>{if(s.userData?.srcModelIdx===i&&s.userData?.storeyFilter){if(s.parent)s.parent.remove(s);return false}return true});
-    
-    const ids=byModel[i]||[];
-    if(ids.length===0)continue;
-    
-    try{
-      const sub=ifcLoader.ifcManager.createSubset({modelID:loadedModels[i].modelID,ids,removePrevious:true,customID:'storey_'+i,scene});
-      if(sub){
-        sub.position.copy(loadedModels[i].position);sub.updateMatrixWorld(true);
-        sub.traverse(c=>{if(c.isMesh){const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>{m.clippingPlanes=clipPlanes;m.side=THREE.DoubleSide})}});
-        sub.userData.srcModelIdx=i;
-        sub.userData.storeyFilter=true;
-        visSubsets.push(sub);
-      }
-    }catch(e){}
-  }
-  log('Filtered to storey: '+storeyName+' ('+data.expressIDs.length+' elements)');
-};
 
 // ══ Category Dropdown ══
 window.toggleCatDropdown=function(){
@@ -2670,7 +2630,27 @@ function applyCategoryVisibility3D(){
   }
 }
 
-window.setFilter=function(f){activeFilter=f;document.querySelectorAll('.fchip').forEach(c=>c.classList.toggle('on',c.dataset.f===f));renderTree()};
+window.setFilter=function(f){
+  activeFilter=f;
+  document.querySelectorAll('.fchip').forEach(c=>c.classList.toggle('on',c.dataset.f===f));
+  renderTree();
+  // Also filter issues list
+  filterIssuesList();
+};
+
+function filterIssuesList(){
+  document.querySelectorAll('.issue-card').forEach(card=>{
+    if(activeFilter==='all'){card.style.display='';return}
+    const status=card.querySelector('.issue-status');
+    if(status){
+      const s=status.textContent.toLowerCase();
+      card.style.display=(s===activeFilter)?'':'none';
+    }
+  });
+  // Update nav count
+  const visible=document.querySelectorAll('.issue-card:not([style*="display: none"])');
+  document.getElementById('issueNavInfo').textContent=visible.length+' issues';
+}
 
 // ══ Issues Panel ══
 let issuesList=[];
