@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IFC Delta — 3D Version Compare</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#f5f6f8;--bg-panel:#ffffff;--bg-card:#f0f1f4;--bg-hover:#e8eaef;
@@ -18,24 +18,24 @@
   --radius:8px;--t:.15s ease;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
-.app{display:grid;grid-template-rows:46px 1fr;grid-template-columns:280px 1fr 300px;height:100vh}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-rows:52px 1fr;grid-template-columns:300px 1fr 320px;height:100vh}
 
 /* Header */
 .header{grid-column:1/-1;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px;z-index:50}
 .logo{display:flex;align-items:center;gap:7px}
-.logo-mark{width:24px;height:24px;background:linear-gradient(135deg,var(--blue),var(--indigo));border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-weight:700;font-size:12px;color:#fff}
-.logo-name{font-weight:600;font-size:13px;color:var(--text)}
-.logo-name span{color:var(--text-muted);font-weight:400;font-size:11px;margin-left:5px}
+.logo-mark{width:24px;height:24px;background:linear-gradient(135deg,var(--blue),var(--indigo));border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-weight:700;font-size:16px;color:#fff}
+.logo-name{font-weight:600;font-size:17px;color:var(--text)}
+.logo-name span{color:var(--text-muted);font-weight:400;font-size:14px;margin-left:5px}
 .h-sep{width:1px;height:16px;background:var(--border);margin:0 2px}
-.btn{height:28px;padding:0 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg-panel);color:var(--text);font-family:'Outfit';font-size:11px;font-weight:500;cursor:pointer;transition:all var(--t);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.btn{height:32px;padding:0 12px;border-radius:5px;border:1px solid var(--border);background:var(--bg-panel);color:var(--text);font-family:'Inter';font-size:14px;font-weight:500;cursor:pointer;transition:all var(--t);display:flex;align-items:center;gap:4px;white-space:nowrap}
 .btn:hover{background:var(--bg-hover);border-color:var(--border-hi)}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
 .btn.primary:hover{background:#1d4ed8}
 .btn:disabled{opacity:.35;cursor:not-allowed}
 .btn.active{background:var(--blue-lt);border-color:var(--blue);color:var(--blue)}
 .h-right{margin-left:auto;display:flex;gap:4px;align-items:center}
-.status-badge{font-family:'JetBrains Mono';font-size:9px;font-weight:600;padding:3px 7px;border-radius:4px;display:none;align-items:center;gap:3px}
+.status-badge{font-family:'JetBrains Mono';font-size:12px;font-weight:600;padding:3px 7px;border-radius:4px;display:none;align-items:center;gap:3px}
 .status-badge.show{display:flex}
 .status-badge.loading{background:var(--blue-lt);color:var(--blue)}
 .status-badge.error{background:var(--red-lt);color:var(--red)}
@@ -48,25 +48,25 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
 .upload-card:hover{border-color:var(--blue);background:var(--blue-bg)}
 .upload-card.loaded{border-style:solid;border-color:var(--blue);background:var(--blue-bg)}
 .upload-card input{display:none}
-.uc-label{font-family:'JetBrains Mono';font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px}
-.uc-text{font-size:11px;font-weight:500;color:var(--text-dim)}
-.uc-hint{font-size:8px;color:var(--text-muted);margin-top:1px}
+.uc-label{font-family:'JetBrains Mono';font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px}
+.uc-text{font-size:14px;font-weight:500;color:var(--text-dim)}
+.uc-hint{font-size:10px;color:var(--text-muted);margin-top:1px}
 .uc-file{display:none}
 .upload-card.loaded .uc-placeholder{display:none}
 .upload-card.loaded .uc-file{display:block}
-.uc-filename{font-family:'JetBrains Mono';font-size:9px;color:var(--blue);word-break:break-all;font-weight:600}
-.uc-size{font-size:8px;color:var(--text-muted);margin-top:1px}
-.uc-status{font-size:8px;margin-top:2px;font-weight:600}
+.uc-filename{font-family:'JetBrains Mono';font-size:12px;color:var(--blue);word-break:break-all;font-weight:600}
+.uc-size{font-size:10px;color:var(--text-muted);margin-top:1px}
+.uc-status{font-size:10px;margin-top:2px;font-weight:600}
 .uc-status.ok{color:var(--green)}.uc-status.err{color:var(--red)}.uc-status.prog{color:var(--amber)}
 .vis-row{padding:2px 10px 4px;}
 
 /* Tab switcher for Tree/Issues */
 .panel-tabs{display:none;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 8px}
 .panel-tabs.show{display:flex}
-.ptab{flex:1;padding:6px 0;text-align:center;font-size:10px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all var(--t);font-family:'Outfit'}
+.ptab{flex:1;padding:6px 0;text-align:center;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all var(--t);font-family:'Inter'}
 .ptab:hover{color:var(--text-dim)}
 .ptab.on{color:var(--blue);border-bottom-color:var(--blue)}
-.ptab .ptab-count{font-family:'JetBrains Mono';font-size:9px;font-weight:700;margin-left:3px;padding:1px 5px;border-radius:8px;background:var(--bg-card)}
+.ptab .ptab-count{font-family:'JetBrains Mono';font-size:12px;font-weight:700;margin-left:3px;padding:1px 5px;border-radius:8px;background:var(--bg-card)}
 
 /* Issues list */
 .issues-list{flex:1;overflow-y:auto;padding:4px 0;display:none}
@@ -75,19 +75,19 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
 .issue-card:hover{border-color:var(--border-hi);background:var(--bg-hover)}
 .issue-card.active{border-color:var(--blue);background:var(--blue-bg)}
 .issue-hdr{display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.issue-num{font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--text-muted);width:24px}
-.issue-status{font-family:'JetBrains Mono';font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px}
+.issue-num{font-family:'JetBrains Mono';font-size:12px;font-weight:700;color:var(--text-muted);width:24px}
+.issue-status{font-family:'JetBrains Mono';font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px}
 .issue-status.added{color:var(--green);background:var(--green-lt)}
 .issue-status.removed{color:var(--red);background:var(--red-lt)}
 .issue-status.modified{color:var(--amber);background:var(--amber-lt)}
-.issue-type{font-family:'JetBrains Mono';font-size:8px;color:var(--text-muted);margin-left:auto}
-.issue-name{font-size:10px;font-weight:500;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.issue-detail{font-size:9px;color:var(--text-muted);margin-top:2px}
+.issue-type{font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);margin-left:auto}
+.issue-name{font-size:13px;font-weight:500;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.issue-detail{font-size:12px;color:var(--text-muted);margin-top:2px}
 .issue-nav{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;display:none}
 .issue-nav.show{display:flex}
-.issue-nav-info{font-family:'JetBrains Mono';font-size:9px;color:var(--text-dim)}
+.issue-nav-info{font-family:'JetBrains Mono';font-size:12px;color:var(--text-dim)}
 .issue-nav-btns{display:flex;gap:3px}
-.inav{width:26px;height:24px;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.inav{width:26px;height:24px;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .inav:hover{background:var(--bg-hover)}
 
 /* Summary */
@@ -95,47 +95,47 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
 .summary-strip.show{display:grid}
 .ss-card{text-align:center;padding:5px 2px;border-radius:5px;background:var(--bg-card);cursor:pointer;transition:background var(--t)}
 .ss-card:hover{background:var(--bg-hover)}
-.ss-val{font-family:'JetBrains Mono';font-size:14px;font-weight:700}
-.ss-lbl{font-size:7px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-top:1px}
+.ss-val{font-family:'JetBrains Mono';font-size:18px;font-weight:700}
+.ss-lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-top:1px}
 .ss-card.a .ss-val{color:var(--green)}.ss-card.r .ss-val{color:var(--red)}.ss-card.m .ss-val{color:var(--amber)}.ss-card.u .ss-val{color:var(--indigo)}
 
 /* Search + Filter */
 .search-wrap{padding:5px 8px;border-bottom:1px solid var(--border);flex-shrink:0;display:none}
 .search-wrap.show{display:block}
-.search-input{width:100%;padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:'Outfit';font-size:11px;outline:none}
+.search-input{width:100%;padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-family:'Inter';font-size:14px;outline:none}
 .search-input:focus{border-color:var(--blue)}
 .search-input::placeholder{color:var(--text-muted)}
 .filter-bar{padding:5px 8px;display:none;gap:3px;flex-wrap:wrap;border-bottom:1px solid var(--border);flex-shrink:0}
 .filter-bar.show{display:flex}
 .cat-filter{padding:5px 8px;border-bottom:1px solid var(--border);flex-shrink:0;display:none;flex-direction:column;gap:4px;position:relative}
 .cat-filter.show{display:flex}
-.cat-filter-title{font-family:'JetBrains Mono';font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted)}
-.cat-select-btn{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-size:10px;cursor:pointer;transition:all var(--t);font-family:'Outfit';min-height:28px}
+.cat-filter-title{font-family:'JetBrains Mono';font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted)}
+.cat-select-btn{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-size:13px;cursor:pointer;transition:all var(--t);font-family:'Inter';min-height:28px}
 .cat-select-btn:hover{border-color:var(--blue)}
 .cat-select-btn.open{border-color:var(--blue);background:var(--bg-panel)}
-.cat-select-btn .arrow{font-size:8px;color:var(--text-muted);transition:transform .2s}
+.cat-select-btn .arrow{font-size:10px;color:var(--text-muted);transition:transform .2s}
 .cat-select-btn.open .arrow{transform:rotate(180deg)}
 .cat-tags{display:flex;flex-wrap:wrap;gap:2px;flex:1}
-.cat-tag{font-size:8px;padding:1px 5px;border-radius:3px;background:var(--blue-lt);color:var(--blue);font-weight:600;font-family:'JetBrains Mono';display:flex;align-items:center;gap:2px}
-.cat-tag .tag-x{cursor:pointer;opacity:.6;font-size:10px}
+.cat-tag{font-size:10px;padding:1px 5px;border-radius:3px;background:var(--blue-lt);color:var(--blue);font-weight:600;font-family:'JetBrains Mono';display:flex;align-items:center;gap:2px}
+.cat-tag .tag-x{cursor:pointer;opacity:.6;font-size:13px}
 .cat-tag .tag-x:hover{opacity:1}
 .cat-dropdown{position:absolute;top:100%;left:8px;right:8px;z-index:100;background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;display:none}
 .cat-dropdown.open{display:block}
-.cat-dd-search{width:100%;padding:6px 8px;border:none;border-bottom:1px solid var(--border);font-size:10px;font-family:'Outfit';outline:none;background:transparent;color:var(--text)}
+.cat-dd-search{width:100%;padding:6px 8px;border:none;border-bottom:1px solid var(--border);font-size:13px;font-family:'Inter';outline:none;background:transparent;color:var(--text)}
 .cat-dd-search::placeholder{color:var(--text-muted)}
-.cat-dd-item{display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer;transition:background var(--t);font-size:10px}
+.cat-dd-item{display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer;transition:background var(--t);font-size:13px}
 .cat-dd-item:hover{background:var(--bg-hover)}
 .cat-dd-cb{width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0}
 .cat-dd-name{flex:1;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cat-dd-count{font-family:'JetBrains Mono';font-size:8px;font-weight:700;color:var(--text-muted);flex-shrink:0}
+.cat-dd-count{font-family:'JetBrains Mono';font-size:10px;font-weight:700;color:var(--text-muted);flex-shrink:0}
 .cat-dd-changes{display:flex;gap:2px;flex-shrink:0}
-.cat-dd-ch{font-family:'JetBrains Mono';font-size:7px;font-weight:700;padding:0 3px;border-radius:2px}
+.cat-dd-ch{font-family:'JetBrains Mono';font-size:9px;font-weight:700;padding:0 3px;border-radius:2px}
 .cat-dd-ch.a{color:var(--green);background:var(--green-lt)}.cat-dd-ch.r{color:var(--red);background:var(--red-lt)}.cat-dd-ch.m{color:var(--amber);background:var(--amber-lt)}
 .cat-dd-actions{display:flex;gap:4px;padding:6px 10px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg-panel)}
-.cat-dd-actions button{flex:1;padding:4px;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-size:9px;font-weight:600;cursor:pointer;font-family:'Outfit'}
+.cat-dd-actions button{flex:1;padding:4px;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter'}
 .cat-dd-actions button:hover{background:var(--bg-hover)}
 .cat-dd-actions button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
-.fchip{padding:3px 7px;border-radius:4px;font-size:9px;font-weight:600;font-family:'JetBrains Mono';border:1px solid var(--border);background:var(--bg-panel);color:var(--text-muted);cursor:pointer;transition:all var(--t)}
+.fchip{padding:3px 7px;border-radius:4px;font-size:12px;font-weight:600;font-family:'JetBrains Mono';border:1px solid var(--border);background:var(--bg-panel);color:var(--text-muted);cursor:pointer;transition:all var(--t)}
 .fchip:hover{border-color:var(--border-hi)}
 .fchip.on{background:var(--blue-lt);border-color:var(--blue);color:var(--blue)}
 .fchip.on.fa{background:var(--green-lt);border-color:var(--green);color:var(--green)}
@@ -146,40 +146,40 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
 .entity-tree{flex:1;overflow-y:auto;padding:2px 0}
 .tg-hdr{display:flex;align-items:center;gap:5px;padding:5px 10px;cursor:pointer;transition:background var(--t);user-select:none}
 .tg-hdr:hover{background:var(--bg-hover)}
-.tg-arr{font-size:8px;color:var(--text-muted);transition:transform var(--t);width:12px;text-align:center}
+.tg-arr{font-size:10px;color:var(--text-muted);transition:transform var(--t);width:12px;text-align:center}
 .tg-arr.col{transform:rotate(-90deg)}
-.tg-n{font-family:'JetBrains Mono';font-size:10px;font-weight:500;color:var(--text-dim);flex:1}
-.tg-b{font-family:'JetBrains Mono';font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px}
+.tg-n{font-family:'JetBrains Mono';font-size:13px;font-weight:500;color:var(--text-dim);flex:1}
+.tg-b{font-family:'JetBrains Mono';font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px}
 .tg-b.ba{color:var(--green);background:var(--green-lt)}.tg-b.br{color:var(--red);background:var(--red-lt)}.tg-b.bm{color:var(--amber);background:var(--amber-lt)}
 .tg-items{overflow:hidden}.tg-items.col{display:none}
-.ti{display:flex;align-items:center;gap:5px;padding:4px 10px 4px 26px;cursor:pointer;transition:background var(--t);font-size:10px}
+.ti{display:flex;align-items:center;gap:5px;padding:4px 10px 4px 26px;cursor:pointer;transition:background var(--t);font-size:13px}
 .ti:hover{background:var(--bg-hover)}.ti.sel{background:var(--blue-lt)}
 .ti-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .ti-dot.added{background:var(--green)}.ti-dot.removed{background:var(--red)}.ti-dot.modified{background:var(--amber)}.ti-dot.unchanged{background:var(--text-muted);opacity:.3}
 .ti-nm{color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ti-id{font-family:'JetBrains Mono';font-size:8px;color:var(--text-muted)}
+.ti-id{font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted)}
 
 /* Viewport */
 .viewport-area{position:relative;overflow:hidden;background:#e8ecf2}
 .viewport-area canvas{display:block}
 .empty-vp{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:5;gap:8px}
-.ev-icon{font-size:36px;opacity:.3}.ev-title{font-size:14px;font-weight:600;color:var(--text-dim)}.ev-hint{font-size:11px;color:var(--text-muted);text-align:center;max-width:260px;line-height:1.5}
+.ev-icon{font-size:47px;opacity:.3}.ev-title{font-size:18px;font-weight:600;color:var(--text-dim)}.ev-hint{font-size:14px;color:var(--text-muted);text-align:center;max-width:260px;line-height:1.5}
 .vp-overlay{position:absolute;top:8px;left:8px;display:none;gap:6px;z-index:10;padding:5px 9px;border-radius:5px;background:rgba(255,255,255,.9);border:1px solid var(--border);backdrop-filter:blur(6px)}
 .vp-overlay.show{display:flex}
-.leg{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--text-dim);font-family:'JetBrains Mono'}
+.leg{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono'}
 .leg-d{width:7px;height:7px;border-radius:2px}
 
 /* Section Box Panel */
 .section-panel{position:absolute;bottom:8px;left:8px;z-index:10;display:none;padding:10px 12px;border-radius:var(--radius);background:rgba(255,255,255,.92);border:1px solid var(--border);backdrop-filter:blur(6px);width:240px}
 .section-panel.show{display:block}
-.sp-title{font-family:'JetBrains Mono';font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:8px}
+.sp-title{font-family:'JetBrains Mono';font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:8px}
 .sp-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.sp-label{font-family:'JetBrains Mono';font-size:9px;font-weight:600;width:16px;color:var(--text-dim)}
+.sp-label{font-family:'JetBrains Mono';font-size:12px;font-weight:600;width:16px;color:var(--text-dim)}
 .sp-slider{flex:1;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--border);outline:none}
 .sp-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.sp-val{font-family:'JetBrains Mono';font-size:8px;color:var(--text-muted);width:32px;text-align:right}
+.sp-val{font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);width:32px;text-align:right}
 .sp-toggle{display:flex;align-items:center;gap:6px;margin-top:4px}
-.sp-toggle label{font-size:9px;color:var(--text-dim);cursor:pointer}
+.sp-toggle label{font-size:12px;color:var(--text-dim);cursor:pointer}
 .sp-cb{width:14px;height:14px;cursor:pointer;accent-color:var(--blue)}
 
 /* Loading */
@@ -187,34 +187,34 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
 .load-ov.on{display:flex}
 .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.load-txt{font-family:'JetBrains Mono';font-size:11px;color:var(--text-dim)}
+.load-txt{font-family:'JetBrains Mono';font-size:14px;color:var(--text-dim)}
 .load-bar{width:160px;height:3px;background:var(--bg-card);border-radius:2px;overflow:hidden}
 .load-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--indigo));border-radius:2px;transition:width .3s ease;width:0%}
 
 /* Right panel */
 .right-panel{background:var(--bg-panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.ph{padding:9px 12px;font-family:'JetBrains Mono';font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);border-bottom:1px solid var(--border);flex-shrink:0}
+.ph{padding:9px 12px;font-family:'JetBrains Mono';font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);border-bottom:1px solid var(--border);flex-shrink:0}
 .prop-area{flex:1;overflow-y:auto}
 .ps{border-bottom:1px solid var(--border);padding:10px 12px}
-.ps-t{font-family:'JetBrains Mono';font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:8px}
-.pr{display:grid;grid-template-columns:90px 1fr;gap:4px;padding:3px 0;font-size:10px;border-bottom:1px solid rgba(213,217,226,.4)}
-.pk{font-family:'JetBrains Mono';font-size:9px;color:var(--text-muted);font-weight:500}
-.pv{color:var(--text-dim);word-break:break-all;font-size:10px}
-.dv-old{padding:2px 5px;border-radius:3px;background:var(--red-lt);color:var(--red);font-family:'JetBrains Mono';font-size:9px;text-decoration:line-through}
-.dv-new{padding:2px 5px;border-radius:3px;background:var(--green-lt);color:var(--green);font-family:'JetBrains Mono';font-size:9px}
+.ps-t{font-family:'JetBrains Mono';font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:8px}
+.pr{display:grid;grid-template-columns:90px 1fr;gap:4px;padding:3px 0;font-size:13px;border-bottom:1px solid rgba(213,217,226,.4)}
+.pk{font-family:'JetBrains Mono';font-size:12px;color:var(--text-muted);font-weight:500}
+.pv{color:var(--text-dim);word-break:break-all;font-size:13px}
+.dv-old{padding:2px 5px;border-radius:3px;background:var(--red-lt);color:var(--red);font-family:'JetBrains Mono';font-size:12px;text-decoration:line-through}
+.dv-new{padding:2px 5px;border-radius:3px;background:var(--green-lt);color:var(--green);font-family:'JetBrains Mono';font-size:12px}
 
 /* Context Menu */
-.ctx-menu{position:fixed;z-index:1000;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.15);padding:4px 0;min-width:200px;display:none;font-family:'Outfit'}
+.ctx-menu{position:fixed;z-index:1000;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.15);padding:4px 0;min-width:200px;display:none;font-family:'Inter'}
 .ctx-menu.show{display:block}
-.ctx-item{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:11px;color:var(--text-dim);cursor:pointer;transition:background .1s}
+.ctx-item{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:14px;color:var(--text-dim);cursor:pointer;transition:background .1s}
 .ctx-item:hover{background:var(--bg-hover)}
-.ctx-item .ci-icon{width:18px;text-align:center;font-size:13px;flex-shrink:0}
+.ctx-item .ci-icon{width:18px;text-align:center;font-size:17px;flex-shrink:0}
 .ctx-item .ci-label{flex:1}
-.ctx-item .ci-hint{font-size:9px;color:var(--text-muted);font-family:'JetBrains Mono'}
+.ctx-item .ci-hint{font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono'}
 .ctx-sep{height:1px;background:var(--border);margin:4px 0}
 .ctx-item.danger{color:var(--red)}
 .ctx-item.danger:hover{background:var(--red-bg)}
-.ctx-header{padding:6px 14px;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-family:'JetBrains Mono'}
+.ctx-header{padding:6px 14px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-family:'JetBrains Mono'}
 
 /* Transparency panel */
 .tp-panel{position:absolute;bottom:12px;right:12px;display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;z-index:10;opacity:.85;transition:opacity var(--t)}
@@ -235,6 +235,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
     <button class="btn primary" id="btnCompare" disabled onclick="runCompare()">▶ Compare</button>
     <button class="btn" id="btnExitCompare" style="display:none;border-color:var(--red);color:var(--red)" onclick="exitCompare()">✕ Exit Compare</button>
     <button class="btn" id="btnExport" style="display:none" onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn" id="btnExportBCF" style="display:none;border-color:var(--green);color:var(--green)" onclick="exportBCF()">⬇ BCF</button>
     <div id="statusBadge" class="status-badge"><span id="statusText"></span></div>
     <div class="h-right">
       <button class="btn" id="btnMeasure" onclick="toggleMeasure()">📏 Measure</button>
@@ -256,7 +257,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
         <div class="uc-file"><div class="uc-label">Version A</div><div class="uc-filename" id="fn0"></div><div class="uc-size" id="fs0"></div><div class="uc-status" id="us0"></div></div>
       </div>
       <div class="vis-row" id="visRow0" style="display:none">
-        <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-dim);cursor:pointer;padding:2px 0">
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:2px 0">
           <input type="checkbox" checked id="visA" onchange="toggleModelVis(0)" style="accent-color:var(--red);width:13px;height:13px">
           <span style="width:8px;height:8px;border-radius:2px;background:var(--red);opacity:.7"></span>
           Version A (Baseline)
@@ -268,7 +269,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
         <div class="uc-file"><div class="uc-label">Version B</div><div class="uc-filename" id="fn1"></div><div class="uc-size" id="fs1"></div><div class="uc-status" id="us1"></div></div>
       </div>
       <div class="vis-row" id="visRow1" style="display:none">
-        <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-dim);cursor:pointer;padding:2px 0">
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:2px 0">
           <input type="checkbox" checked id="visB" onchange="toggleModelVis(1)" style="accent-color:var(--blue);width:13px;height:13px">
           <span style="width:8px;height:8px;border-radius:2px;background:var(--blue);opacity:.7"></span>
           Version B (Updated)
@@ -339,25 +340,25 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);heig
     <div class="load-ov" id="loadOv"><div class="spinner"></div><div class="load-txt" id="loadTxt">Loading...</div><div class="load-bar"><div class="load-fill" id="loadFill"></div></div></div>
     <!-- Transparency slider -->
     <div class="tp-panel" id="tpPanel">
-      <span style="font-size:9px;color:var(--text-muted);font-family:JetBrains Mono">Opacity</span>
+      <span style="font-size:12px;color:var(--text-muted);font-family:JetBrains Mono">Opacity</span>
       <input type="range" id="slOpacity" min="5" max="100" value="100" style="width:120px;height:4px" oninput="setGlobalOpacity(this.value)">
-      <span id="opVal" style="font-size:9px;font-family:JetBrains Mono;color:var(--text-dim);min-width:28px">100%</span>
+      <span id="opVal" style="font-size:12px;font-family:JetBrains Mono;color:var(--text-dim);min-width:28px">100%</span>
     </div>
     <!-- Measure overlay -->
     <div class="measure-info" id="measureInfo" style="display:none">
       <div style="display:flex;gap:2px;margin-right:6px">
-        <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:9px;padding:2px 8px;border:1px solid var(--blue);border-radius:4px;background:var(--blue-lt);color:var(--blue);cursor:pointer;font-weight:600">📏 Distance</button>
-        <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:9px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer">📐 Level</button>
+        <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:12px;padding:2px 8px;border:1px solid var(--blue);border-radius:4px;background:var(--blue-lt);color:var(--blue);cursor:pointer;font-weight:600">📏 Distance</button>
+        <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer">📐 Level</button>
       </div>
-      <span style="font-family:JetBrains Mono;font-size:11px;font-weight:600" id="measureText">Click 2 points to measure</span>
-      <button onclick="clearMeasure()" style="font-size:9px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer;margin-left:8px">Clear</button>
-      <button onclick="toggleMeasure()" style="font-size:9px;padding:2px 8px;border:1px solid var(--red);border-radius:4px;background:var(--red-bg);color:var(--red);cursor:pointer;margin-left:4px">✕ Exit</button>
+      <span style="font-family:JetBrains Mono;font-size:14px;font-weight:600" id="measureText">Click 2 points to measure</span>
+      <button onclick="clearMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer;margin-left:8px">Clear</button>
+      <button onclick="toggleMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--red);border-radius:4px;background:var(--red-bg);color:var(--red);cursor:pointer;margin-left:4px">✕ Exit</button>
     </div>
   </div>
 
   <div class="right-panel">
     <div class="ph">Properties</div>
-    <div class="prop-area" id="propArea"><div style="padding:30px 14px;text-align:center;color:var(--text-muted);font-size:11px">Click element in 3D to inspect</div></div>
+    <div class="prop-area" id="propArea"><div style="padding:30px 14px;text-align:center;color:var(--text-muted);font-size:14px">Click element in 3D to inspect</div></div>
   </div>
 </div>
 
@@ -476,6 +477,7 @@ function initThree(){
     });
     
     const hits=ray.intersectObjects(ms,false);
+    console.log('[PICK] meshes scanned:',ms.length,'hits:',hits.length);
     if(!hits.length){clearHighlight();document.getElementById('propArea').innerHTML='<div class="prop-empty">Click element in 3D to inspect</div>';return}
     
     // Find first hit that is INSIDE the clipping planes (section box)
@@ -521,7 +523,7 @@ function initThree(){
     // Check model is ticked
     if(targetModelIdx===0&&!visA){log('Pick: model A unticked');return}
     if(targetModelIdx===1&&!visB){log('Pick: model B unticked');return}
-    if(targetModelIdx<0||!loadedModels[targetModelIdx]||!ifcLoader){log('Pick: no model match');return}
+    if(targetModelIdx<0||!loadedModels[targetModelIdx]||!ifcLoader){console.log('[PICK] no model match, targetModelIdx=',targetModelIdx);return}
     
     const modelID=loadedModels[targetModelIdx].modelID;
     let foundEid=null;
@@ -539,7 +541,7 @@ function initThree(){
       if(eid>0)foundEid=eid;
     }
     
-    if(!foundEid){log('Pick: no expressID found');return}
+    if(!foundEid){console.log('[PICK] no expressID found, faceIndex=',hit.faceIndex,'hasExpressID=',!!hit.object.geometry.attributes.expressID);return}
     
     log('Pick: expressID='+foundEid+' model='+targetModelIdx);
     try{
@@ -1222,6 +1224,7 @@ window.exitCompare=function(){
   document.getElementById('filterB').classList.remove('show');
   document.getElementById('vpLegend').classList.remove('show');
   document.getElementById('btnExport').style.display='none';
+  document.getElementById('btnExportBCF').style.display='none';
   document.getElementById('btnExitCompare').style.display='none';
   document.getElementById('eTree').innerHTML='';
   document.getElementById('eTree').style.display='';
@@ -1539,8 +1542,22 @@ window.runCompare=async function(){
     const pA=await getAllProps(loadedModels[0].modelID);
     lt.textContent='Extracting Version B properties...';lf.style.width='40%';
     const pB=await getAllProps(loadedModels[1].modelID);
+    
+    // ── Filter by selected categories if any ──
+    let filteredA=pA, filteredB=pB;
+    if(activeCategories.size>0&&!activeCategories.has('__none__')){
+      filteredA={};filteredB={};
+      for(const[gid,e]of Object.entries(pA)){
+        if(activeCategories.has(e.type))filteredA[gid]=e;
+      }
+      for(const[gid,e]of Object.entries(pB)){
+        if(activeCategories.has(e.type))filteredB[gid]=e;
+      }
+      log('Category filter applied: A='+Object.keys(filteredA).length+'/'+Object.keys(pA).length+', B='+Object.keys(filteredB).length+'/'+Object.keys(pB).length);
+    }
+    
     lt.textContent='Comparing...';lf.style.width='70%';await new Promise(r=>setTimeout(r,50));
-    compareResult=doCompare(pA,pB);
+    compareResult=doCompare(filteredA,filteredB);
     lt.textContent=`Done! ${compareResult.added.length+compareResult.removed.length+compareResult.modified.length} changes`;lf.style.width='100%';
     await new Promise(r=>setTimeout(r,300));
 
@@ -1982,6 +1999,7 @@ function showResultsUI(){
   document.getElementById('catFilter').classList.add('show');
   document.getElementById('vpLegend').classList.add('show');
   document.getElementById('btnExport').style.display='';
+  document.getElementById('btnExportBCF').style.display='';
   document.getElementById('btnExitCompare').style.display='';
   document.getElementById('sA').textContent='+'+r.added.length;
   document.getElementById('sR').textContent='−'+r.removed.length;
@@ -2041,10 +2059,10 @@ window.renderTree=function(){
     list.slice(0,150).forEach(e=>{const en=e.entity||e.a||e.b;
       html+=`<div class="ti" data-g="${e.gid}" onclick="selI('${e.gid}')"><div class="ti-dot ${e.status}"></div><span class="ti-nm">${en?.name||'(unnamed)'}</span><span class="ti-id">${e.status}</span></div>`;
     });
-    if(list.length>150)html+=`<div style="padding:4px 26px;font-size:9px;color:var(--text-muted)">+${list.length-150} more</div>`;
+    if(list.length>150)html+=`<div style="padding:4px 26px;font-size:12px;color:var(--text-muted)">+${list.length-150} more</div>`;
     html+='</div></div>';
   }
-  document.getElementById('eTree').innerHTML=html||`<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:11px">${items.length===0?'No changes found for this filter':'No match'}</div>`;
+  document.getElementById('eTree').innerHTML=html||`<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:14px">${items.length===0?'No changes found for this filter':'No match'}</div>`;
 };
 window.togG=function(h){h.querySelector('.tg-arr').classList.toggle('col');h.nextElementSibling.classList.toggle('col')};
 window.selI=function(gid){
@@ -2059,9 +2077,9 @@ window.selI=function(gid){
 function showEntityProps(item,ent){
   const c={added:'var(--green)',removed:'var(--red)',modified:'var(--amber)',unchanged:'var(--indigo)'};
   const bg={added:'var(--green-lt)',removed:'var(--red-lt)',modified:'var(--amber-lt)',unchanged:'var(--blue-lt)'};
-  let h=`<div style="padding:8px 12px;background:${bg[item.status]};border-bottom:1px solid var(--border)"><span style="font-family:JetBrains Mono;font-size:10px;font-weight:700;color:${c[item.status]}">${item.status.toUpperCase()}</span></div>
+  let h=`<div style="padding:8px 12px;background:${bg[item.status]};border-bottom:1px solid var(--border)"><span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:${c[item.status]}">${item.status.toUpperCase()}</span></div>
   <div class="ps"><div class="ps-t">Identity</div>
-  <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:8px">${ent?.globalId||'—'}</div></div>
+  <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:10px">${ent?.globalId||'—'}</div></div>
   <div class="pr"><div class="pk">Type</div><div class="pv">${ent?.type||'—'}</div></div>
   <div class="pr"><div class="pk">Name</div><div class="pv">${ent?.name||'—'}</div></div>
   <div class="pr"><div class="pk">Tag</div><div class="pv">${ent?.tag||'—'}</div></div></div>`;
@@ -2075,7 +2093,7 @@ function showEntityProps(item,ent){
 
 async function showProps(props,modelIdx){
   const mid=loadedModels[modelIdx]?.modelID;
-  let h=`<div style="padding:8px 12px;background:var(--blue-lt);border-bottom:1px solid var(--border)"><span style="font-family:JetBrains Mono;font-size:10px;font-weight:700;color:var(--blue)">Version ${modelIdx===0?'A':'B'} — #${props.expressID}</span></div><div class="ps"><div class="ps-t">Identity</div>`;
+  let h=`<div style="padding:8px 12px;background:var(--blue-lt);border-bottom:1px solid var(--border)"><span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:var(--blue)">Version ${modelIdx===0?'A':'B'} — #${props.expressID}</span></div><div class="ps"><div class="ps-t">Identity</div>`;
   const keys=['GlobalId','Name','Description','ObjectType','Tag','PredefinedType'];
   const keyLabels={GlobalId:'GlobalId',Name:'Name',Description:'Description',ObjectType:'ObjectType',Tag:'Tag / Element ID',PredefinedType:'PredefinedType'};
   keys.forEach(k=>{if(props[k]){const v=props[k]?.value!==undefined?props[k].value:props[k];h+=`<div class="pr"><div class="pk">${keyLabels[k]||k}</div><div class="pv">${v}</div></div>`}});
@@ -2518,11 +2536,11 @@ window.catSelectChanged=function(){
 function updateCatTags(){
   const tags=document.getElementById('catTags');
   if(activeCategories.size===0){
-    tags.innerHTML='<span style="color:var(--text-muted);font-size:10px">All categories</span>';
+    tags.innerHTML='<span style="color:var(--text-muted);font-size:13px">All categories</span>';
     return;
   }
   if(activeCategories.has('__none__')){
-    tags.innerHTML='<span style="color:var(--red);font-size:10px">None selected</span>';
+    tags.innerHTML='<span style="color:var(--red);font-size:13px">None selected</span>';
     return;
   }
   let html='';
@@ -2707,7 +2725,7 @@ function buildIssues(){
   // Render issue cards
   let html='';
   if(issuesList.length===0){
-    html='<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:11px">No changes detected</div>';
+    html='<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:14px">No changes detected</div>';
   }else{
     issuesList.forEach((iss,i)=>{
       html+=`<div class="issue-card" id="issue-${i}" onclick="focusIssue(${i})">
@@ -2854,20 +2872,20 @@ function showIssueProps(iss){
   const colors={added:'var(--green)',removed:'var(--red)',modified:'var(--amber)'};
   const bgs={added:'var(--green-lt)',removed:'var(--red-lt)',modified:'var(--amber-lt)'};
   let h=`<div style="padding:8px 12px;background:${bgs[iss.status]};border-bottom:1px solid var(--border)">
-    <span style="font-family:JetBrains Mono;font-size:10px;font-weight:700;color:${colors[iss.status]}">ISSUE #${iss.num} — ${iss.status.toUpperCase()}</span>
+    <span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:${colors[iss.status]}">ISSUE #${iss.num} — ${iss.status.toUpperCase()}</span>
   </div>
   <div class="ps"><div class="ps-t">Element</div>
     <div class="pr"><div class="pk">Name</div><div class="pv">${iss.name}</div></div>
     <div class="pr"><div class="pk">Type</div><div class="pv">${iss.type}</div></div>
     <div class="pr"><div class="pk">Tag / Element ID</div><div class="pv">${iss.tag||'—'}</div></div>
-    <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:8px">${iss.gid}</div></div>
+    <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:10px">${iss.gid}</div></div>
     <div class="pr"><div class="pk">ExpressID</div><div class="pv">${iss.expressID}</div></div>
     <div class="pr"><div class="pk">Source</div><div class="pv">Version ${iss.modelIdx===0?'A':'B'}</div></div>
   </div>
   <div class="ps"><div class="ps-t">How to find in BIM software</div>
-    <div class="pr"><div class="pk">Revit</div><div class="pv" style="font-size:9px">Select by ID → <b>${iss.tag||'N/A'}</b></div></div>
-    <div class="pr"><div class="pk">Tekla</div><div class="pv" style="font-size:9px">Inquire → GUID: <b style="word-break:break-all">${iss.gid}</b></div></div>
-    <div class="pr"><div class="pk">ArchiCAD</div><div class="pv" style="font-size:9px">Find by IFC GlobalId: <b style="word-break:break-all">${iss.gid}</b></div></div>
+    <div class="pr"><div class="pk">Revit</div><div class="pv" style="font-size:12px">Select by ID → <b>${iss.tag||'N/A'}</b></div></div>
+    <div class="pr"><div class="pk">Tekla</div><div class="pv" style="font-size:12px">Inquire → GUID: <b style="word-break:break-all">${iss.gid}</b></div></div>
+    <div class="pr"><div class="pk">ArchiCAD</div><div class="pv" style="font-size:12px">Find by IFC GlobalId: <b style="word-break:break-all">${iss.gid}</b></div></div>
   </div>`;
   
   if(iss.diffs&&iss.diffs.length>0){
@@ -2896,6 +2914,102 @@ window.exportCSV=function(){if(!compareResult)return;const r=compareResult;let c
   r.removed.forEach(e=>csv+=`Removed,${e.entity.type},"${e.gid}","${e.entity.tag||''}","${e.entity.name}",Only in A\n`);
   r.modified.forEach(e=>{const en=e.a||e.b;csv+=`Modified,${en.type},"${e.gid}","${en.tag||''}","${en.name}","${e.diffs.map(d=>d.prop+':'+d.oldVal+'→'+d.newVal).join('; ')}"\n`});
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ifc-compare.csv';a.click()};
+
+// ══ BCF Export ══
+window.exportBCF=async function(){
+  if(!compareResult||!issuesList.length){log('No issues to export');return}
+  if(!window.JSZip){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    document.head.appendChild(s);
+    await new Promise((res,rej)=>{s.onload=res;s.onerror=rej});
+  }
+  log('Exporting BCF for '+issuesList.length+' issues...');
+  const zip=new JSZip();
+  const now=new Date().toISOString();
+  const pid=crypto.randomUUID();
+  
+  // Model position offset: app shifts model to center, BCF needs original IFC coords
+  const off={x:0,y:0,z:0};
+  for(let i=0;i<2;i++){if(loadedModels[i]){off.x=-loadedModels[i].position.x;off.y=-loadedModels[i].position.y;off.z=-loadedModels[i].position.z;break}}
+  
+  // Save camera
+  const saveCam=camera.position.clone();
+  const saveTgt=controls.target.clone();
+  
+  zip.file('bcf.version','<?xml version="1.0" encoding="UTF-8"?>\n<Version VersionId="2.1" xsi:noNamespaceSchemaLocation="version.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><DetailedVersion>2.1</DetailedVersion></Version>');
+  zip.file('project.bcfp','<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Project ProjectId="'+pid+'"><Name>IFC Delta Compare</Name></Project></ProjectExtension>');
+  
+  for(let i=0;i<issuesList.length;i++){
+    const iss=issuesList[i];
+    const tid=crypto.randomUUID();
+    const vid=crypto.randomUUID();
+    
+    // Element bbox in app coords
+    const bbox=iss.modelIdx!==undefined?getElementBBox(iss.modelIdx,iss.expressID):null;
+    // Convert to original IFC coords (reverse model centering offset)
+    const ix=(bbox?.center?.x||0)+off.x;
+    const iy=(bbox?.center?.y||0)+off.y;
+    const iz=(bbox?.center?.z||0)+off.z;
+    const d=bbox?Math.max(bbox.size.x,bbox.size.y,bbox.size.z)*2+5:20;
+    
+    // Snapshot: zoom to element, wait for render, capture
+    let snap64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/58BHgAIBwJ+Qil1RAAAAABJRU5ErkJggg==';
+    if(bbox?.center){
+      camera.position.set(bbox.center.x+d*0.4,bbox.center.y+d*0.3,bbox.center.z+d*0.4);
+      controls.target.set(bbox.center.x,bbox.center.y,bbox.center.z);
+      controls.update();
+      // Wait for render to complete
+      renderer.render(scene,camera);
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      renderer.render(scene,camera);
+      try{snap64=renderer.domElement.toDataURL('image/png').split(',')[1]}catch(e){}
+    }
+    
+    let desc=iss.status.toUpperCase()+': '+(iss.name||'');
+    if(iss.tag)desc+=' | Element ID: '+iss.tag;
+    if(iss.detail)desc+=' | '+iss.detail;
+    
+    // BCF camera in original IFC coordinate system
+    const camX=ix+d*0.4, camY=iy+d*0.3, camZ=iz+d*0.4;
+    const ddx=ix-camX, ddy=iy-camY, ddz=iz-camZ;
+    const ln=Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz)||1;
+    const col={added:'FF16A34A',removed:'FFDC2626',modified:'FFD97706'}[iss.status]||'FF2563EB';
+    
+    // Section box padding around element
+    const pad=2;
+    const sx=bbox?(bbox.size.x/2+pad):5;
+    const sy=bbox?(bbox.size.y/2+pad):5;
+    const sz=bbox?(bbox.size.z/2+pad):5;
+    
+    // 6 ClippingPlanes forming a section box around element in IFC coords
+    // BCF spec: Direction "points in the invisible direction" = outward from box
+    const clips=
+      '<ClippingPlanes>'+
+      '<ClippingPlane><Location><X>'+(ix+sx).toFixed(6)+'</X><Y>'+(iy).toFixed(6)+'</Y><Z>'+(iz).toFixed(6)+'</Z></Location><Direction><X>1</X><Y>0</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+(ix-sx).toFixed(6)+'</X><Y>'+(iy).toFixed(6)+'</Y><Z>'+(iz).toFixed(6)+'</Z></Location><Direction><X>-1</X><Y>0</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+(ix).toFixed(6)+'</X><Y>'+(iy+sy).toFixed(6)+'</Y><Z>'+(iz).toFixed(6)+'</Z></Location><Direction><X>0</X><Y>1</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+(ix).toFixed(6)+'</X><Y>'+(iy-sy).toFixed(6)+'</Y><Z>'+(iz).toFixed(6)+'</Z></Location><Direction><X>0</X><Y>-1</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+(ix).toFixed(6)+'</X><Y>'+(iy).toFixed(6)+'</Y><Z>'+(iz+sz).toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>1</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+(ix).toFixed(6)+'</X><Y>'+(iy).toFixed(6)+'</Y><Z>'+(iz-sz).toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>-1</Z></Direction></ClippingPlane>'+
+      '</ClippingPlanes>';
+    
+    zip.file(tid+'/markup.bcf','<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n<Topic Guid="'+tid+'" TopicType="Issue" TopicStatus="Active"><Title>'+escXml('#'+iss.num+' '+iss.name+' ['+iss.status.toUpperCase()+']')+'</Title><Description>'+escXml(desc)+'</Description><CreationDate>'+now+'</CreationDate><CreationAuthor>IFC Delta</CreationAuthor><ModifiedDate>'+now+'</ModifiedDate></Topic>\n<Comment Guid="'+crypto.randomUUID()+'"><Date>'+now+'</Date><Author>IFC Delta</Author><Comment>'+escXml(desc)+'</Comment><Viewpoint Guid="'+vid+'"/></Comment>\n<Viewpoints Guid="'+vid+'"><Viewpoint>'+vid+'.bcfv</Viewpoint><Snapshot>'+vid+'.png</Snapshot></Viewpoints>\n</Markup>');
+    
+    zip.file(tid+'/'+vid+'.bcfv','<?xml version="1.0" encoding="UTF-8"?>\n<VisualizationInfo Guid="'+vid+'" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n<Components><Visibility DefaultVisibility="true"><Exceptions/></Visibility><Selection><Component IfcGuid="'+iss.gid+'"/></Selection><Coloring><Color Color="'+col+'"><Component IfcGuid="'+iss.gid+'"/></Color></Coloring></Components>\n'+clips+'\n<PerspectiveCamera><CameraViewPoint><X>'+camX.toFixed(6)+'</X><Y>'+camY.toFixed(6)+'</Y><Z>'+camZ.toFixed(6)+'</Z></CameraViewPoint><CameraDirection><X>'+(ddx/ln).toFixed(6)+'</X><Y>'+(ddy/ln).toFixed(6)+'</Y><Z>'+(ddz/ln).toFixed(6)+'</Z></CameraDirection><CameraUpVector><X>0</X><Y>0</Y><Z>1</Z></CameraUpVector><FieldOfView>60</FieldOfView></PerspectiveCamera>\n</VisualizationInfo>');
+    
+    zip.file(tid+'/'+vid+'.png',snap64,{base64:true});
+  }
+  
+  // Restore camera
+  camera.position.copy(saveCam);controls.target.copy(saveTgt);controls.update();renderer.render(scene,camera);
+  
+  const blob=await zip.generateAsync({type:'blob'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ifc-delta-issues.bcf';a.click();
+  log('BCF exported: '+issuesList.length+' issues');
+};
+
+function escXml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function setStatus(t,x){const b=document.getElementById('statusBadge');b.className='status-badge show '+t;document.getElementById('statusText').textContent=x}
 
 initThree();initSectionDrag();log('Ready');
