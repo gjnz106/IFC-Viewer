@@ -223,6 +223,57 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);heigh
 /* Measure info bar */
 .measure-info{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px 14px;background:var(--bg-panel);border:1px solid var(--blue);border-radius:8px;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.1)}
 
+/* Clash Detection */
+.clash-panel{display:none;flex-direction:column;overflow:hidden;flex:1}
+.clash-panel.show{display:flex}
+.clash-header{padding:0;border-bottom:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;max-height:55vh}
+.clash-set{border-bottom:1px solid var(--border)}
+.clash-set-title{display:flex;align-items:center;gap:5px;padding:6px 10px;font-family:'JetBrains Mono';font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim);background:var(--bg-card)}
+.cs-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.clash-file-tag{font-size:10px;font-weight:400;color:var(--text-muted);margin-left:auto;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:none;letter-spacing:0}
+.clash-set-body{padding:5px 10px 8px}
+.clash-field{display:flex;flex-direction:column;gap:2px;margin-bottom:5px}
+.clash-field>label{font-family:'JetBrains Mono';font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)}
+.clash-select{padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:'Inter';color:var(--text-dim);background:var(--bg-card);outline:none;min-height:24px}
+.clash-select:focus{border-color:var(--blue)}
+.clash-select[multiple]{min-height:52px;max-height:80px}
+.clash-select option{padding:1px 3px}
+.clash-input{padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:'JetBrains Mono';color:var(--text-dim);background:var(--bg-card);outline:none;width:100%}
+.clash-input:focus{border-color:var(--blue)}
+.clash-add-filter{background:none;border:1px dashed var(--border);border-radius:4px;padding:3px 8px;font-size:10px;font-weight:600;color:var(--blue);cursor:pointer;font-family:'Inter';transition:all var(--t);width:100%}
+.clash-add-filter:hover{border-color:var(--blue);background:var(--blue-bg)}
+.clash-filter-row{display:flex;align-items:center;gap:3px;margin-bottom:4px;padding:3px 5px;border-radius:4px;background:var(--bg-card);border:1px solid var(--border)}
+.clash-filter-row select,.clash-filter-row input{font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg-panel);color:var(--text-dim);font-family:'Inter';outline:none}
+.clash-filter-row select{max-width:80px}
+.clash-filter-row input{flex:1;min-width:40px}
+.clash-filter-x{width:16px;height:16px;border:none;background:none;color:var(--red);font-size:13px;cursor:pointer;padding:0;line-height:1;flex-shrink:0;opacity:.6}
+.clash-filter-x:hover{opacity:1}
+.clash-options{display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border)}
+.clash-group-bar{display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.clash-group-bar label{font-family:'JetBrains Mono';font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);white-space:nowrap}
+.clash-group-bar select{flex:1}
+.clash-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cs-card{text-align:center;padding:5px;border-radius:5px;background:var(--bg-card)}
+.cs-val{font-family:'JetBrains Mono';font-size:16px;font-weight:700;color:var(--red)}
+.cs-lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-top:1px}
+.clash-list{flex:1;overflow-y:auto;padding:4px 0}
+.clash-card{margin:3px 8px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;transition:all var(--t)}
+.clash-card:hover{border-color:var(--border-hi);background:var(--bg-hover)}
+.clash-card.active{border-color:var(--red);background:var(--red-bg)}
+.clash-card .cc-hdr{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.clash-card .cc-num{font-family:'JetBrains Mono';font-size:11px;font-weight:700;color:var(--red)}
+.clash-card .cc-dist{font-family:'JetBrains Mono';font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;color:var(--red);background:var(--red-lt);margin-left:auto}
+.clash-card .cc-el{font-size:12px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clash-card .cc-type{font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted)}
+.clash-group-hdr{display:flex;align-items:center;gap:5px;padding:5px 10px;cursor:pointer;transition:background var(--t);user-select:none;font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:var(--text-dim);background:var(--bg-card);margin:4px 8px 0;border-radius:5px 5px 0 0;border:1px solid var(--border);border-bottom:none}
+.clash-group-hdr:hover{background:var(--bg-hover)}
+.clash-group-hdr .cg-arr{font-size:10px;color:var(--text-muted);transition:transform var(--t);width:12px}
+.clash-group-hdr .cg-arr.col{transform:rotate(-90deg)}
+.clash-group-hdr .cg-count{font-size:10px;color:var(--red);margin-left:auto}
+.clash-group-body{margin:0 8px 4px;border:1px solid var(--border);border-top:none;border-radius:0 0 5px 5px;overflow:hidden}
+.clash-group-body.col{display:none}
+.clash-group-body .clash-card{margin:0;border-radius:0;border-left:0;border-right:0;border-top:0}
+
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @media(max-width:1100px){.app{grid-template-columns:240px 1fr 0}.right-panel{display:none}}
 </style>
@@ -233,9 +284,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);heigh
     <div class="logo"><div class="logo-mark">Δ</div><div class="logo-name">IFC Delta<span>3D Compare</span></div></div>
     <div class="h-sep"></div>
     <button class="btn primary" id="btnCompare" disabled onclick="runCompare()">▶ Compare</button>
+    <button class="btn" id="btnClash" style="border-color:var(--red);color:var(--red)" onclick="toggleClashMode()">⚡ Clash</button>
+    <button class="btn" id="btnRunClash" style="display:none" disabled onclick="runClashDetection()">▶ Run Clash</button>
+    <button class="btn" id="btnExitClash" style="display:none;border-color:var(--red);color:var(--red)" onclick="exitClashMode()">✕ Exit Clash</button>
     <button class="btn" id="btnExitCompare" style="display:none;border-color:var(--red);color:var(--red)" onclick="exitCompare()">✕ Exit Compare</button>
     <button class="btn" id="btnExport" style="display:none" onclick="exportCSV()">⬇ CSV</button>
     <button class="btn" id="btnExportBCF" style="display:none;border-color:var(--green);color:var(--green)" onclick="exportBCF()">⬇ BCF</button>
+    <button class="btn" id="btnExportClashCSV" style="display:none" onclick="exportClashCSV()">⬇ Clash CSV</button>
+    <button class="btn" id="btnExportClashBCF" style="display:none;border-color:var(--green);color:var(--green)" onclick="exportClashBCF()">⬇ Clash BCF</button>
     <div id="statusBadge" class="status-badge"><span id="statusText"></span></div>
     <div class="h-right">
       <button class="btn" id="btnMeasure" onclick="toggleMeasure()">📏 Measure</button>
@@ -318,6 +374,75 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);heigh
     </div>
     <div class="entity-tree" id="eTree"></div>
     <div class="issues-list" id="issuesList"></div>
+    
+    <!-- Clash Detection Panel -->
+    <div class="clash-panel" id="clashPanel">
+      <div class="clash-header">
+        <!-- Source Set (Model A) -->
+        <div class="clash-set">
+          <div class="clash-set-title"><span class="cs-dot" style="background:#ef4444"></span> Source Set (A)
+            <span class="clash-file-tag" id="clashFileA">—</span></div>
+          <div class="clash-set-body">
+            <div class="clash-field">
+              <label>Category</label>
+              <select id="clashCatA" class="clash-select" multiple></select>
+            </div>
+            <div id="clashFiltersA"></div>
+            <button class="clash-add-filter" onclick="addClashFilter('A')">+ Add Property Filter</button>
+          </div>
+        </div>
+        <!-- Target Set (Model B) -->
+        <div class="clash-set">
+          <div class="clash-set-title"><span class="cs-dot" style="background:#f97316"></span> Target Set (B)
+            <span class="clash-file-tag" id="clashFileB">—</span></div>
+          <div class="clash-set-body">
+            <div class="clash-field">
+              <label>Category</label>
+              <select id="clashCatB" class="clash-select" multiple></select>
+            </div>
+            <div id="clashFiltersB"></div>
+            <button class="clash-add-filter" onclick="addClashFilter('B')">+ Add Property Filter</button>
+          </div>
+        </div>
+        <!-- Options -->
+        <div class="clash-options">
+          <div class="clash-field" style="flex:1">
+            <label>Type</label>
+            <select id="clashType" class="clash-select">
+              <option value="hard">Hard Clash</option>
+              <option value="clearance">Clearance</option>
+              <option value="both" selected>Both</option>
+            </select>
+          </div>
+          <div class="clash-field" style="width:80px">
+            <label>Tolerance</label>
+            <div style="display:flex;align-items:center;gap:2px">
+              <input type="number" id="clashTolerance" value="0" min="0" max="500" step="1" class="clash-input">
+              <span style="font-size:10px;color:var(--text-muted)">mm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="clash-stats" id="clashStats" style="display:none">
+        <div class="cs-card"><div class="cs-val" id="clashTotal">0</div><div class="cs-lbl">Total</div></div>
+        <div class="cs-card"><div class="cs-val" id="clashHard" style="color:var(--red)">0</div><div class="cs-lbl">Hard</div></div>
+        <div class="cs-card"><div class="cs-val" id="clashNear" style="color:var(--amber)">0</div><div class="cs-lbl">Clearance</div></div>
+      </div>
+      <div class="clash-group-bar" id="clashGroupBar" style="display:none">
+        <label>Group by</label>
+        <select id="clashGroupBy" class="clash-select" onchange="regroupClashes()">
+          <option value="none">No grouping</option>
+          <option value="categoryA">Source Category</option>
+          <option value="categoryB">Target Category</option>
+          <option value="level">Story Level</option>
+        </select>
+      </div>
+      <div class="clash-list" id="clashList">
+        <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">
+          Configure Source &amp; Target sets, then click <b>▶ Run Clash</b>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="viewport-area" id="vpArea">
@@ -326,6 +451,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);heigh
       <div class="leg"><div class="leg-d" style="background:var(--green)"></div>Added</div>
       <div class="leg"><div class="leg-d" style="background:var(--red)"></div>Removed</div>
       <div class="leg"><div class="leg-d" style="background:var(--amber)"></div>Modified</div>
+    </div>
+    <div class="vp-overlay" id="vpClashLegend">
+      <div class="leg"><div class="leg-d" style="background:#ff1744"></div>Hard clash</div>
+      <div class="leg"><div class="leg-d" style="background:#ff9100"></div>Clearance</div>
     </div>
     <div class="section-panel" id="sectionPanel">
       <div class="sp-title">Section Box</div>
@@ -393,6 +522,7 @@ let files=[null,null], loadedModels=[null,null], compareResult=null, activeFilte
 let ctxTarget=null; // Right-click context menu target
 let activeCategories=new Set(); // empty = show all
 let modelBounds={min:new THREE.Vector3(),max:new THREE.Vector3()};
+let sharedCenterOffset=null; // Shared center offset so both models align to same coord system
 let clipPlanes=[], sectionActive=false;
 
 const IFC_NAMES={};
@@ -716,11 +846,11 @@ function hideExpressID(eid,mi){
   console.log('[HIDE] eid='+eid+' mi='+mi);
   if(!ifcLoader||!loadedModels[mi])return;
   
-  // Add to hidden set FIRST
-  hiddenExpressIDs.add(eid);
+  // Add to hidden set with model-aware key
+  hiddenExpressIDs.add(mi+'_'+eid);
   
-  // Rebuild subset for this model excluding ALL hidden elements
-  rebuildModelSubset(mi);
+  // In compare mode, rebuild diff subsets; otherwise rebuild visibility subset
+  if(compareResult){applyCatVis()}else{rebuildModelSubset(mi)}
   document.getElementById('btnShowAll').style.display='';
 }
 
@@ -731,8 +861,8 @@ function hideByType(typeName){
   if(ids){
     for(let mi=0;mi<2;mi++){
       if(ids[mi]&&ids[mi].length>0){
-        ids[mi].forEach(id=>hiddenExpressIDs.add(id));
-        rebuildModelSubset(mi);
+        ids[mi].forEach(id=>hiddenExpressIDs.add(mi+'_'+id));
+        if(compareResult){applyCatVis()}else{rebuildModelSubset(mi)}
       }
     }
   }
@@ -750,12 +880,13 @@ function rebuildModelSubset(mi){
   if(isolatedIDs){
     showIDs=showIDs.filter(id=>isolatedIDs.has(id));
   }
-  // Remove all hidden
+  // Remove hidden IDs for THIS specific model (keys are 'mi_eid')
   if(hiddenExpressIDs.size>0){
-    showIDs=showIDs.filter(id=>!hiddenExpressIDs.has(id));
+    showIDs=showIDs.filter(id=>!hiddenExpressIDs.has(mi+'_'+id));
   }
   
-  console.log('[REBUILD] model='+mi+' total='+allIDs.length+' hidden='+hiddenExpressIDs.size+' showing='+showIDs.length);
+  const hiddenCount=allIDs.length-showIDs.length;
+  console.log('[REBUILD] model='+mi+' total='+allIDs.length+' hidden='+hiddenCount+' showing='+showIDs.length);
   
   // Remove old vis subsets for this model
   visSubsets=visSubsets.filter(s=>{
@@ -769,7 +900,7 @@ function rebuildModelSubset(mi){
   if(showIDs.length===0)return;
   
   // If no filter active, just show original
-  if(!isolatedIDs&&hiddenExpressIDs.size===0){
+  if(!isolatedIDs&&hiddenCount===0){
     loadedModels[mi].visible=true;
     return;
   }
@@ -778,8 +909,8 @@ function rebuildModelSubset(mi){
     const sub=ifcLoader.ifcManager.createSubset({modelID:loadedModels[mi].modelID,ids:showIDs,removePrevious:true,customID:'vis_'+mi,scene:scene});
     if(sub){
       sub.position.copy(loadedModels[mi].position);sub.updateMatrixWorld(true);
-      sub.traverse(c=>{if(c.isMesh){const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>{m.clippingPlanes=clipPlanes;m.side=THREE.DoubleSide})}});
       sub.userData.srcModelIdx=mi;
+      sub.traverse(c=>{if(c.isMesh){c.userData.srcModelIdx=mi;const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>{m.clippingPlanes=clipPlanes;m.side=THREE.DoubleSide})}});
       visSubsets.push(sub);
       console.log('[REBUILD] subset created ok');
     }
@@ -1017,6 +1148,8 @@ async function loadIFC(idx){
   const st=document.getElementById('us'+idx);st.className='uc-status prog';st.textContent='⏳ Parsing...';
   try{
     if(loadedModels[idx]){scene.remove(loadedModels[idx]);loadedModels[idx]=null}
+    // If replacing a model and the other slot is empty, reset shared offset
+    if(!loadedModels[0]&&!loadedModels[1]){sharedCenterOffset=null;modelBounds.min.set(0,0,0);modelBounds.max.set(0,0,0)}
     const buf=await file.arrayBuffer();const url=URL.createObjectURL(new Blob([buf]));
     const model=await new Promise((ok,no)=>{
       ifcLoader.load(url,m=>ok(m),p=>{if(p.total>0)st.textContent='⏳ '+Math.round(p.loaded/p.total*100)+'%'},e=>no(e));
@@ -1029,14 +1162,27 @@ async function loadIFC(idx){
     if(model.geometry)scan(model.geometry);model.traverse(c=>{if(c.isMesh)scan(c.geometry)});
     if(!isFinite(mnX)||vc===0)throw new Error('No valid geometry');
 
-    const cx=(mnX+mxX)/2,cy=(mnY+mxY)/2,cz=(mnZ+mxZ)/2;
+    // ── Coordinate alignment: first model sets the shared center, subsequent models reuse it ──
+    let cx,cy,cz;
+    if(sharedCenterOffset&&loadedModels[1-idx]){
+      // Another model already loaded — reuse its center offset so both align
+      cx=sharedCenterOffset.x; cy=sharedCenterOffset.y; cz=sharedCenterOffset.z;
+      log(`Model ${idx}: reusing shared offset (${cx.toFixed(1)}, ${cy.toFixed(1)}, ${cz.toFixed(1)})`);
+    }else{
+      // First model loaded — compute center from its own bbox
+      cx=(mnX+mxX)/2; cy=(mnY+mxY)/2; cz=(mnZ+mxZ)/2;
+      sharedCenterOffset={x:cx,y:cy,z:cz};
+      log(`Model ${idx}: setting shared offset (${cx.toFixed(1)}, ${cy.toFixed(1)}, ${cz.toFixed(1)})`);
+    }
     model.position.set(-cx,-cy,-cz);model.updateMatrixWorld(true);
-    log(`Model ${idx}: ${vc} verts, size ${(mxX-mnX).toFixed(0)}×${(mxY-mnY).toFixed(0)}×${(mxZ-mnZ).toFixed(0)}, centered`);
+    log(`Model ${idx}: ${vc} verts, size ${(mxX-mnX).toFixed(0)}×${(mxY-mnY).toFixed(0)}×${(mxZ-mnZ).toFixed(0)}`);
 
-    // Store bounds (in world-shifted space, centered at origin)
-    const hw=(mxX-mnX)/2,hh=(mxY-mnY)/2,hd=(mxZ-mnZ)/2;
-    modelBounds.min.set(-hw,-hh,-hd).min(modelBounds.min);
-    modelBounds.max.set(hw,hh,hd).max(modelBounds.max);
+    // Store bounds in world-shifted space (relative to shared offset)
+    const wMnX=mnX-cx, wMnY=mnY-cy, wMnZ=mnZ-cz;
+    const wMxX=mxX-cx, wMxY=mxY-cy, wMxZ=mxZ-cz;
+    if(idx===0){modelBounds.min.set(wMnX,wMnY,wMnZ);modelBounds.max.set(wMxX,wMxY,wMxZ)}
+    else{modelBounds.min.set(Math.min(modelBounds.min.x,wMnX),Math.min(modelBounds.min.y,wMnY),Math.min(modelBounds.min.z,wMnZ));
+         modelBounds.max.set(Math.max(modelBounds.max.x,wMxX),Math.max(modelBounds.max.y,wMxY),Math.max(modelBounds.max.z,wMxZ))}
 
     // Materials: ensure visible with original IFC colors, apply clipping
     model.traverse(c=>{if(c.isMesh){const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>{
@@ -1055,10 +1201,14 @@ async function loadIFC(idx){
     loadedModels[idx]=model;scene.add(model);
     document.getElementById('emptyVP').style.display='none';
 
-    // Camera
-    const mx2=Math.max(mxX-mnX,mxY-mnY,mxZ-mnZ),dist=mx2*1.5;
+    // Camera — use combined model bounds for proper framing
+    const bSize=new THREE.Vector3().subVectors(modelBounds.max,modelBounds.min);
+    const mx2=Math.max(bSize.x,bSize.y,bSize.z,mxX-mnX,mxY-mnY,mxZ-mnZ);
+    const dist=mx2*1.5;
     camera.near=Math.max(mx2*0.001,0.01);camera.far=Math.max(mx2*50,5000);camera.updateProjectionMatrix();
-    camera.position.set(dist*.6,dist*.5,dist*.6);controls.target.set(0,0,0);controls.update();
+    const bCenter=new THREE.Vector3().addVectors(modelBounds.min,modelBounds.max).multiplyScalar(0.5);
+    camera.position.set(bCenter.x+dist*.6,bCenter.y+dist*.5,bCenter.z+dist*.6);
+    controls.target.copy(bCenter);controls.update();
 
     // Update grid
     const oldGrids=[];scene.traverse(c=>{if(c.type==='GridHelper')oldGrids.push(c)});
@@ -1068,6 +1218,15 @@ async function loadIFC(idx){
     st.className='uc-status ok';st.textContent='✓ Loaded';
     document.getElementById('visRow'+idx).style.display='block';
     document.getElementById('btnCompare').disabled=!(loadedModels[0]&&loadedModels[1]);
+    
+    // Update clash mode if active
+    if(clashMode){
+      if(files[0])document.getElementById('clashFileA').textContent=files[0].name;
+      if(files[1])document.getElementById('clashFileB').textContent=files[1].name;
+      document.getElementById('clashFileA').classList.toggle('loaded',!!loadedModels[0]);
+      document.getElementById('clashFileB').classList.toggle('loaded',!!loadedModels[1]);
+      document.getElementById('btnRunClash').disabled=!(loadedModels[0]&&loadedModels[1]);
+    }
     
     // Build category filter from loaded models
     await buildCatFromModels();
@@ -3011,6 +3170,913 @@ window.exportBCF=async function(){
 
 function escXml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function setStatus(t,x){const b=document.getElementById('statusBadge');b.className='status-badge show '+t;document.getElementById('statusText').textContent=x}
+
+// ══════════════════════════════════════════════════════════════
+// ══ CLASH DETECTION MODULE ══
+// ══════════════════════════════════════════════════════════════
+let clashMode=false;
+let clashResults=[];
+let clashSubsets=[];
+let currentClashIdx=-1;
+let clashFilterCounterA=0, clashFilterCounterB=0;
+let clashPropertyCacheA={}, clashPropertyCacheB={}; // eid→{propName:value}
+
+// ── Populate category selects for Source/Target sets ──
+function populateClashCategories(){
+  const catIDs=window._catModelIDs||{};
+  const catData=window._catData||{};
+  
+  ['A','B'].forEach((side,mi)=>{
+    const sel=document.getElementById('clashCat'+side);
+    sel.innerHTML='';
+    const cats=new Set();
+    Object.entries(catIDs).forEach(([cat,models])=>{
+      if(models[mi]&&models[mi].length>0)cats.add(cat);
+    });
+    const sorted=[...cats].sort();
+    sorted.forEach(cat=>{
+      const opt=document.createElement('option');
+      opt.value=cat;
+      opt.textContent=cat.replace('Ifc','')+(catIDs[cat]?.[mi]?' ('+catIDs[cat][mi].length+')':'');
+      opt.selected=true; // all selected by default
+      sel.appendChild(opt);
+    });
+  });
+}
+
+// ── Add a property filter row ──
+window.addClashFilter=function(side){
+  const container=document.getElementById('clashFilters'+side);
+  const id='cf_'+side+'_'+(side==='A'?++clashFilterCounterA:++clashFilterCounterB);
+  const row=document.createElement('div');
+  row.className='clash-filter-row';
+  row.id=id;
+  row.innerHTML=`
+    <select title="Property" onchange="updateClashFilterOps(this)">
+      <option value="">Property...</option>
+      <option value="Name">Name</option>
+      <option value="ObjectType">ObjectType</option>
+      <option value="Tag">Tag/ElementID</option>
+      <option value="Description">Description</option>
+      <option value="PredefinedType">PredefinedType</option>
+    </select>
+    <select title="Operator">
+      <option value="contains">contains</option>
+      <option value="equals">equals</option>
+      <option value="not_contains">not contains</option>
+      <option value="not_equals">not equals</option>
+      <option value="starts">starts with</option>
+    </select>
+    <input type="text" placeholder="value..." title="Value">
+    <button class="clash-filter-x" onclick="document.getElementById('${id}').remove()" title="Remove">×</button>`;
+  container.appendChild(row);
+};
+
+// ── Collect filter rules from UI ──
+function getClashFilters(side){
+  const container=document.getElementById('clashFilters'+side);
+  if(!container)return[];
+  const rows=container.querySelectorAll('.clash-filter-row');
+  const filters=[];
+  rows.forEach(row=>{
+    const sels=row.querySelectorAll('select');
+    const inp=row.querySelector('input');
+    const prop=sels[0]?.value;
+    const op=sels[1]?.value;
+    const val=inp?.value?.trim();
+    if(prop&&val)filters.push({prop,op,val});
+  });
+  return filters;
+}
+
+// ── Get selected categories ──
+function getSelectedCats(side){
+  const sel=document.getElementById('clashCat'+side);
+  return[...sel.selectedOptions].map(o=>o.value);
+}
+
+// ── Check if an element passes property filters ──
+function passesFilters(entity,filters){
+  if(!filters.length)return true;
+  for(const f of filters){
+    const val=String(entity[f.prop.toLowerCase()]||entity[f.prop]||'');
+    const fv=f.val.toLowerCase();
+    const v=val.toLowerCase();
+    let pass=false;
+    if(f.op==='contains')pass=v.includes(fv);
+    else if(f.op==='equals')pass=v===fv;
+    else if(f.op==='not_contains')pass=!v.includes(fv);
+    else if(f.op==='not_equals')pass=v!==fv;
+    else if(f.op==='starts')pass=v.startsWith(fv);
+    if(!pass)return false;
+  }
+  return true;
+}
+
+window.toggleClashMode=function(){
+  if(compareResult){log('Exit compare first');return}
+  clashMode=!clashMode;
+  document.getElementById('btnClash').classList.toggle('active',clashMode);
+  
+  if(clashMode){
+    document.getElementById('clashPanel').classList.add('show');
+    document.getElementById('eTree').style.display='none';
+    document.getElementById('issuesList').classList.remove('show');
+    document.getElementById('panelTabs').classList.remove('show');
+    document.getElementById('issueNav').classList.remove('show');
+    document.getElementById('btnRunClash').style.display='';
+    document.getElementById('btnCompare').style.display='none';
+    
+    if(files[0])document.getElementById('clashFileA').textContent=files[0].name;
+    if(files[1])document.getElementById('clashFileB').textContent=files[1].name;
+    document.getElementById('btnRunClash').disabled=!(loadedModels[0]&&loadedModels[1]);
+    
+    populateClashCategories();
+  }else{
+    exitClashMode();
+  }
+};
+
+window.exitClashMode=function(){
+  clashMode=false;
+  document.getElementById('btnClash').classList.remove('active');
+  document.getElementById('clashPanel').classList.remove('show');
+  document.getElementById('eTree').style.display='';
+  document.getElementById('btnRunClash').style.display='none';
+  document.getElementById('btnExitClash').style.display='none';
+  document.getElementById('btnExportClashCSV').style.display='none';
+  document.getElementById('btnExportClashBCF').style.display='none';
+  document.getElementById('btnCompare').style.display='';
+  document.getElementById('vpClashLegend').classList.remove('show');
+  document.getElementById('btnCompare').disabled=!(loadedModels[0]&&loadedModels[1]);
+  document.getElementById('clashGroupBar').style.display='none';
+  
+  clashSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
+  clashSubsets=[];clashResults=[];currentClashIdx=-1;
+  clashPropertyCacheA={};clashPropertyCacheB={};
+  // Remove focus highlights
+  const oldFocus=[];
+  scene.traverse(c=>{if(c.userData?.clashFocus)oldFocus.push(c)});
+  oldFocus.forEach(c=>{if(c.parent)c.parent.remove(c)});
+  
+  for(let i=0;i<2;i++){
+    if(!loadedModels[i])continue;
+    const vis=document.getElementById(i===0?'visA':'visB').checked;
+    loadedModels[i].visible=vis;
+    loadedModels[i].traverse(c=>{if(c.isMesh){
+      if(c.userData._clashOrigMats){c.material=c.userData._clashOrigMats;delete c.userData._clashOrigMats}
+      c.visible=true;
+    }});
+  }
+  
+  document.getElementById('clashStats').style.display='none';
+  document.getElementById('clashList').innerHTML='<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div>';
+  document.getElementById('clashFiltersA').innerHTML='';
+  document.getElementById('clashFiltersB').innerHTML='';
+  log('Exited clash mode');
+};
+
+// ── Build per-element bounding boxes for a model ──
+function buildElementBBoxes(modelIdx){
+  const model=loadedModels[modelIdx];
+  if(!model)return{};
+  const elements={};
+  
+  model.traverse(c=>{
+    if(!c.isMesh||!c.geometry?.attributes?.expressID||!c.geometry?.attributes?.position)return;
+    const eidArr=c.geometry.attributes.expressID.array;
+    const posArr=c.geometry.attributes.position.array;
+    const wm=c.matrixWorld;
+    const v=new THREE.Vector3();
+    
+    for(let i=0;i<eidArr.length;i++){
+      const eid=eidArr[i];
+      if(!eid||eid<=0)continue;
+      const pi=i*3;
+      if(pi+2>=posArr.length)continue;
+      const x=posArr[pi],y=posArr[pi+1],z=posArr[pi+2];
+      if(isNaN(x))continue;
+      
+      v.set(x,y,z).applyMatrix4(wm);
+      
+      if(!elements[eid]){
+        elements[eid]={
+          eid,modelIdx,
+          mnX:v.x,mnY:v.y,mnZ:v.z,mxX:v.x,mxY:v.y,mxZ:v.z,
+          vertCount:0
+        };
+      }
+      const el=elements[eid];
+      el.vertCount++;
+      if(v.x<el.mnX)el.mnX=v.x;if(v.x>el.mxX)el.mxX=v.x;
+      if(v.y<el.mnY)el.mnY=v.y;if(v.y>el.mxY)el.mxY=v.y;
+      if(v.z<el.mnZ)el.mnZ=v.z;if(v.z>el.mxZ)el.mxZ=v.z;
+    }
+  });
+  
+  return elements;
+}
+
+// ── Check if two axis-aligned bboxes overlap (with tolerance) ──
+function bboxOverlap(a,b,tol){
+  return a.mnX<=b.mxX+tol && a.mxX>=b.mnX-tol &&
+         a.mnY<=b.mxY+tol && a.mxY>=b.mnY-tol &&
+         a.mnZ<=b.mxZ+tol && a.mxZ>=b.mnZ-tol;
+}
+
+// ── Compute penetration depth between two bboxes ──
+function bboxPenetration(a,b){
+  const ox=Math.min(a.mxX,b.mxX)-Math.max(a.mnX,b.mnX);
+  const oy=Math.min(a.mxY,b.mxY)-Math.max(a.mnY,b.mnY);
+  const oz=Math.min(a.mxZ,b.mxZ)-Math.max(a.mnZ,b.mnZ);
+  if(ox<=0||oy<=0||oz<=0)return 0;
+  return Math.min(ox,oy,oz); // penetration depth = smallest overlap axis
+}
+
+// ── Sample-based mesh intersection test ──
+// Instead of full triangle-triangle intersection (very expensive),
+// we sample vertices from element A and check if any are inside element B's bbox
+// For more accurate results, we do a bidirectional check
+function meshIntersectionTest(elA,elB,modelA,modelB){
+  // Collect vertices of A that are inside B's bbox (expanded slightly)
+  const pad=0.01;
+  let insideCount=0;
+  let totalChecked=0;
+  
+  const checkInside=(srcModel,srcEid,targetBBox)=>{
+    let inside=0,total=0;
+    srcModel.traverse(c=>{
+      if(!c.isMesh||!c.geometry?.attributes?.expressID||!c.geometry?.attributes?.position)return;
+      const eids=c.geometry.attributes.expressID.array;
+      const pos=c.geometry.attributes.position.array;
+      const wm=c.matrixWorld;
+      const v=new THREE.Vector3();
+      for(let i=0;i<eids.length;i++){
+        if(eids[i]!==srcEid)continue;
+        total++;
+        const pi=i*3;
+        v.set(pos[pi],pos[pi+1],pos[pi+2]).applyMatrix4(wm);
+        if(v.x>=targetBBox.mnX-pad&&v.x<=targetBBox.mxX+pad&&
+           v.y>=targetBBox.mnY-pad&&v.y<=targetBBox.mxY+pad&&
+           v.z>=targetBBox.mnZ-pad&&v.z<=targetBBox.mxZ+pad){
+          inside++;
+        }
+      }
+    });
+    return{inside,total};
+  };
+  
+  const rAB=checkInside(modelA,elA.eid,elB);
+  const rBA=checkInside(modelB,elB.eid,elA);
+  
+  return{
+    verticesAinB:rAB.inside,
+    totalA:rAB.total,
+    verticesBinA:rBA.inside,
+    totalB:rBA.total,
+    isHard:rAB.inside>0||rBA.inside>0
+  };
+}
+
+// ── Main Clash Detection ──
+window.runClashDetection=async function(){
+  if(!loadedModels[0]||!loadedModels[1])return;
+  const lo=document.getElementById('loadOv'),lt=document.getElementById('loadTxt'),lf=document.getElementById('loadFill');
+  lo.classList.add('on');
+  
+  const tolerance=(parseFloat(document.getElementById('clashTolerance').value)||0)/1000;
+  const clashTypeFilter=document.getElementById('clashType').value; // hard, clearance, both
+  
+  // ── Collect filter configuration from UI ──
+  const catsA=new Set(getSelectedCats('A'));
+  const catsB=new Set(getSelectedCats('B'));
+  const filtersA=getClashFilters('A');
+  const filtersB=getClashFilters('B');
+  
+  log('Clash config: Source cats='+catsA.size+', Target cats='+catsB.size+', filtersA='+filtersA.length+', filtersB='+filtersB.length+', tolerance='+tolerance+'m, type='+clashTypeFilter);
+  
+  // ── Phase 1: Build filtered element sets ──
+  lt.textContent='Building Source Set (Model A)...';lf.style.width='5%';
+  await new Promise(r=>setTimeout(r,30));
+  
+  const catIDs=window._catModelIDs||{};
+  const api=ifcLoader?.ifcManager?.state?.api;
+  
+  // Build element properties for filtering
+  const buildFilteredSet=async(modelIdx,selectedCats,propFilters)=>{
+    const elements={};
+    const propCache={};
+    for(const cat of selectedCats){
+      const ids=catIDs[cat]?.[modelIdx];
+      if(!ids)continue;
+      for(const eid of ids){
+        // Get properties for filter matching
+        let entity={expressID:eid,type:cat,name:'',objectType:'',tag:'',description:'',predefinedType:''};
+        try{
+          const p=await ifcLoader.ifcManager.getItemProperties(loadedModels[modelIdx].modelID,eid,false);
+          if(p){
+            entity.name=p.Name?.value||'';
+            entity.objectType=p.ObjectType?.value||'';
+            entity.tag=p.Tag?.value||'';
+            entity.description=p.Description?.value||'';
+            entity.predefinedType=p.PredefinedType?.value||'';
+            entity.Name=entity.name;entity.ObjectType=entity.objectType;
+            entity.Tag=entity.tag;entity.Description=entity.description;
+            entity.PredefinedType=entity.predefinedType;
+          }
+        }catch(e){}
+        
+        // Apply property filters
+        if(!passesFilters(entity,propFilters))continue;
+        
+        elements[eid]=entity;
+        propCache[eid]=entity;
+      }
+    }
+    return{elements,propCache};
+  };
+  
+  const setA=await buildFilteredSet(0,catsA,filtersA);
+  lt.textContent='Building Target Set (Model B)...';lf.style.width='15%';
+  await new Promise(r=>setTimeout(r,20));
+  const setB=await buildFilteredSet(1,catsB,filtersB);
+  
+  clashPropertyCacheA=setA.propCache;
+  clashPropertyCacheB=setB.propCache;
+  
+  const sourceEids=new Set(Object.keys(setA.elements).map(Number));
+  const targetEids=new Set(Object.keys(setB.elements).map(Number));
+  
+  log(`Filtered sets: Source=${sourceEids.size} elements, Target=${targetEids.size} elements`);
+  
+  // ── Phase 2: Build BBoxes only for filtered elements ──
+  lt.textContent='Computing bounding boxes...';lf.style.width='20%';
+  await new Promise(r=>setTimeout(r,20));
+  
+  const allBBoxA=buildElementBBoxes(0);
+  const allBBoxB=buildElementBBoxes(1);
+  
+  // Filter to only Source/Target set elements
+  const arrA=Object.values(allBBoxA).filter(e=>sourceEids.has(e.eid));
+  const arrB=Object.values(allBBoxB).filter(e=>targetEids.has(e.eid));
+  
+  log(`BBoxes: Source=${arrA.length}, Target=${arrB.length}`);
+  lt.textContent=`BBox pre-filter (${arrA.length} × ${arrB.length})...`;lf.style.width='30%';
+  await new Promise(r=>setTimeout(r,20));
+  
+  // ── Phase 3: BBox overlap ──
+  const candidates=[];
+  let checked=0;
+  const total=arrA.length*arrB.length;
+  
+  for(const a of arrA){
+    for(const b of arrB){
+      if(bboxOverlap(a,b,tolerance)){
+        const pen=bboxPenetration(a,b);
+        candidates.push({a,b,penetration:pen});
+      }
+      checked++;
+    }
+    if(checked%50000===0){
+      lt.textContent=`BBox: ${candidates.length} candidates (${Math.round(checked/total*100)}%)`;
+      lf.style.width=(30+30*(checked/total))+'%';
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+  
+  log(`BBox pre-filter: ${candidates.length} candidates`);
+  lt.textContent=`Mesh intersection (${candidates.length} pairs)...`;lf.style.width='60%';
+  await new Promise(r=>setTimeout(r,20));
+  
+  // ── Phase 4: Mesh intersection + property enrichment ──
+  clashResults=[];
+  const maxCheck=Math.min(candidates.length,2000);
+  candidates.sort((a,b)=>b.penetration-a.penetration);
+  const skipTypes=new Set(['IfcSpace','IfcSite','IfcBuilding','IfcBuildingStorey','IfcProject']);
+  
+  for(let i=0;i<maxCheck;i++){
+    const{a,b,penetration}=candidates[i];
+    
+    const meshTest=meshIntersectionTest(a,b,loadedModels[0],loadedModels[1]);
+    const isHard=meshTest.isHard;
+    
+    // Apply clash type filter
+    if(clashTypeFilter==='hard'&&!isHard)continue;
+    if(clashTypeFilter==='clearance'&&isHard)continue;
+    
+    if(isHard||penetration>tolerance){
+      const entA=clashPropertyCacheA[a.eid]||{};
+      const entB=clashPropertyCacheB[b.eid]||{};
+      const typeA=entA.type||'';
+      const typeB=entB.type||'';
+      
+      if(skipTypes.has(typeA)||skipTypes.has(typeB))continue;
+      
+      clashResults.push({
+        idx:clashResults.length,
+        elA:{eid:a.eid,name:entA.name||'',type:typeA,objectType:entA.objectType||'',tag:entA.tag||'',modelIdx:0,bbox:a},
+        elB:{eid:b.eid,name:entB.name||'',type:typeB,objectType:entB.objectType||'',tag:entB.tag||'',modelIdx:1,bbox:b},
+        penetration,isHard,
+        verticesAinB:meshTest.verticesAinB,
+        verticesBinA:meshTest.verticesBinA,
+        point:{
+          x:(Math.max(a.mnX,b.mnX)+Math.min(a.mxX,b.mxX))/2,
+          y:(Math.max(a.mnY,b.mnY)+Math.min(a.mxY,b.mxY))/2,
+          z:(Math.max(a.mnZ,b.mnZ)+Math.min(a.mxZ,b.mxZ))/2
+        }
+      });
+    }
+    
+    if(i%100===0){
+      lt.textContent=`Mesh: ${i}/${maxCheck} (${clashResults.length} clashes)`;
+      lf.style.width=(60+30*(i/maxCheck))+'%';
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+  
+  log(`Clash detection complete: ${clashResults.length} clashes found`);
+  lt.textContent=`Done! ${clashResults.length} clashes`;lf.style.width='100%';
+  await new Promise(r=>setTimeout(r,300));
+  lo.classList.remove('on');
+  
+  showClashResults();
+};
+
+function showClashResults(){
+  document.getElementById('btnExitClash').style.display='';
+  document.getElementById('btnRunClash').style.display='none';
+  document.getElementById('vpClashLegend').classList.add('show');
+  document.getElementById('clashGroupBar').style.display='flex';
+  if(clashResults.length>0){document.getElementById('btnExportClashCSV').style.display='';document.getElementById('btnExportClashBCF').style.display=''}
+  
+  // Keep models mostly visible — only slightly fade them
+  for(let i=0;i<2;i++){
+    if(!loadedModels[i])continue;
+    loadedModels[i].traverse(c=>{if(c.isMesh){
+      if(!c.userData._clashOrigMats){
+        c.userData._clashOrigMats=Array.isArray(c.material)?c.material.map(m=>m.clone()):c.material.clone();
+      }
+      const ms=Array.isArray(c.material)?c.material:[c.material];
+      ms.forEach(m=>{
+        m.transparent=true;m.opacity=0.55;m.depthWrite=true;m.needsUpdate=true;
+        m.clippingPlanes=clipPlanes;
+      });
+    }});
+  }
+  
+  // ── Create clash zone markers at each intersection point ──
+  // For each clash, create a glowing box at the overlap region (not the full element)
+  const clashGroup=new THREE.Group();
+  clashGroup.name='clashMarkers';
+  clashGroup.userData.clashSubset=true;
+  
+  clashResults.forEach((cl,i)=>{
+    // Compute the actual overlap box between the two element bboxes
+    const overlapMnX=Math.max(cl.elA.bbox.mnX,cl.elB.bbox.mnX);
+    const overlapMnY=Math.max(cl.elA.bbox.mnY,cl.elB.bbox.mnY);
+    const overlapMnZ=Math.max(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ);
+    const overlapMxX=Math.min(cl.elA.bbox.mxX,cl.elB.bbox.mxX);
+    const overlapMxY=Math.min(cl.elA.bbox.mxY,cl.elB.bbox.mxY);
+    const overlapMxZ=Math.min(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ);
+    
+    const sx=Math.max(overlapMxX-overlapMnX,0.05);
+    const sy=Math.max(overlapMxY-overlapMnY,0.05);
+    const sz=Math.max(overlapMxZ-overlapMnZ,0.05);
+    const cx=(overlapMnX+overlapMxX)/2;
+    const cy=(overlapMnY+overlapMxY)/2;
+    const cz=(overlapMnZ+overlapMxZ)/2;
+    
+    // Solid semi-transparent red box at the clash zone
+    const boxGeo=new THREE.BoxGeometry(sx,sy,sz);
+    const boxMat=new THREE.MeshPhongMaterial({
+      color:cl.isHard?0xff1744:0xff9100,
+      transparent:true,opacity:0.65,
+      side:THREE.DoubleSide,depthWrite:false,
+      emissive:new THREE.Color(cl.isHard?0x660000:0x663300),
+      clippingPlanes:clipPlanes
+    });
+    const box=new THREE.Mesh(boxGeo,boxMat);
+    box.position.set(cx,cy,cz);
+    box.renderOrder=900;
+    box.userData.clashIdx=i;
+    box.userData.clashSubset=true;
+    clashGroup.add(box);
+    
+    // Wireframe outline for clarity
+    const wireGeo=new THREE.BoxGeometry(sx*1.02,sy*1.02,sz*1.02);
+    const wireMat=new THREE.MeshBasicMaterial({
+      color:cl.isHard?0xff1744:0xff9100,
+      wireframe:true,depthTest:false,
+      transparent:true,opacity:0.9
+    });
+    const wire=new THREE.Mesh(wireGeo,wireMat);
+    wire.position.set(cx,cy,cz);
+    wire.renderOrder=901;
+    wire.userData.clashSubset=true;
+    clashGroup.add(wire);
+  });
+  
+  scene.add(clashGroup);
+  clashSubsets.push(clashGroup);
+  log('Created '+clashResults.length+' clash zone markers');
+  
+  // Stats
+  const hard=clashResults.filter(c=>c.isHard).length;
+  const near=clashResults.length-hard;
+  document.getElementById('clashStats').style.display='';
+  document.getElementById('clashTotal').textContent=clashResults.length;
+  document.getElementById('clashHard').textContent=hard;
+  document.getElementById('clashNear').textContent=near;
+  
+  // Render clash cards
+  let html='';
+  clashResults.forEach((cl,i)=>{
+    const penMM=(cl.penetration*1000).toFixed(0);
+    html+=`<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
+      <div class="cc-hdr">
+        <span class="cc-num">#${i+1} ${cl.isHard?'⛔':'⚠️'}</span>
+        <span class="cc-dist">${penMM}mm</span>
+      </div>
+      <div class="cc-el">A: ${cl.elA.name||'#'+cl.elA.eid}</div>
+      <div class="cc-type">${(cl.elA.type||'').replace('Ifc','')}</div>
+      <div class="cc-el" style="margin-top:2px">B: ${cl.elB.name||'#'+cl.elB.eid}</div>
+      <div class="cc-type">${(cl.elB.type||'').replace('Ifc','')}</div>
+    </div>`;
+  });
+  if(!html)html='<div style="padding:20px;text-align:center;color:var(--green);font-size:14px;font-weight:600">✓ No clashes detected!</div>';
+  document.getElementById('clashList').innerHTML=html;
+}
+
+// ── Regroup clash results by chosen criterion ──
+window.regroupClashes=function(){
+  const groupBy=document.getElementById('clashGroupBy').value;
+  const list=document.getElementById('clashList');
+  
+  if(groupBy==='none'||!clashResults.length){
+    // Flat list — re-render
+    let html='';
+    clashResults.forEach((cl,i)=>{
+      const penMM=(cl.penetration*1000).toFixed(0);
+      html+=`<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
+        <div class="cc-hdr"><span class="cc-num">#${i+1} ${cl.isHard?'⛔':'⚠️'}</span><span class="cc-dist">${penMM}mm</span></div>
+        <div class="cc-el">A: ${cl.elA.name||'#'+cl.elA.eid}</div>
+        <div class="cc-type">${(cl.elA.type||'').replace('Ifc','')}</div>
+        <div class="cc-el" style="margin-top:2px">B: ${cl.elB.name||'#'+cl.elB.eid}</div>
+        <div class="cc-type">${(cl.elB.type||'').replace('Ifc','')}</div>
+      </div>`;
+    });
+    list.innerHTML=html;
+    return;
+  }
+  
+  // Group clashes
+  const groups={};
+  clashResults.forEach((cl,i)=>{
+    let key='Other';
+    if(groupBy==='categoryA')key=cl.elA.type||'Unknown';
+    else if(groupBy==='categoryB')key=cl.elB.type||'Unknown';
+    else if(groupBy==='level'){
+      // Group by Y-level (approximate storey)
+      const y=cl.point.y;
+      const level=Math.round(y/3)*3; // bucket to ~3m floors
+      key='Level ≈ '+level.toFixed(0)+'m';
+    }
+    if(!groups[key])groups[key]=[];
+    groups[key].push({cl,origIdx:i});
+  });
+  
+  let html='';
+  const sortedKeys=Object.keys(groups).sort();
+  sortedKeys.forEach(key=>{
+    const items=groups[key];
+    const gid='cg_'+key.replace(/\W/g,'_');
+    html+=`<div class="clash-group-hdr" onclick="toggleClashGroup('${gid}')">
+      <span class="cg-arr" id="arr_${gid}">▼</span>
+      <span>${key.replace('Ifc','')}</span>
+      <span class="cg-count">${items.length}</span>
+    </div>
+    <div class="clash-group-body" id="body_${gid}">`;
+    items.forEach(({cl,origIdx})=>{
+      const penMM=(cl.penetration*1000).toFixed(0);
+      html+=`<div class="clash-card" id="clash-${origIdx}" onclick="focusClash(${origIdx})">
+        <div class="cc-hdr"><span class="cc-num">#${origIdx+1} ${cl.isHard?'⛔':'⚠️'}</span><span class="cc-dist">${penMM}mm</span></div>
+        <div class="cc-el">A: ${cl.elA.name||'#'+cl.elA.eid}</div>
+        <div class="cc-el" style="margin-top:1px">B: ${cl.elB.name||'#'+cl.elB.eid}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+  });
+  list.innerHTML=html;
+};
+
+window.toggleClashGroup=function(gid){
+  const arr=document.getElementById('arr_'+gid);
+  const body=document.getElementById('body_'+gid);
+  if(arr)arr.classList.toggle('col');
+  if(body)body.classList.toggle('col');
+};
+
+window.focusClash=function(idx){
+  if(idx<0||idx>=clashResults.length)return;
+  currentClashIdx=idx;
+  const cl=clashResults[idx];
+  
+  // Highlight card
+  document.querySelectorAll('.clash-card').forEach(c=>c.classList.remove('active'));
+  const card=document.getElementById('clash-'+idx);
+  if(card)card.classList.add('active');
+  
+  // ── Remove old focus highlights ──
+  const oldFocus=[];
+  scene.traverse(c=>{if(c.userData?.clashFocus)oldFocus.push(c)});
+  oldFocus.forEach(c=>{if(c.parent)c.parent.remove(c)});
+  
+  // ── Highlight the two specific clashing elements with colored subsets ──
+  const matFocusA=new THREE.MeshPhongMaterial({color:0xef4444,transparent:true,opacity:0.7,side:THREE.DoubleSide,depthWrite:true,clippingPlanes:clipPlanes});
+  const matFocusB=new THREE.MeshPhongMaterial({color:0x3b82f6,transparent:true,opacity:0.7,side:THREE.DoubleSide,depthWrite:true,clippingPlanes:clipPlanes});
+  
+  [
+    {mi:0,eid:cl.elA.eid,mat:matFocusA},
+    {mi:1,eid:cl.elB.eid,mat:matFocusB}
+  ].forEach(({mi,eid,mat})=>{
+    if(!loadedModels[mi])return;
+    try{
+      const sub=ifcLoader.ifcManager.createSubset({modelID:loadedModels[mi].modelID,ids:[eid],material:mat,scene,removePrevious:false,customID:'clashFocus_'+mi+'_'+eid});
+      if(sub){
+        sub.position.copy(loadedModels[mi].position);sub.updateMatrixWorld(true);
+        sub.userData.clashFocus=true;
+        sub.traverse(ch=>{if(ch.isMesh)ch.userData.clashFocus=true});
+      }
+    }catch(e){}
+  });
+  
+  // ── Pulse the clash zone marker ──
+  if(clashSubsets[0]&&clashSubsets[0].name==='clashMarkers'){
+    clashSubsets[0].children.forEach(ch=>{
+      if(ch.userData.clashIdx===idx&&ch.material&&!ch.material.wireframe){
+        ch.material.opacity=0.95;ch.material.needsUpdate=true;
+      }else if(ch.material&&!ch.material.wireframe&&ch.userData.clashIdx!==undefined){
+        ch.material.opacity=0.35;ch.material.needsUpdate=true;
+      }
+    });
+  }
+  
+  // Zoom + section box around CLASH ZONE ONLY (overlap region, not full elements)
+  const overlapMnX=Math.max(cl.elA.bbox.mnX,cl.elB.bbox.mnX);
+  const overlapMnY=Math.max(cl.elA.bbox.mnY,cl.elB.bbox.mnY);
+  const overlapMnZ=Math.max(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ);
+  const overlapMxX=Math.min(cl.elA.bbox.mxX,cl.elB.bbox.mxX);
+  const overlapMxY=Math.min(cl.elA.bbox.mxY,cl.elB.bbox.mxY);
+  const overlapMxZ=Math.min(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ);
+  
+  // Overlap zone size + a small context padding (show a bit of surrounding geometry)
+  const ozX=Math.max(overlapMxX-overlapMnX,0.1);
+  const ozY=Math.max(overlapMxY-overlapMnY,0.1);
+  const ozZ=Math.max(overlapMxZ-overlapMnZ,0.1);
+  const contextPad=Math.max(ozX,ozY,ozZ)*1.5+1.5; // ~1.5x clash zone + 1.5m
+  
+  const mnX=((overlapMnX+overlapMxX)/2)-contextPad;
+  const mnY=((overlapMnY+overlapMxY)/2)-contextPad;
+  const mnZ=((overlapMnZ+overlapMxZ)/2)-contextPad;
+  const mxX=((overlapMnX+overlapMxX)/2)+contextPad;
+  const mxY=((overlapMnY+overlapMxY)/2)+contextPad;
+  const mxZ=((overlapMnZ+overlapMxZ)/2)+contextPad;
+  
+  const viewDist=contextPad*2.5;
+  const pt=cl.point;
+  camera.position.set(pt.x+viewDist*0.45,pt.y+viewDist*0.35,pt.z+viewDist*0.45);
+  controls.target.set(pt.x,pt.y,pt.z);
+  controls.update();
+  
+  const b=modelBounds;
+  const sx=b.max.x-b.min.x,sy=b.max.y-b.min.y,sz=b.max.z-b.min.z;
+  const toSl=(val,mn,range)=>Math.max(0,Math.min(100,Math.round(((val-mn)/range)*100)));
+  
+  document.getElementById('slXp').value=toSl(mxX,b.min.x,sx);
+  document.getElementById('slXn').value=toSl(mnX,b.min.x,sx);
+  document.getElementById('slYp').value=toSl(mxY,b.min.y,sy);
+  document.getElementById('slYn').value=toSl(mnY,b.min.y,sy);
+  document.getElementById('slZp').value=toSl(mxZ,b.min.z,sz);
+  document.getElementById('slZn').value=toSl(mnZ,b.min.z,sz);
+  
+  if(!sectionActive){
+    sectionActive=true;
+    document.getElementById('sectionPanel').classList.add('show');
+    document.getElementById('btnSection').classList.add('active');
+    createSectionBox3D();
+  }
+  updateSectionFromSliders();
+  
+  // Show clash details in properties panel
+  const penMM=(cl.penetration*1000).toFixed(1);
+  let h=`<div style="padding:8px 12px;background:var(--red-lt);border-bottom:1px solid var(--border)">
+    <span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:var(--red)">CLASH #${idx+1} — ${cl.isHard?'HARD CLASH':'CLEARANCE'}</span>
+  </div>
+  <div class="ps"><div class="ps-t">Clash Info</div>
+    <div class="pr"><div class="pk">Penetration</div><div class="pv" style="color:var(--red);font-weight:700">${penMM} mm</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.isHard?'Hard (geometry intersects)':'Clearance (bbox overlap)'}</div></div>
+  </div>
+  <div class="ps"><div class="ps-t"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ef4444;margin-right:4px"></span>Element A — Source</div>
+    <div class="pr"><div class="pk">Name</div><div class="pv">${cl.elA.name||'—'}</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.elA.type||'—'}</div></div>
+    <div class="pr"><div class="pk">Tag</div><div class="pv">${cl.elA.tag||'—'}</div></div>
+    <div class="pr"><div class="pk">ExpressID</div><div class="pv">${cl.elA.eid}</div></div>
+  </div>
+  <div class="ps"><div class="ps-t"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3b82f6;margin-right:4px"></span>Element B — Target</div>
+    <div class="pr"><div class="pk">Name</div><div class="pv">${cl.elB.name||'—'}</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.elB.type||'—'}</div></div>
+    <div class="pr"><div class="pk">Tag</div><div class="pv">${cl.elB.tag||'—'}</div></div>
+    <div class="pr"><div class="pk">ExpressID</div><div class="pv">${cl.elB.eid}</div></div>
+  </div>`;
+  document.getElementById('propArea').innerHTML=h;
+  
+  log(`Focused clash #${idx+1}: ${cl.elA.name} vs ${cl.elB.name} (${penMM}mm)`);
+};
+
+window.exportClashCSV=function(){
+  if(!clashResults.length)return;
+  let csv='#,Type,Penetration_mm,ElementA_Name,ElementA_Type,ElementA_ID,ElementB_Name,ElementB_Type,ElementB_ID,X,Y,Z\n';
+  clashResults.forEach((cl,i)=>{
+    csv+=`${i+1},${cl.isHard?'Hard':'Clearance'},${(cl.penetration*1000).toFixed(1)},"${cl.elA.name}",${cl.elA.type},${cl.elA.eid},"${cl.elB.name}",${cl.elB.type},${cl.elB.eid},${cl.point.x.toFixed(3)},${cl.point.y.toFixed(3)},${cl.point.z.toFixed(3)}\n`;
+  });
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ifc-clash-report.csv';a.click();
+  log('Clash CSV exported: '+clashResults.length+' clashes');
+};
+
+// ══ Clash BCF Export ══
+window.exportClashBCF=async function(){
+  if(!clashResults.length){log('No clashes to export');return}
+  if(!window.JSZip){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    document.head.appendChild(s);
+    await new Promise((res,rej)=>{s.onload=res;s.onerror=rej});
+  }
+  
+  setStatus('loading','Exporting Clash BCF...');
+  log('Exporting BCF for '+clashResults.length+' clashes...');
+  const zip=new JSZip();
+  const now=new Date().toISOString();
+  const pid=crypto.randomUUID();
+  
+  // Model offset: reverse model.position to get original IFC coords
+  // IMPORTANT: Three.js uses Y-up, but IFC/BCF uses Z-up
+  // web-ifc-three swaps Y↔Z during load, so we must swap back for BCF
+  const off={x:0,y:0,z:0};
+  for(let i=0;i<2;i++){if(loadedModels[i]){off.x=-loadedModels[i].position.x;off.y=-loadedModels[i].position.y;off.z=-loadedModels[i].position.z;break}}
+  log('BCF offset (Three.js Y-up): ('+off.x.toFixed(2)+', '+off.y.toFixed(2)+', '+off.z.toFixed(2)+')');
+  
+  // Convert Three.js point (Y-up) to IFC/BCF point (Z-up): swap Y and Z, negate new Y
+  const toBCF=(px,py,pz)=>({x:px+off.x, y:-(pz+off.z), z:py+off.y});
+  
+  // Save camera
+  const saveCam=camera.position.clone();
+  const saveTgt=controls.target.clone();
+  
+  zip.file('bcf.version','<?xml version="1.0" encoding="UTF-8"?>\n<Version VersionId="2.1" xsi:noNamespaceSchemaLocation="version.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><DetailedVersion>2.1</DetailedVersion></Version>');
+  zip.file('project.bcfp','<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Project ProjectId="'+pid+'"><n>IFC Delta Clash Detection</n></Project></ProjectExtension>');
+  
+  for(let i=0;i<clashResults.length;i++){
+    const cl=clashResults[i];
+    const tid=crypto.randomUUID();
+    const vid=crypto.randomUUID();
+    
+    // Get GlobalIds for both elements
+    let guidA='',guidB='';
+    try{
+      const pA=await ifcLoader.ifcManager.getItemProperties(loadedModels[0].modelID,cl.elA.eid,false);
+      if(pA?.GlobalId?.value)guidA=pA.GlobalId.value;
+    }catch(e){}
+    try{
+      const pB=await ifcLoader.ifcManager.getItemProperties(loadedModels[1].modelID,cl.elB.eid,false);
+      if(pB?.GlobalId?.value)guidB=pB.GlobalId.value;
+    }catch(e){}
+    
+    // Clash zone center in BCF/IFC coords (Z-up)
+    const cp=toBCF(cl.point.x,cl.point.y,cl.point.z);
+    const ix=cp.x, iy=cp.y, iz=cp.z;
+    
+    // Section box around BOTH FULL ELEMENTS in BCF coords
+    // Convert all 8 corners of combined bbox from Three.js to BCF, then find extents
+    const corners=[
+      toBCF(Math.min(cl.elA.bbox.mnX,cl.elB.bbox.mnX), Math.min(cl.elA.bbox.mnY,cl.elB.bbox.mnY), Math.min(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ)),
+      toBCF(Math.max(cl.elA.bbox.mxX,cl.elB.bbox.mxX), Math.max(cl.elA.bbox.mxY,cl.elB.bbox.mxY), Math.max(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ)),
+      toBCF(Math.min(cl.elA.bbox.mnX,cl.elB.bbox.mnX), Math.max(cl.elA.bbox.mxY,cl.elB.bbox.mxY), Math.min(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ)),
+      toBCF(Math.max(cl.elA.bbox.mxX,cl.elB.bbox.mxX), Math.min(cl.elA.bbox.mnY,cl.elB.bbox.mnY), Math.max(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ))
+    ];
+    let sbMnX=Infinity,sbMnY=Infinity,sbMnZ=Infinity,sbMxX=-Infinity,sbMxY=-Infinity,sbMxZ=-Infinity;
+    corners.forEach(c=>{
+      sbMnX=Math.min(sbMnX,c.x);sbMnY=Math.min(sbMnY,c.y);sbMnZ=Math.min(sbMnZ,c.z);
+      sbMxX=Math.max(sbMxX,c.x);sbMxY=Math.max(sbMxY,c.y);sbMxZ=Math.max(sbMxZ,c.z);
+    });
+    // Add padding (2m)
+    const bPad=2.0;
+    sbMnX-=bPad;sbMnY-=bPad;sbMnZ-=bPad;
+    sbMxX+=bPad;sbMxY+=bPad;sbMxZ+=bPad;
+    
+    // Camera distance based on element bounding box size
+    const sbSizeMax=Math.max(sbMxX-sbMnX,sbMxY-sbMnY,sbMxZ-sbMnZ);
+    const d=sbSizeMax*1.5+5;
+    const camX=ix+d*0.4, camY=iy+d*0.3, camZ=iz+d*0.4;
+    const ddx=ix-camX, ddy=iy-camY, ddz=iz-camZ;
+    const ln=Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz)||1;
+    
+    // Snapshot
+    let snap64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/58BHgAIBwJ+Qil1RAAAAABJRU5ErkJggg==';
+    try{
+      camera.position.set(cl.point.x+d*0.4,cl.point.y+d*0.3,cl.point.z+d*0.4);
+      controls.target.set(cl.point.x,cl.point.y,cl.point.z);
+      controls.update();renderer.render(scene,camera);
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      renderer.render(scene,camera);
+      snap64=renderer.domElement.toDataURL('image/png').split(',')[1];
+    }catch(e){}
+    
+    const penMM=(cl.penetration*1000).toFixed(1);
+    const title='Clash #'+(i+1)+' '+(cl.isHard?'HARD':'CLEARANCE')+' ('+penMM+'mm) — '+(cl.elA.name||cl.elA.type)+' vs '+(cl.elB.name||cl.elB.type);
+    const desc='Penetration: '+penMM+'mm | Source: '+(cl.elA.name||'#'+cl.elA.eid)+' ('+cl.elA.type+') | Target: '+(cl.elB.name||'#'+cl.elB.eid)+' ('+cl.elB.type+')';
+    
+    // Section box (6 clipping planes) around BOTH elements with padding
+    // BCF spec: Direction points outward (invisible side)
+    const clips=
+      '<ClippingPlanes>'+
+      '<ClippingPlane><Location><X>'+sbMxX.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>1</X><Y>0</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+sbMnX.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>-1</X><Y>0</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+sbMxY.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>1</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+sbMnY.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>-1</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+sbMxZ.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>1</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+sbMnZ.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>-1</Z></Direction></ClippingPlane>'+
+      '</ClippingPlanes>';
+    
+    // Selection + coloring + visibility
+    // Use DefaultVisibility=false with Exceptions showing only the 2 clashing elements
+    // This works in both Revit BCF Manager and BIMcollab Zoom
+    let exceptionsXml='';
+    let selectionXml='<Selection>';
+    let colorXml='<Coloring>';
+    if(guidA){
+      exceptionsXml+='<Component IfcGuid="'+guidA+'" Visible="true"/>';
+      selectionXml+='<Component IfcGuid="'+guidA+'"/>';
+      colorXml+='<Color Color="FFEF4444"><Component IfcGuid="'+guidA+'"/></Color>';
+    }
+    if(guidB){
+      exceptionsXml+='<Component IfcGuid="'+guidB+'" Visible="true"/>';
+      selectionXml+='<Component IfcGuid="'+guidB+'"/>';
+      colorXml+='<Color Color="FFF97316"><Component IfcGuid="'+guidB+'"/></Color>';
+    }
+    selectionXml+='</Selection>';
+    colorXml+='</Coloring>';
+    
+    // markup.bcf — include Header with file references for Revit to locate elements
+    zip.file(tid+'/markup.bcf','<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'+
+      '<Header>'+
+      (files[0]?'<File><Filename>'+escXml(files[0].name)+'</Filename></File>':'')+
+      (files[1]?'<File><Filename>'+escXml(files[1].name)+'</Filename></File>':'')+
+      '</Header>\n'+
+      '<Topic Guid="'+tid+'" TopicType="Clash" TopicStatus="Active">'+
+      '<Title>'+escXml(title)+'</Title>'+
+      '<Description>'+escXml(desc)+'</Description>'+
+      '<CreationDate>'+now+'</CreationDate><CreationAuthor>IFC Delta</CreationAuthor>'+
+      '<ModifiedDate>'+now+'</ModifiedDate>'+
+      '<Priority>'+(cl.isHard?'Critical':'Normal')+'</Priority>'+
+      '<Labels><Label>Clash Detection</Label><Label>'+(cl.isHard?'Hard Clash':'Clearance')+'</Label></Labels>'+
+      '</Topic>\n'+
+      '<Comment Guid="'+crypto.randomUUID()+'"><Date>'+now+'</Date><Author>IFC Delta</Author><Comment>'+escXml(desc)+'</Comment><Viewpoint Guid="'+vid+'"/></Comment>\n'+
+      '<Viewpoints Guid="'+vid+'"><Viewpoint>'+vid+'.bcfv</Viewpoint><Snapshot>'+vid+'.png</Snapshot></Viewpoints>\n'+
+      '</Markup>');
+    
+    // viewpoint.bcfv
+    // DefaultVisibility=false: hide everything except the 2 clashing elements
+    // ClippingPlanes included for viewers that support them (BIMcollab Zoom, Solibri)
+    // Revit BCF Manager will use the Selection GUIDs + camera position
+    zip.file(tid+'/'+vid+'.bcfv','<?xml version="1.0" encoding="UTF-8"?>\n<VisualizationInfo Guid="'+vid+'" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'+
+      '<Components>'+
+      '<Visibility DefaultVisibility="false"><Exceptions>'+exceptionsXml+'</Exceptions></Visibility>'+
+      selectionXml+colorXml+
+      '</Components>\n'+
+      clips+'\n'+
+      '<PerspectiveCamera>'+
+      '<CameraViewPoint><X>'+camX.toFixed(6)+'</X><Y>'+camY.toFixed(6)+'</Y><Z>'+camZ.toFixed(6)+'</Z></CameraViewPoint>'+
+      '<CameraDirection><X>'+(ddx/ln).toFixed(6)+'</X><Y>'+(ddy/ln).toFixed(6)+'</Y><Z>'+(ddz/ln).toFixed(6)+'</Z></CameraDirection>'+
+      '<CameraUpVector><X>0</X><Y>0</Y><Z>1</Z></CameraUpVector>'+
+      '<FieldOfView>60</FieldOfView>'+
+      '</PerspectiveCamera>\n'+
+      '</VisualizationInfo>');
+    
+    // snapshot
+    zip.file(tid+'/'+vid+'.png',snap64,{base64:true});
+    
+    if(i%10===0)setStatus('loading','BCF: '+(i+1)+'/'+clashResults.length+'...');
+  }
+  
+  // Restore camera
+  camera.position.copy(saveCam);controls.target.copy(saveTgt);controls.update();renderer.render(scene,camera);
+  
+  const blob=await zip.generateAsync({type:'blob'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ifc-delta-clashes.bcf';a.click();
+  setStatus('done','BCF exported');setTimeout(()=>setStatus('',''),3000);
+  log('Clash BCF exported: '+clashResults.length+' issues');
+};
 
 initThree();initSectionDrag();log('Ready');
 </script>
