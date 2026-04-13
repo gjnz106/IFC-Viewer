@@ -301,6 +301,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);heigh
       <button class="btn" onclick="toggleWire()">◫ Wire</button>
       <button class="btn" onclick="toggleGrid()">⊞ Grid</button>
       <button class="btn" id="btnShowAll" style="display:none" onclick="showAllHidden()">👁 Show All</button>
+      <button class="btn" id="btnWalk" onclick="toggleWalkMode()">🚶 Walk</button>
       <button class="btn" onclick="resetCam()">⌂ Reset</button>
     </div>
   </header>
@@ -482,10 +483,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);heigh
       <span style="font-family:JetBrains Mono;font-size:14px;font-weight:600" id="measureText">Click 2 points to measure</span>
       <button onclick="clearMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer;margin-left:8px">Clear</button>
       <button onclick="toggleMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--red);border-radius:4px;background:var(--red-bg);color:var(--red);cursor:pointer;margin-left:4px">✕ Exit</button>
+    <!-- Walk mode HUD -->
+    <div id="walkHUD" style="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:15;padding:8px 16px;background:rgba(0,0,0,0.7);border-radius:8px;color:#fff;font-family:'JetBrains Mono';font-size:11px;text-align:center;pointer-events:none;backdrop-filter:blur(4px)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">🚶 WALK MODE</div>
+      <div><b>WASD</b> Move · <b>QE</b> Up/Down · <b>Mouse</b> Look · <b>Shift</b> Sprint · <b>Scroll</b> Speed · <b>Esc</b> Exit</div>
+    </div>
+    <!-- Walk crosshair -->
+    <div id="walkCross" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:14;width:20px;height:20px;pointer-events:none">
+      <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,0.6)"></div>
+      <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.6)"></div>
+    </div>
     </div>
   </div>
-
-  <div class="right-panel">
     <div class="ph">Properties</div>
     <div class="prop-area" id="propArea"><div style="padding:30px 14px;text-align:center;color:var(--text-muted);font-size:14px">Click element in 3D to inspect</div></div>
   </div>
@@ -4233,6 +4242,136 @@ window.exportClashBCF=async function(){
   setStatus('done','BCF exported');setTimeout(()=>setStatus('',''),3000);
   log('Clash BCF exported: '+clashResults.length+' issues');
 };
+
+// ══════════════════════════════════════════════════════════════
+// ══ FIRST PERSON WALK MODE ══
+// ══════════════════════════════════════════════════════════════
+let walkActive=false;
+let walkSpeed=0.15; // m per frame
+const walkKeys={w:false,a:false,s:false,d:false,q:false,e:false,shift:false};
+let walkYaw=0, walkPitch=0;
+let walkAnimId=null;
+
+window.toggleWalkMode=function(){
+  walkActive=!walkActive;
+  document.getElementById('btnWalk').classList.toggle('active',walkActive);
+  document.getElementById('walkHUD').style.display=walkActive?'block':'none';
+  document.getElementById('walkCross').style.display=walkActive?'block':'none';
+  
+  if(walkActive){
+    // Enter walk mode
+    controls.enabled=false;
+    // Set initial yaw/pitch from current camera direction
+    const dir=new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    walkYaw=Math.atan2(dir.x,dir.z);
+    walkPitch=Math.asin(Math.max(-1,Math.min(1,dir.y)));
+    // Request pointer lock for smooth mouse look
+    renderer.domElement.requestPointerLock&&renderer.domElement.requestPointerLock();
+    walkLoop();
+    log('Walk mode ON — WASD to move, mouse to look');
+  }else{
+    // Exit walk mode
+    controls.enabled=true;
+    controls.target.copy(camera.position).add(new THREE.Vector3(0,0,-10).applyQuaternion(camera.quaternion));
+    controls.update();
+    document.exitPointerLock&&document.exitPointerLock();
+    if(walkAnimId){cancelAnimationFrame(walkAnimId);walkAnimId=null}
+    log('Walk mode OFF');
+  }
+};
+
+// Keyboard
+document.addEventListener('keydown',e=>{
+  if(!walkActive)return;
+  const k=e.key.toLowerCase();
+  if(k==='w')walkKeys.w=true;
+  if(k==='a')walkKeys.a=true;
+  if(k==='s')walkKeys.s=true;
+  if(k==='d')walkKeys.d=true;
+  if(k==='q')walkKeys.q=true;
+  if(k==='e')walkKeys.e=true;
+  if(k==='shift'||e.shiftKey)walkKeys.shift=true;
+  if(k==='escape'){toggleWalkMode();e.preventDefault()}
+});
+document.addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='w')walkKeys.w=false;
+  if(k==='a')walkKeys.a=false;
+  if(k==='s')walkKeys.s=false;
+  if(k==='d')walkKeys.d=false;
+  if(k==='q')walkKeys.q=false;
+  if(k==='e')walkKeys.e=false;
+  if(k==='shift'||!e.shiftKey)walkKeys.shift=false;
+});
+
+// Mouse look (pointer lock)
+document.addEventListener('mousemove',e=>{
+  if(!walkActive)return;
+  if(document.pointerLockElement===renderer.domElement){
+    walkYaw-=e.movementX*0.002;
+    walkPitch-=e.movementY*0.002;
+    walkPitch=Math.max(-Math.PI/2+0.01,Math.min(Math.PI/2-0.01,walkPitch));
+  }
+});
+
+// Scroll = adjust speed
+document.addEventListener('wheel',e=>{
+  if(!walkActive)return;
+  walkSpeed*=e.deltaY>0?0.85:1.18;
+  walkSpeed=Math.max(0.01,Math.min(5,walkSpeed));
+  e.preventDefault();
+},{passive:false});
+
+// Pointer lock change — exit walk if user presses Esc via browser
+document.addEventListener('pointerlockchange',()=>{
+  if(walkActive&&document.pointerLockElement!==renderer.domElement){
+    // User exited pointer lock (Esc) — exit walk mode
+    walkActive=false;
+    document.getElementById('btnWalk').classList.remove('active');
+    document.getElementById('walkHUD').style.display='none';
+    document.getElementById('walkCross').style.display='none';
+    controls.enabled=true;
+    controls.target.copy(camera.position).add(new THREE.Vector3(0,0,-10).applyQuaternion(camera.quaternion));
+    controls.update();
+    if(walkAnimId){cancelAnimationFrame(walkAnimId);walkAnimId=null}
+  }
+});
+
+function walkLoop(){
+  if(!walkActive)return;
+  
+  const spd=walkKeys.shift?walkSpeed*3:walkSpeed;
+  
+  // Direction vectors
+  const forward=new THREE.Vector3(-Math.sin(walkYaw),0,-Math.cos(walkYaw));
+  const right=new THREE.Vector3(Math.cos(walkYaw),0,-Math.sin(walkYaw));
+  const up=new THREE.Vector3(0,1,0);
+  
+  // Movement
+  const move=new THREE.Vector3(0,0,0);
+  if(walkKeys.w)move.add(forward.clone().multiplyScalar(spd));
+  if(walkKeys.s)move.add(forward.clone().multiplyScalar(-spd));
+  if(walkKeys.a)move.add(right.clone().multiplyScalar(-spd));
+  if(walkKeys.d)move.add(right.clone().multiplyScalar(spd));
+  if(walkKeys.e)move.add(up.clone().multiplyScalar(spd));
+  if(walkKeys.q)move.add(up.clone().multiplyScalar(-spd));
+  
+  camera.position.add(move);
+  
+  // Look direction from yaw/pitch
+  const lookDir=new THREE.Vector3(
+    -Math.sin(walkYaw)*Math.cos(walkPitch),
+    Math.sin(walkPitch),
+    -Math.cos(walkYaw)*Math.cos(walkPitch)
+  );
+  camera.lookAt(camera.position.clone().add(lookDir));
+  
+  // Render
+  renderer.render(scene,camera);
+  
+  walkAnimId=requestAnimationFrame(walkLoop);
+}
 
 initThree();initSectionDrag();log('Ready');
 </script>
