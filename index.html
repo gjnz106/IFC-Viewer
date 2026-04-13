@@ -1883,13 +1883,11 @@ async function getAllProps(modelID){
       if(cnt===0)continue;
       const typeName=IFC_NAMES[typeNum]||('IFC_'+typeNum);
       typeCounts[typeName]=(typeCounts[typeName]||0)+cnt;
-      const cnt=lines.size();
       for(let i=0;i<cnt;i++){
         const eid=lines.get(i);
         try{
           const p=await ifcLoader.ifcManager.getItemProperties(modelID,eid,false);
           if(p?.GlobalId?.value){
-            const typeName=IFC_NAMES[typeNum]||('IFC_'+typeNum);
             props[p.GlobalId.value]={expressID:eid,globalId:p.GlobalId.value,type:typeName,name:p.Name?.value||'',description:p.Description?.value||'',objectType:p.ObjectType?.value||'',tag:p.Tag?.value||''};
             found++;
           }
@@ -1901,30 +1899,53 @@ async function getAllProps(modelID){
   log(`getAllProps method1 (by type): found ${found} entities`);
   log('  Types: '+Object.entries(typeCounts).map(([t,c])=>t+'='+c).join(', '));
   
-  // METHOD 2: If method 1 found nothing, scan ALL lines for entities with GlobalId
-  if(found===0){
-    log('Method1 found 0 — falling back to scanning all lines...');
-    try{
-      const allLines=api.GetAllLines(modelID);
-      const total=allLines.size();
-      log(`Scanning ${total} total lines...`);
-      for(let i=0;i<total;i++){
-        const eid=allLines.get(i);
-        try{
-          const p=await ifcLoader.ifcManager.getItemProperties(modelID,eid,false);
-          if(!p?.GlobalId?.value)continue;
-          // Check if this is a product element (has ObjectPlacement or Representation)
-          if(p.ObjectPlacement||p.Representation||p.ObjectType){
-            let typeName='Unknown';
-            try{const tn=api.GetLineType(modelID,eid);typeName=IFC_NAMES[tn]||('IFC_'+tn)}catch(e){}
-            props[p.GlobalId.value]={expressID:eid,globalId:p.GlobalId.value,type:typeName,name:p.Name?.value||'',description:p.Description?.value||'',objectType:p.ObjectType?.value||'',tag:p.Tag?.value||''};
-            found++;
-          }
-        }catch(e){}
-      }
-      log(`getAllProps method2 (all lines): found ${found} product entities`);
-    }catch(e){log('getAllProps fallback error:',e.message)}
-  }
+  // METHOD 2: Always scan ALL lines to catch entities with types not in PRODUCT_TYPES
+  // This ensures we never miss elements due to unknown IFC type codes
+  // Skip non-physical/internal types that shouldn't be compared
+  const SKIP_TYPES=new Set([
+    3041715199, // IfcDistributionPort — internal connection point, no geometry
+    4086658281, // IfcRelConnectsPortToElement
+    3190031847, // IfcRelConnectsPorts  
+    2565941209, // IfcRelConnectsElements
+    1204542856, // IfcRelConnectsWithRealizingElements
+    826625072,  // IfcRelAssigns
+    2851387026, // IfcRelAssociatesMaterial
+    982818633,  // IfcRelAssociatesClassification
+    2728634034, // IfcRelAssociatesDocument
+    919958153,  // IfcRelAssociatesProfileProperties
+    4095574036, // IfcRelAssociatesApproval
+    2043862942, // IfcRelAssociatesConstraint
+    IFCSPACE,   // IfcSpace — room volumes, not physical
+    IFCOPENINGELEMENT, // IfcOpeningElement — void geometry
+    IFCSITE,IFCBUILDING,IFCBUILDINGSTOREY,IFCPROJECT, // Spatial structure
+  ].filter(Boolean));
+  
+  try{
+    const allLines=api.GetAllLines(modelID);
+    const total=allLines.size();
+    let extra=0;
+    for(let i=0;i<total;i++){
+      const eid=allLines.get(i);
+      try{
+        // Skip known non-physical types early
+        let lineType=0;
+        try{lineType=api.GetLineType(modelID,eid)}catch(e){}
+        if(SKIP_TYPES.has(lineType))continue;
+        
+        const p=await ifcLoader.ifcManager.getItemProperties(modelID,eid,false);
+        if(!p?.GlobalId?.value)continue;
+        if(props[p.GlobalId.value])continue; // Already found by Method 1
+        // Must have Representation (actual 3D geometry) — not just ObjectPlacement
+        if(p.Representation){
+          let typeName='Unknown';
+          try{typeName=IFC_NAMES[lineType]||('IFC_'+lineType)}catch(e){}
+          props[p.GlobalId.value]={expressID:eid,globalId:p.GlobalId.value,type:typeName,name:p.Name?.value||'',description:p.Description?.value||'',objectType:p.ObjectType?.value||'',tag:p.Tag?.value||''};
+          extra++;found++;
+        }
+      }catch(e){}
+    }
+    if(extra>0)log(`getAllProps method2 (full scan): found ${extra} additional entities (types not in predefined list)`);
+  }catch(e){log('getAllProps method2 error:',e.message)}
   
   return props;
 }
@@ -3174,9 +3195,14 @@ window.exportBCF=async function(){
   const now=new Date().toISOString();
   const pid=crypto.randomUUID();
   
-  // Model position offset: app shifts model to center, BCF needs original IFC coords
+  // Model position offset: reverse model.position to get original IFC coords
+  // web-ifc-three preserves IFC coordinate system (Z-up) in the geometry,
+  // but applies a -90° X rotation at the root. model.position is in Three.js space.
+  // For BCF we just reverse the centering offset — no axis swap needed since
+  // BCF coords should match the IFC file's coordinate system.
   const off={x:0,y:0,z:0};
   for(let i=0;i<2;i++){if(loadedModels[i]){off.x=-loadedModels[i].position.x;off.y=-loadedModels[i].position.y;off.z=-loadedModels[i].position.z;break}}
+  log('Compare BCF offset: ('+off.x.toFixed(2)+', '+off.y.toFixed(2)+', '+off.z.toFixed(2)+')');
   
   // Save camera
   const saveCam=camera.position.clone();
@@ -3190,9 +3216,8 @@ window.exportBCF=async function(){
     const tid=crypto.randomUUID();
     const vid=crypto.randomUUID();
     
-    // Element bbox in app coords
+    // Element bbox in app coords → add offset to get original IFC coords
     const bbox=iss.modelIdx!==undefined?getElementBBox(iss.modelIdx,iss.expressID):null;
-    // Convert to original IFC coords (reverse model centering offset)
     const ix=(bbox?.center?.x||0)+off.x;
     const iy=(bbox?.center?.y||0)+off.y;
     const iz=(bbox?.center?.z||0)+off.z;
@@ -3204,7 +3229,6 @@ window.exportBCF=async function(){
       camera.position.set(bbox.center.x+d*0.4,bbox.center.y+d*0.3,bbox.center.z+d*0.4);
       controls.target.set(bbox.center.x,bbox.center.y,bbox.center.z);
       controls.update();
-      // Wait for render to complete
       renderer.render(scene,camera);
       await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
       renderer.render(scene,camera);
@@ -3214,14 +3238,20 @@ window.exportBCF=async function(){
     let desc=iss.status.toUpperCase()+': '+(iss.name||'');
     if(iss.tag)desc+=' | Element ID: '+iss.tag;
     if(iss.detail)desc+=' | '+iss.detail;
+    // Add position info for elements that may not exist in target Revit project
+    if(bbox?.center){
+      desc+=' | Position: ('+ix.toFixed(2)+', '+iy.toFixed(2)+', '+iz.toFixed(2)+')';
+      if(iss.status==='added')desc+=' | NOTE: This element is NEW in Version B. Look at this location in Revit to see where it should be placed.';
+      if(iss.status==='removed')desc+=' | NOTE: This element was REMOVED. It existed at this location in Version A.';
+    }
     
-    // BCF camera in original IFC coordinate system
+    // BCF camera and section box in IFC coords
     const camX=ix+d*0.4, camY=iy+d*0.3, camZ=iz+d*0.4;
     const ddx=ix-camX, ddy=iy-camY, ddz=iz-camZ;
     const ln=Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz)||1;
     const col={added:'FF16A34A',removed:'FFDC2626',modified:'FFD97706'}[iss.status]||'FF2563EB';
     
-    // Section box padding around element
+    // Section box padding
     const pad=2;
     const sx=bbox?(bbox.size.x/2+pad):5;
     const sy=bbox?(bbox.size.y/2+pad):5;
@@ -3239,11 +3269,51 @@ window.exportBCF=async function(){
       '<ClippingPlane><Location><X>'+(ix).toFixed(6)+'</X><Y>'+(iy).toFixed(6)+'</Y><Z>'+(iz-sz).toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>-1</Z></Direction></ClippingPlane>'+
       '</ClippingPlanes>';
     
-    zip.file(tid+'/markup.bcf','<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n<Topic Guid="'+tid+'" TopicType="Issue" TopicStatus="Active"><Title>'+escXml('#'+iss.num+' '+iss.name+' ['+iss.status.toUpperCase()+']')+'</Title><Description>'+escXml(desc)+'</Description><CreationDate>'+now+'</CreationDate><CreationAuthor>IFC Delta</CreationAuthor><ModifiedDate>'+now+'</ModifiedDate></Topic>\n<Comment Guid="'+crypto.randomUUID()+'"><Date>'+now+'</Date><Author>IFC Delta</Author><Comment>'+escXml(desc)+'</Comment><Viewpoint Guid="'+vid+'"/></Comment>\n<Viewpoints Guid="'+vid+'"><Viewpoint>'+vid+'.bcfv</Viewpoint><Snapshot>'+vid+'.png</Snapshot></Viewpoints>\n</Markup>');
+    // Build component XML — use AuthoringToolId (Revit ElementId) as primary identifier
+    // because IFC GlobalId may differ from Revit's IfcGUID parameter
+    const tag=iss.tag||'';
+    let compAttr='';
+    if(tag){
+      // Prefer AuthoringToolId (matches Revit ElementId reliably)
+      compAttr='AuthoringToolId="'+tag+'" OriginatingSystem="Revit" IfcGuid="'+iss.gid+'"';
+    }else{
+      compAttr='IfcGuid="'+iss.gid+'"';
+    }
     
-    zip.file(tid+'/'+vid+'.bcfv','<?xml version="1.0" encoding="UTF-8"?>\n<VisualizationInfo Guid="'+vid+'" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n<Components><Visibility DefaultVisibility="true"><Exceptions/></Visibility><Selection><Component IfcGuid="'+iss.gid+'"/></Selection><Coloring><Color Color="'+col+'"><Component IfcGuid="'+iss.gid+'"/></Color></Coloring></Components>\n'+clips+'\n<PerspectiveCamera><CameraViewPoint><X>'+camX.toFixed(6)+'</X><Y>'+camY.toFixed(6)+'</Y><Z>'+camZ.toFixed(6)+'</Z></CameraViewPoint><CameraDirection><X>'+(ddx/ln).toFixed(6)+'</X><Y>'+(ddy/ln).toFixed(6)+'</Y><Z>'+(ddz/ln).toFixed(6)+'</Z></CameraDirection><CameraUpVector><X>0</X><Y>0</Y><Z>1</Z></CameraUpVector><FieldOfView>60</FieldOfView></PerspectiveCamera>\n</VisualizationInfo>');
+    zip.file(tid+'/markup.bcf','<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n<Topic Guid="'+tid+'" TopicType="Issue" TopicStatus="Active"><Title>'+escXml('#'+iss.num+' '+iss.name+' ['+iss.status.toUpperCase()+']')+'</Title><Description>'+escXml(desc)+'</Description><CreationDate>'+now+'</CreationDate><CreationAuthor>IFC Delta</CreationAuthor><ModifiedDate>'+now+'</ModifiedDate></Topic>\n<Comment Guid="'+crypto.randomUUID()+'"><Date>'+now+'</Date><Author>IFC Delta</Author><Comment>'+escXml(desc)+'</Comment><Viewpoint Guid="'+vid+'"/></Comment>\n<Viewpoints Guid="'+vid+'"><Viewpoint>viewpoint.bcfv</Viewpoint><Snapshot>snapshot.png</Snapshot></Viewpoints>\n</Markup>');
     
-    zip.file(tid+'/'+vid+'.png',snap64,{base64:true});
+    // Viewpoint strategy depends on issue type:
+    // MODIFIED: element exists in Revit → use Selection (BIMcollab auto-zooms to it)
+    // ADDED/REMOVED: element may NOT exist → use camera at element position + clipping planes
+    let viewpointXml;
+    if(iss.status==='modified'||iss.status==='removed'){
+      // Element likely exists in current Revit project → selection-based zoom
+      viewpointXml='<?xml version="1.0" encoding="UTF-8"?>\n<VisualizationInfo Guid="'+vid+'" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'+
+        '<Components><Visibility DefaultVisibility="true"><Exceptions/></Visibility>'+
+        '<Selection><Component '+compAttr+'/></Selection>'+
+        '<Coloring><Color Color="'+col+'"><Component '+compAttr+'/></Color></Coloring>'+
+        '</Components>\n'+
+        '<OrthogonalCamera><CameraViewPoint><X>0</X><Y>0</Y><Z>0</Z></CameraViewPoint><CameraDirection><X>0</X><Y>0</Y><Z>-1</Z></CameraDirection><CameraUpVector><X>0</X><Y>1</Y><Z>0</Z></CameraUpVector><ViewToWorldScale>1000</ViewToWorldScale></OrthogonalCamera>\n'+
+        '</VisualizationInfo>';
+    }else{
+      // ADDED: element does NOT exist in Revit → use camera position + section box so user can see the AREA
+      viewpointXml='<?xml version="1.0" encoding="UTF-8"?>\n<VisualizationInfo Guid="'+vid+'" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'+
+        '<Components><Visibility DefaultVisibility="true"><Exceptions/></Visibility>'+
+        '<Selection><Component '+compAttr+'/></Selection>'+
+        '<Coloring><Color Color="'+col+'"><Component '+compAttr+'/></Color></Coloring>'+
+        '</Components>\n'+
+        clips+'\n'+
+        '<PerspectiveCamera>'+
+        '<CameraViewPoint><X>'+camX.toFixed(6)+'</X><Y>'+camY.toFixed(6)+'</Y><Z>'+camZ.toFixed(6)+'</Z></CameraViewPoint>'+
+        '<CameraDirection><X>'+(ddx/ln).toFixed(6)+'</X><Y>'+(ddy/ln).toFixed(6)+'</Y><Z>'+(ddz/ln).toFixed(6)+'</Z></CameraDirection>'+
+        '<CameraUpVector><X>0</X><Y>0</Y><Z>1</Z></CameraUpVector>'+
+        '<FieldOfView>60</FieldOfView>'+
+        '</PerspectiveCamera>\n'+
+        '</VisualizationInfo>';
+    }
+    zip.file(tid+'/viewpoint.bcfv',viewpointXml);
+    
+    zip.file(tid+'/snapshot.png',snap64,{base64:true});
   }
   
   // Restore camera
@@ -4013,7 +4083,9 @@ window.exportClashBCF=async function(){
   log('BCF offset (Three.js Y-up): ('+off.x.toFixed(2)+', '+off.y.toFixed(2)+', '+off.z.toFixed(2)+')');
   
   // Convert Three.js point (Y-up) to IFC/BCF point (Z-up): swap Y and Z, negate new Y
-  const toBCF=(px,py,pz)=>({x:px+off.x, y:-(pz+off.z), z:py+off.y});
+  // Simple offset reversal — no axis swap
+  // BCF coordinates = Three.js app coordinates + model position offset
+  const addOff=(px,py,pz)=>({x:px+off.x, y:py+off.y, z:pz+off.z});
   
   // Save camera
   const saveCam=camera.position.clone();
@@ -4039,16 +4111,16 @@ window.exportClashBCF=async function(){
     }catch(e){}
     
     // Clash zone center in BCF/IFC coords (Z-up)
-    const cp=toBCF(cl.point.x,cl.point.y,cl.point.z);
+    const cp=addOff(cl.point.x,cl.point.y,cl.point.z);
     const ix=cp.x, iy=cp.y, iz=cp.z;
     
     // Section box around BOTH FULL ELEMENTS in BCF coords
     // Convert all 8 corners of combined bbox from Three.js to BCF, then find extents
     const corners=[
-      toBCF(Math.min(cl.elA.bbox.mnX,cl.elB.bbox.mnX), Math.min(cl.elA.bbox.mnY,cl.elB.bbox.mnY), Math.min(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ)),
-      toBCF(Math.max(cl.elA.bbox.mxX,cl.elB.bbox.mxX), Math.max(cl.elA.bbox.mxY,cl.elB.bbox.mxY), Math.max(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ)),
-      toBCF(Math.min(cl.elA.bbox.mnX,cl.elB.bbox.mnX), Math.max(cl.elA.bbox.mxY,cl.elB.bbox.mxY), Math.min(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ)),
-      toBCF(Math.max(cl.elA.bbox.mxX,cl.elB.bbox.mxX), Math.min(cl.elA.bbox.mnY,cl.elB.bbox.mnY), Math.max(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ))
+      addOff(Math.min(cl.elA.bbox.mnX,cl.elB.bbox.mnX), Math.min(cl.elA.bbox.mnY,cl.elB.bbox.mnY), Math.min(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ)),
+      addOff(Math.max(cl.elA.bbox.mxX,cl.elB.bbox.mxX), Math.max(cl.elA.bbox.mxY,cl.elB.bbox.mxY), Math.max(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ)),
+      addOff(Math.min(cl.elA.bbox.mnX,cl.elB.bbox.mnX), Math.max(cl.elA.bbox.mxY,cl.elB.bbox.mxY), Math.min(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ)),
+      addOff(Math.max(cl.elA.bbox.mxX,cl.elB.bbox.mxX), Math.min(cl.elA.bbox.mnY,cl.elB.bbox.mnY), Math.max(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ))
     ];
     let sbMnX=Infinity,sbMnY=Infinity,sbMnZ=Infinity,sbMxX=-Infinity,sbMxY=-Infinity,sbMxZ=-Infinity;
     corners.forEach(c=>{
@@ -4094,21 +4166,27 @@ window.exportClashBCF=async function(){
       '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+sbMnZ.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>-1</Z></Direction></ClippingPlane>'+
       '</ClippingPlanes>';
     
-    // Selection + coloring + visibility
-    // Use DefaultVisibility=false with Exceptions showing only the 2 clashing elements
-    // This works in both Revit BCF Manager and BIMcollab Zoom
+    // Selection + coloring — prioritize AuthoringToolId (Revit ElementId) for reliable matching
+    const tagA=cl.elA.tag||'';
+    const tagB=cl.elB.tag||'';
+    const makeAttr=(guid,tag)=>{
+      if(tag)return 'AuthoringToolId="'+tag+'" OriginatingSystem="Revit"'+(guid?' IfcGuid="'+guid+'"':'');
+      return guid?'IfcGuid="'+guid+'"':'';
+    };
     let exceptionsXml='';
     let selectionXml='<Selection>';
     let colorXml='<Coloring>';
-    if(guidA){
-      exceptionsXml+='<Component IfcGuid="'+guidA+'" Visible="true"/>';
-      selectionXml+='<Component IfcGuid="'+guidA+'"/>';
-      colorXml+='<Color Color="FFEF4444"><Component IfcGuid="'+guidA+'"/></Color>';
+    const attrA=makeAttr(guidA,tagA);
+    const attrB=makeAttr(guidB,tagB);
+    if(attrA){
+      exceptionsXml+='<Component '+attrA+' Visible="true"/>';
+      selectionXml+='<Component '+attrA+'/>';
+      colorXml+='<Color Color="FFEF4444"><Component '+attrA+'/></Color>';
     }
-    if(guidB){
-      exceptionsXml+='<Component IfcGuid="'+guidB+'" Visible="true"/>';
-      selectionXml+='<Component IfcGuid="'+guidB+'"/>';
-      colorXml+='<Color Color="FFF97316"><Component IfcGuid="'+guidB+'"/></Color>';
+    if(attrB){
+      exceptionsXml+='<Component '+attrB+' Visible="true"/>';
+      selectionXml+='<Component '+attrB+'/>';
+      colorXml+='<Color Color="FFF97316"><Component '+attrB+'/></Color>';
     }
     selectionXml+='</Selection>';
     colorXml+='</Coloring>';
@@ -4128,29 +4206,21 @@ window.exportClashBCF=async function(){
       '<Labels><Label>Clash Detection</Label><Label>'+(cl.isHard?'Hard Clash':'Clearance')+'</Label></Labels>'+
       '</Topic>\n'+
       '<Comment Guid="'+crypto.randomUUID()+'"><Date>'+now+'</Date><Author>IFC Delta</Author><Comment>'+escXml(desc)+'</Comment><Viewpoint Guid="'+vid+'"/></Comment>\n'+
-      '<Viewpoints Guid="'+vid+'"><Viewpoint>'+vid+'.bcfv</Viewpoint><Snapshot>'+vid+'.png</Snapshot></Viewpoints>\n'+
+      '<Viewpoints Guid="'+vid+'"><Viewpoint>viewpoint.bcfv</Viewpoint><Snapshot>snapshot.png</Snapshot></Viewpoints>\n'+
       '</Markup>');
     
-    // viewpoint.bcfv
-    // DefaultVisibility=false: hide everything except the 2 clashing elements
-    // ClippingPlanes included for viewers that support them (BIMcollab Zoom, Solibri)
-    // Revit BCF Manager will use the Selection GUIDs + camera position
-    zip.file(tid+'/'+vid+'.bcfv','<?xml version="1.0" encoding="UTF-8"?>\n<VisualizationInfo Guid="'+vid+'" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'+
+    // viewpoint.bcfv — Components only, no camera/clips
+    // BIMcollab/Revit BCF Manager will auto-zoom to selected elements
+    zip.file(tid+'/viewpoint.bcfv','<?xml version="1.0" encoding="UTF-8"?>\n<VisualizationInfo Guid="'+vid+'" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'+
       '<Components>'+
-      '<Visibility DefaultVisibility="false"><Exceptions>'+exceptionsXml+'</Exceptions></Visibility>'+
+      '<Visibility DefaultVisibility="true"><Exceptions/></Visibility>'+
       selectionXml+colorXml+
       '</Components>\n'+
-      clips+'\n'+
-      '<PerspectiveCamera>'+
-      '<CameraViewPoint><X>'+camX.toFixed(6)+'</X><Y>'+camY.toFixed(6)+'</Y><Z>'+camZ.toFixed(6)+'</Z></CameraViewPoint>'+
-      '<CameraDirection><X>'+(ddx/ln).toFixed(6)+'</X><Y>'+(ddy/ln).toFixed(6)+'</Y><Z>'+(ddz/ln).toFixed(6)+'</Z></CameraDirection>'+
-      '<CameraUpVector><X>0</X><Y>0</Y><Z>1</Z></CameraUpVector>'+
-      '<FieldOfView>60</FieldOfView>'+
-      '</PerspectiveCamera>\n'+
+      '<OrthogonalCamera><CameraViewPoint><X>0</X><Y>0</Y><Z>0</Z></CameraViewPoint><CameraDirection><X>0</X><Y>0</Y><Z>-1</Z></CameraDirection><CameraUpVector><X>0</X><Y>1</Y><Z>0</Z></CameraUpVector><ViewToWorldScale>1000</ViewToWorldScale></OrthogonalCamera>\n'+
       '</VisualizationInfo>');
     
     // snapshot
-    zip.file(tid+'/'+vid+'.png',snap64,{base64:true});
+    zip.file(tid+'/snapshot.png',snap64,{base64:true});
     
     if(i%10===0)setStatus('loading','BCF: '+(i+1)+'/'+clashResults.length+'...');
   }
