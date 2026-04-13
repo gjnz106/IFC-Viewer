@@ -1773,6 +1773,11 @@ async function applyDiffColors(){
         sub.updateMatrixWorld(true);
         sub.userData.diffSubset=name;
         sub.userData.srcModelIdx=modelIdx;
+        // Propagate srcModelIdx to ALL child meshes for picking
+        sub.traverse(ch=>{if(ch.isMesh){ch.userData.srcModelIdx=modelIdx;ch.userData.diffSubset=name}});
+        log('Subset '+name+': created with '+ids.length+' elements for model '+modelIdx);
+      }else{
+        log('Subset '+name+': createSubset returned null');
       }
       return sub;
     }catch(e){log('Subset error ('+name+'):',e.message);return null}
@@ -1780,16 +1785,26 @@ async function applyDiffColors(){
 
   // Added: only in model B (green solid)
   makeSub(1,addedIDs,matAdd,'added');
-  // Removed: only in model A (red semi-transparent)
-  makeSub(0,removedIDs,matRem,'removed');
+  // Removed: only in model A (red semi-transparent) — must stay visible even when model A is hidden
+  const removedSub=makeSub(0,removedIDs,matRem,'removed');
+  if(removedSub)removedSub.visible=true; // Force visible
   // Modified: show in model B (orange solid)
   makeSub(1,modifiedIDsB,matMod,'modified-b');
+  // Modified: also show old position in model A (orange transparent) for comparison
+  if(modifiedIDsA.length>0){
+    const matModA=new THREE.MeshPhongMaterial({color:0xf59e0b,transparent:true,opacity:0.35,side:THREE.DoubleSide,depthWrite:false,clippingPlanes:clipPlanes});
+    const modSubA=makeSub(0,modifiedIDsA,matModA,'modified-a');
+    if(modSubA)modSubA.visible=true; // Force visible even when model A hidden
+  }
   // Unchanged: show in model B (gray very transparent)
   makeSub(1,unchangedIDsB,matUnch,'unchanged-b');
 
-  // Hide model A completely (we show subsets for removed elements)
-  if(loadedModels[0])loadedModels[0].visible=false;
-  // Make model B base very faded
+  // Model A: very faded (removed elements shown via separate subset above)
+  if(loadedModels[0]){
+    loadedModels[0].visible=true;
+    loadedModels[0].traverse(c=>{if(c.isMesh){const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>{m.color=new THREE.Color(0xc0c4cc);m.opacity=0.04;m.transparent=true;m.depthWrite=false;m.needsUpdate=true})}});
+  }
+  // Model B: very faded (changed elements shown via subsets)
   if(loadedModels[1])loadedModels[1].traverse(c=>{if(c.isMesh){const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>{m.opacity=0.04;m.transparent=true;m.depthWrite=false;m.needsUpdate=true})}});
 }
 
@@ -1797,7 +1812,7 @@ async function getAllProps(modelID){
   const props={};
   const api=ifcLoader.ifcManager.state.api;
   
-  // Product type constants - use number values directly as fallback
+  // Product type constants - comprehensive list including MEP/Electrical
   const PRODUCT_TYPES=new Set([
     IFCWALL, IFCWALLSTANDARDCASE, IFCSLAB, IFCCOLUMN, IFCBEAM,
     IFCDOOR, IFCWINDOW, IFCROOF, IFCSTAIR, IFCSTAIRFLIGHT,
@@ -1805,20 +1820,69 @@ async function getAllProps(modelID){
     IFCBUILDINGELEMENTPROXY, IFCFURNISHINGELEMENT,
     IFCFLOWSEGMENT, IFCFLOWTERMINAL, IFCFLOWFITTING,
     IFCSITE, IFCBUILDING, IFCBUILDINGSTOREY,
-    // Numeric fallbacks for types that might not be imported
+    // Numeric IFC type codes for MEP/Electrical/Plumbing
     3512223829,3588315303,1051757585,3999819293,753842376,
     2082059205,3304561284,2979338954,331165859,4252922144,
     763608111,90941305,3026737570,626022354,1469388950,
     1281925730,2058353004,4136498852,3171933400,1758889154,
     4237592921,987401354,3132237377,3508470533,3024970846,
     3283111854,1687234759,900683007,1973544240,25142252,
-  ].filter(Boolean)); // Remove undefined
+    // Distribution elements (MEP)
+    1945004755, // IfcDistributionElement
+    3040386961, // IfcDistributionFlowElement  
+    3132237377, // IfcFlowStorageDevice
+    3508470533, // IfcFlowTreatmentDevice
+    2058353004, // IfcFlowController
+    4278956645, // IfcFlowMovingDevice
+    1658829314, // IfcEnergyConversionDevice
+    // Electrical
+    402227799,  // IfcElectricDistributionBoard (IFC4)
+    1634111441, // IfcElectricAppliance
+    264262732,  // IfcElectricGenerator
+    3310460725, // IfcElectricMotor
+    // Additional common types
+    1335981549, // IfcDiscreteAccessory
+    843113511,  // IfcColumn (alternate)
+    2391368822, // IfcBuildingElementProxy (alternate code)
+    3493046030, // IfcDistributionPort
+    3415622556, // IfcDistributionChamberElement
+    900683007,  // IfcFooting (alternate)
+    819412036,  // IfcFilter
+    342316401,  // IfcDuctFitting
+    3518393246, // IfcDuctSegment
+    1360408905, // IfcDuctSilencer
+    1904799276, // IfcElectricFlowStorageDevice
+    862014818,  // IfcElectricTimeControl
+    1426591983, // IfcFireSuppressionTerminal
+    4074379575, // IfcHumidifier
+    2176052936, // IfcJunctionBox
+    76236018,   // IfcLamp
+    629592764,  // IfcLightFixture
+    1437502449, // IfcMedicalDevice
+    707683696,  // IfcOutlet
+    3132237377, // IfcPipeFitting  
+    3612865200, // IfcPipeSegment
+    3640358203, // IfcProtectiveDevice
+    2295281155, // IfcProtectiveDeviceTrippingUnit
+    90941305,   // IfcPump
+    2474470126, // IfcSanitaryTerminal
+    1973544240, // IfcSensor
+    3825984169, // IfcTransformer
+    3026737570, // IfcTubeBundle
+    4207607924, // IfcValve
+    2391406946, // IfcWasteTerminal
+  ].filter(Boolean));
   
   // METHOD 1: Scan by type
   let found=0;
+  const typeCounts={};
   for(const typeNum of PRODUCT_TYPES){
     try{
       const lines=api.GetLineIDsWithType(modelID,typeNum);
+      const cnt=lines.size();
+      if(cnt===0)continue;
+      const typeName=IFC_NAMES[typeNum]||('IFC_'+typeNum);
+      typeCounts[typeName]=(typeCounts[typeName]||0)+cnt;
       const cnt=lines.size();
       for(let i=0;i<cnt;i++){
         const eid=lines.get(i);
@@ -1835,6 +1899,7 @@ async function getAllProps(modelID){
   }
   
   log(`getAllProps method1 (by type): found ${found} entities`);
+  log('  Types: '+Object.entries(typeCounts).map(([t,c])=>t+'='+c).join(', '));
   
   // METHOD 2: If method 1 found nothing, scan ALL lines for entities with GlobalId
   if(found===0){
@@ -1930,6 +1995,12 @@ function doCompare(a,b){
   const geoHashB=computeGeometryHashes(1);
   log(`Geometry hashes: A=${Object.keys(geoHashA).length}, B=${Object.keys(geoHashB).length}`);
   
+  // Log sample entries for debugging
+  const sampleA=Object.entries(geoHashA).slice(0,3);
+  const sampleB=Object.entries(geoHashB).slice(0,3);
+  sampleA.forEach(([eid,h])=>log(`  GeoHash A #${eid}: verts=${h.vertCount} center=(${h.center.x.toFixed(2)},${h.center.y.toFixed(2)},${h.center.z.toFixed(2)}) size=(${h.size.x.toFixed(2)},${h.size.y.toFixed(2)},${h.size.z.toFixed(2)})`));
+  sampleB.forEach(([eid,h])=>log(`  GeoHash B #${eid}: verts=${h.vertCount} center=(${h.center.x.toFixed(2)},${h.center.y.toFixed(2)},${h.center.z.toFixed(2)}) size=(${h.size.x.toFixed(2)},${h.size.y.toFixed(2)},${h.size.z.toFixed(2)})`));
+  
   // ── Phase 1: Match by GlobalId (exact) ──
   const allGids=new Set([...Object.keys(a),...Object.keys(b)]);
   const unmatchedA=[];
@@ -1946,36 +2017,40 @@ function doCompare(a,b){
       if(ea.tag!==eb.tag)d.push({prop:'Element ID',oldVal:ea.tag||'—',newVal:eb.tag||'—'});
       
       // ── Geometry comparison with tolerance ──
-      // IFC re-export can cause minor floating point diffs — only flag SIGNIFICANT changes
       const ghA=geoHashA[ea.expressID];
       const ghB=geoHashB[eb.expressID];
       if(ghA&&ghB){
-        // Vertex count change > 10% = significant geometry change
+        // Vertex count change > 5% = geometry change
         const vcA=ghA.vertCount,vcB=ghB.vertCount;
         const vcDiff=Math.abs(vcA-vcB)/Math.max(vcA,vcB,1);
-        if(vcDiff>0.1){
+        if(vcDiff>0.05){
           d.push({prop:'Geometry (vertices)',oldVal:String(vcA),newVal:String(vcB)});
         }
         
-        // Bounding box size change > 2% of any dimension = significant
+        // Bounding box size change > 0.5% = significant
         const sA=ghA.size,sB=ghB.size;
         if(sA&&sB){
           const maxDim=Math.max(sA.x,sA.y,sA.z,sB.x,sB.y,sB.z,0.01);
           const dxS=Math.abs(sA.x-sB.x)/maxDim;
           const dyS=Math.abs(sA.y-sB.y)/maxDim;
           const dzS=Math.abs(sA.z-sB.z)/maxDim;
-          if(dxS>0.02||dyS>0.02||dzS>0.02){
-            d.push({prop:'Size Changed',oldVal:`${sA.x.toFixed(2)}×${sA.y.toFixed(2)}×${sA.z.toFixed(2)}`,newVal:`${sB.x.toFixed(2)}×${sB.y.toFixed(2)}×${sB.z.toFixed(2)}`});
+          if(dxS>0.005||dyS>0.005||dzS>0.005){
+            d.push({prop:'Size Changed',oldVal:`${sA.x.toFixed(3)}×${sA.y.toFixed(3)}×${sA.z.toFixed(3)}`,newVal:`${sB.x.toFixed(3)}×${sB.y.toFixed(3)}×${sB.z.toFixed(3)}`});
           }
           
-          // Position change > 0.5 units (meters) = moved
+          // Position change > 0.01 units (10mm) = moved
           const cA=ghA.center,cB=ghB.center;
           if(cA&&cB){
             const posDist=Math.sqrt((cA.x-cB.x)**2+(cA.y-cB.y)**2+(cA.z-cB.z)**2);
-            if(posDist>0.5){
-              d.push({prop:'Position Moved',oldVal:`(${cA.x.toFixed(2)},${cA.y.toFixed(2)},${cA.z.toFixed(2)})`,newVal:`(${cB.x.toFixed(2)},${cB.y.toFixed(2)},${cB.z.toFixed(2)})`});
+            if(posDist>0.01){
+              d.push({prop:'Position Moved',oldVal:`(${cA.x.toFixed(3)},${cA.y.toFixed(3)},${cA.z.toFixed(3)})`,newVal:`(${cB.x.toFixed(3)},${cB.y.toFixed(3)},${cB.z.toFixed(3)})`,distance:(posDist*1000).toFixed(0)+'mm'});
             }
           }
+        }
+        
+        // Hash comparison — catches any vertex-level change not covered by bbox
+        if(ghA.hash!==ghB.hash&&d.length===0){
+          d.push({prop:'Geometry Changed',oldVal:'hash:'+ghA.hash,newVal:'hash:'+ghB.hash});
         }
       }
       
@@ -1988,6 +2063,17 @@ function doCompare(a,b){
   }
   
   log(`Phase1 (GlobalId+Geometry): modified=${modified.length}, unchanged=${unchanged.length}, unmatchedA=${unmatchedA.length}, unmatchedB=${unmatchedB.length}`);
+  
+  // Diagnostic: how many matched pairs had geometry data
+  let geoFoundBoth=0,geoMissingA=0,geoMissingB=0,geoMissingBoth=0;
+  [...modified,...unchanged].forEach(e=>{
+    const hA=geoHashA[e.a.expressID],hB=geoHashB[e.b.expressID];
+    if(hA&&hB)geoFoundBoth++;
+    else if(!hA&&!hB)geoMissingBoth++;
+    else if(!hA)geoMissingA++;
+    else geoMissingB++;
+  });
+  log(`  Geo data: both=${geoFoundBoth}, missingA=${geoMissingA}, missingB=${geoMissingB}, missingBoth=${geoMissingBoth}`);
   
   // ── Phase 2: Smart match unmatched by Type + Name ──
   // When Revit modifies/moves an element, it often creates a new GlobalId.
