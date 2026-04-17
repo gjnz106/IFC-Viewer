@@ -299,7 +299,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);heigh
       <button class="btn" id="btnSection" onclick="toggleSectionBox()">✂ Section</button>
       <button class="btn" onclick="zoomFit()">⊞ Fit</button>
       <button class="btn" onclick="toggleWire()">◫ Wire</button>
-      <button class="btn" onclick="toggleGrid()">⊞ Grid</button>
       <button class="btn" id="btnShowAll" style="display:none" onclick="showAllHidden()">👁 Show All</button>
       <button class="btn" id="btnWalk" onclick="toggleWalkMode()">🚶 Walk</button>
       <button class="btn" onclick="resetCam()">⌂ Reset</button>
@@ -584,7 +583,6 @@ function initThree(){
   const d1=new THREE.DirectionalLight(0xffffff,1.5);d1.position.set(80,120,80);scene.add(d1);
   const d2=new THREE.DirectionalLight(0x99aacc,0.5);d2.position.set(-50,80,-50);scene.add(d2);
   scene.add(new THREE.HemisphereLight(0xddeeff,0x99aa88,0.5));
-  scene.add(new THREE.GridHelper(200,100,0xc0c8d4,0xd8dce6));
 
   // Picking
   const ray=new THREE.Raycaster();const mouse=new THREE.Vector2();
@@ -1218,11 +1216,6 @@ async function loadIFC(idx){
     const bCenter=new THREE.Vector3().addVectors(modelBounds.min,modelBounds.max).multiplyScalar(0.5);
     camera.position.set(bCenter.x+dist*.6,bCenter.y+dist*.5,bCenter.z+dist*.6);
     controls.target.copy(bCenter);controls.update();
-
-    // Update grid
-    const oldGrids=[];scene.traverse(c=>{if(c.type==='GridHelper')oldGrids.push(c)});
-    oldGrids.forEach(g=>scene.remove(g));
-    scene.add(new THREE.GridHelper(Math.max(mx2*2,50),50,0xc0c8d4,0xd8dce6));
 
     st.className='uc-status ok';st.textContent='✓ Loaded';
     document.getElementById('visRow'+idx).style.display='block';
@@ -2505,7 +2498,6 @@ window.zoomFit=function(){
 };
 window.resetCam=function(){camera.position.set(30,25,30);controls.target.set(0,0,0);controls.update();if(loadedModels[0]||loadedModels[1])zoomFit()};
 window.toggleWire=function(){scene.traverse(c=>{if(c.isMesh){const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>m.wireframe=!m.wireframe)}})};
-window.toggleGrid=function(){scene.traverse(c=>{if(c.type==='GridHelper'||c.type==='AxesHelper')c.visible=!c.visible})};
 
 // ══ Screenshot ══
 window.captureScreenshot=function(){
