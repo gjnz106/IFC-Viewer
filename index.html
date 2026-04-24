@@ -3075,6 +3075,156 @@ async function initIFC(){
 }
 
 // ══ Load IFC ══
+// ══ Project Units + Spatial Structure readers ══
+// These run once per model load and cache results on loadedModels[idx] so
+// per-element property rendering can do unit conversion + spatial context
+// without repeated traversals.
+
+// Cheap helper to pick a filename from the uc-pair UI (used when we want a
+// model label but model object hasn't cached one yet).
+function fileA_name_if_set(idx){
+  try{
+    const span=document.querySelector(`#uc${idx} .uc-file`);
+    return span?.textContent?.trim()||('Model '+(idx===0?'A':'B'));
+  }catch(e){return 'Model '+(idx===0?'A':'B')}
+}
+
+// Read project units from IfcProject.UnitsInContext.Units. For each unit type
+// (LENGTHUNIT, AREAUNIT, VOLUMEUNIT), compute a factor to convert from the
+// project's internal representation to millimetres / square metres / cubic
+// metres. SI units use IfcSIUnit.Prefix (MILLI, CENTI, ...) for power-of-10
+// scaling; conversion-based units (FOOT, INCH) use their ValueComponent.
+// Returns {lengthFactor, lengthUnit, areaFactor, areaUnit, volumeFactor, volumeUnit}.
+async function readProjectUnits(modelID){
+  const out={
+    lengthFactor:1000, lengthUnit:'mm',   // default: assume metres → *1000 to get mm
+    areaFactor:  1,    areaUnit:  'm²',
+    volumeFactor:1,    volumeUnit:'m³',
+  };
+  const mgr=ifcLoader.ifcManager;
+  // Find the IfcProject (usually 1 per file, small ID). Robust way: ask
+  // web-ifc directly.
+  try{
+    const api=mgr.state.api;
+    // Get all IfcProject express IDs using imported constant
+    const projIDs=await api.GetLineIDsWithType(modelID, IFCPROJECT);
+    const cnt=projIDs.size();
+    if(!cnt)return out;
+    const projID=projIDs.get(0);
+    const project=await mgr.getItemProperties(modelID, projID, true);
+    const unitsRoot=project?.UnitsInContext;
+    // UnitsInContext is either an inline IfcUnitAssignment or a ref
+    let unitAssignment=unitsRoot;
+    if(unitsRoot?.value!==undefined && typeof unitsRoot.value==='number'){
+      unitAssignment=await mgr.getItemProperties(modelID, unitsRoot.value, true);
+    }
+    if(!unitAssignment?.Units)return out;
+    const units=Array.isArray(unitAssignment.Units)?unitAssignment.Units:[unitAssignment.Units];
+
+    // SI prefix → power-of-10 multiplier (to metre)
+    const SI_PREFIX={EXA:1e18,PETA:1e15,TERA:1e12,GIGA:1e9,MEGA:1e6,KILO:1e3,HECTO:1e2,DECA:1e1,
+      DECI:1e-1,CENTI:1e-2,MILLI:1e-3,MICRO:1e-6,NANO:1e-9,PICO:1e-12,FEMTO:1e-15,ATTO:1e-18};
+
+    const resolveUnit=async(u)=>{
+      if(typeof u?.value==='number')return await mgr.getItemProperties(modelID, u.value, true);
+      return u;
+    };
+
+    for(const uRef of units){
+      const u=await resolveUnit(uRef);
+      if(!u)continue;
+      // UnitType is an enum like {value:'LENGTHUNIT', type:3}
+      const ut = u.UnitType?.value || u.UnitType;
+      const className = IFC_NAMES[u.type] || '';
+      if(!ut)continue;
+      let factor=1;
+      if(className==='IfcSIUnit'){
+        // Factor from this SI unit to the base SI unit (metre/m²/m³)
+        const prefix = u.Prefix?.value || u.Prefix;
+        if(prefix && SI_PREFIX[prefix])factor=SI_PREFIX[prefix];
+        // For area/volume the prefix actually applies per-dimension. web-ifc
+        // typically stores raw SI (square_metre, cubic_metre) without prefix,
+        // so this is mostly a no-op for area/volume.
+      }else if(className==='IfcConversionBasedUnit'){
+        // ValueComponent is an IfcMeasureWithUnit { ValueComponent (the
+        // numeric factor), UnitComponent (the base SI unit) }. We traverse
+        // to find the factor in metres per foot / inch / etc.
+        const convRef=u.ConversionFactor;
+        if(convRef){
+          const conv = typeof convRef?.value==='number'
+            ? await mgr.getItemProperties(modelID, convRef.value, true)
+            : convRef;
+          const vc = conv?.ValueComponent;
+          // ValueComponent is typically {value: 0.3048, type: typecode}
+          const numFactor = vc?.value ?? vc;
+          if(typeof numFactor==='number')factor=numFactor;
+        }
+      }
+      // Write to output per UnitType
+      if(ut==='LENGTHUNIT'){
+        // Convert raw value → mm: raw * factor(→metre) * 1000
+        out.lengthFactor = factor * 1000;
+        // Display unit: if conversion is based (ft/in), still show mm for
+        // consistency with BIMcollab. Users expect normalized mm.
+        out.lengthUnit = 'mm';
+      }else if(ut==='AREAUNIT'){
+        // SI square_metre already; for conversion (sq_ft) factor²
+        out.areaFactor = className==='IfcConversionBasedUnit' ? (factor*factor) : factor;
+        out.areaUnit = 'm²';
+      }else if(ut==='VOLUMEUNIT'){
+        out.volumeFactor = className==='IfcConversionBasedUnit' ? (factor*factor*factor) : factor;
+        out.volumeUnit = 'm³';
+      }
+    }
+  }catch(e){log('readProjectUnits err:',e?.message)}
+  return out;
+}
+
+// Read spatial structure once. Cache storeys sorted by elevation + keep
+// project/site/building names so Location section can surface them without
+// re-traversal per element.
+async function readSpatialInfo(modelID, modelName){
+  const mgr=ifcLoader.ifcManager;
+  const info={
+    projectName:'', siteName:'', buildingName:'',
+    storeys:[],           // [{expressID, name, elevation}] sorted asc by elev
+    modelName: modelName || '',
+  };
+  try{
+    const api=mgr.state.api;
+    // Use web-ifc constants imported at top of module — safer than hardcoded numbers.
+    const projIDs=await api.GetLineIDsWithType(modelID, IFCPROJECT);
+    if(projIDs.size()){
+      const p=await mgr.getItemProperties(modelID, projIDs.get(0), false);
+      info.projectName = p?.Name?.value || p?.LongName?.value || '';
+    }
+    const siteIDs=await api.GetLineIDsWithType(modelID, IFCSITE);
+    if(siteIDs.size()){
+      const s=await mgr.getItemProperties(modelID, siteIDs.get(0), false);
+      info.siteName = s?.Name?.value || s?.LongName?.value || '';
+    }
+    const bldgIDs=await api.GetLineIDsWithType(modelID, IFCBUILDING);
+    if(bldgIDs.size()){
+      const b=await mgr.getItemProperties(modelID, bldgIDs.get(0), false);
+      info.buildingName = b?.Name?.value || b?.LongName?.value || '';
+    }
+    const storeyIDs=await api.GetLineIDsWithType(modelID, IFCBUILDINGSTOREY);
+    for(let i=0;i<storeyIDs.size();i++){
+      const sid=storeyIDs.get(i);
+      const s=await mgr.getItemProperties(modelID, sid, false);
+      if(!s)continue;
+      const elev = s.Elevation?.value ?? 0;
+      info.storeys.push({
+        expressID: sid,
+        name: s.Name?.value || s.LongName?.value || ('Storey '+sid),
+        elevation: elev,
+      });
+    }
+    info.storeys.sort((a,b)=>a.elevation-b.elevation);
+  }catch(e){log('readSpatialInfo err:',e?.message)}
+  return info;
+}
+
 async function loadIFC(idx){
   const file=files[idx];if(!file||!ifcLoader)return;
   const st=document.getElementById('us'+idx);st.className='uc-status prog';st.textContent='⏳ Parsing...';
@@ -3134,6 +3284,21 @@ async function loadIFC(idx){
 
     loadedModels[idx]=model;scene.add(model);
     document.getElementById('emptyVP').style.display='none';
+
+    // ── Extract project units + spatial structure for this model ──
+    // Units: web-ifc returns raw STEP values in whatever unit the project
+    // declared. For Revit US files this is often FOOT (via
+    // IfcConversionBasedUnit), while BIMcollab and other viewers convert to
+    // mm. We read IfcProject.UnitsInContext.Units once per load and cache the
+    // conversion factors on the model for later use when rendering Psets.
+    try{
+      const units=await readProjectUnits(model.modelID);
+      const spatial=await readSpatialInfo(model.modelID, fileA_name_if_set(idx));
+      loadedModels[idx].units=units;
+      loadedModels[idx].spatial=spatial;
+      loadedModels[idx].fileName=document.getElementById('uc'+idx)?.querySelector('.uc-status')?.textContent||'model_'+idx;
+      log(`Model ${idx}: lengthFactor=${units.lengthFactor}mm, areaFactor=${units.areaFactor}m², ${spatial.storeys.length} storeys`);
+    }catch(ue){log('Units/spatial read error:',ue?.message)}
 
     // Camera — use combined model bounds for proper framing
     const bSize=new THREE.Vector3().subVectors(modelBounds.max,modelBounds.min);
@@ -4367,26 +4532,81 @@ async function showProps(props,modelIdx){
     if(typeof v==='number')return Number.isInteger(v)?String(v):(+v.toFixed(6)+'').replace(/\.?0+$/,'');
     return String(v);
   };
+  // Units for this model (set during loadIFC). Fallback: identity-ish defaults.
+  const units = loadedModels[modelIdx]?.units || {
+    lengthFactor:1000, lengthUnit:'mm',
+    areaFactor:1,      areaUnit:'m²',
+    volumeFactor:1,    volumeUnit:'m³',
+  };
+  const spatial = loadedModels[modelIdx]?.spatial || null;
+
+  // Format a number with unit. Length values get thousands-separator + mm
+  // suffix (e.g. "1,619 mm"). Area/volume show 2 decimals + unit.
+  const fmtLength=(raw)=>{
+    if(typeof raw!=='number'||isNaN(raw))return '';
+    const mm = raw * units.lengthFactor;
+    // Round to 0 decimals for mm (engineering convention)
+    const rounded = Math.round(mm);
+    return rounded.toLocaleString('en-US') + ' ' + units.lengthUnit;
+  };
+  const fmtArea=(raw)=>{
+    if(typeof raw!=='number'||isNaN(raw))return '';
+    const m2 = raw * units.areaFactor;
+    return m2.toFixed(2) + ' ' + units.areaUnit;
+  };
+  const fmtVolume=(raw)=>{
+    if(typeof raw!=='number'||isNaN(raw))return '';
+    const m3 = raw * units.volumeFactor;
+    return m3.toFixed(3) + ' ' + units.volumeUnit;
+  };
+
   // Pretty-print a property value of any IfcProperty* subtype.
+  // Detect measure type to apply unit conversion. For IfcQuantity* the type
+  // is implicit in the field name (LengthValue vs AreaValue). For regular
+  // IfcPropertySingleValue we inspect the NominalValue wrapper's type code.
   const extractPropValue=(p)=>{
     if(!p)return '';
-    // IfcPropertySingleValue.NominalValue
-    if(p.NominalValue!==undefined)return getVal(p.NominalValue);
-    // IfcPropertyEnumeratedValue.EnumerationValues (array)
+    // ── IfcQuantity* (IfcElementQuantity) ──
+    // These have fixed semantic types that web-ifc represents as dedicated
+    // fields. Apply unit conversion based on the field used.
+    if(p.LengthValue !==undefined)return fmtLength(p.LengthValue?.value ?? p.LengthValue);
+    if(p.AreaValue   !==undefined)return fmtArea  (p.AreaValue?.value   ?? p.AreaValue);
+    if(p.VolumeValue !==undefined)return fmtVolume(p.VolumeValue?.value ?? p.VolumeValue);
+    if(p.WeightValue !==undefined){const v=p.WeightValue?.value??p.WeightValue;return (typeof v==='number')?(v.toFixed(2)+' kg'):getVal(p.WeightValue)}
+    if(p.CountValue  !==undefined)return getVal(p.CountValue);
+    if(p.TimeValue   !==undefined){const v=p.TimeValue?.value??p.TimeValue;return (typeof v==='number')?(v.toFixed(2)+' s'):getVal(p.TimeValue)}
+    // ── IfcPropertySingleValue.NominalValue ──
+    // The type code on the NominalValue wrapper tells us what measure it is.
+    // We don't have a rock-solid mapping, so the hybrid fallback:
+    //   1. Try to detect by property Name (e.g. "Length", "Width",
+    //      "OuterSurfaceArea") — pattern matching on common Pset conventions.
+    //   2. Otherwise render as a raw number via getVal().
+    if(p.NominalValue!==undefined){
+      const nv=p.NominalValue;
+      const rawV = (nv && typeof nv==='object' && 'value' in nv) ? nv.value : nv;
+      const name = (p.Name?.value || p.Name || '').toString();
+      if(typeof rawV==='number'){
+        // Length-ish property names (case-insensitive exact match on common suffixes)
+        if(/^(length|width|height|thickness|diameter|radius|depth|size|perimeter|offset|overall(length|width|height)|nominallength|nominalwidth|nominalheight|nominaldiameter|wall\s*thickness|insulation\s*thickness|invertelevation|elevation)$/i.test(name)){
+          return fmtLength(rawV);
+        }
+        // Area-ish
+        if(/area$/i.test(name)){
+          return fmtArea(rawV);
+        }
+        // Volume-ish
+        if(/volume$/i.test(name)){
+          return fmtVolume(rawV);
+        }
+      }
+      return getVal(nv);
+    }
     if(p.EnumerationValues)return getVal(p.EnumerationValues);
-    // IfcPropertyListValue.ListValues (array)
     if(p.ListValues)return getVal(p.ListValues);
-    // IfcPropertyBoundedValue: show range "[lower .. upper]"
     if(p.LowerBoundValue!==undefined||p.UpperBoundValue!==undefined){
       const lo=getVal(p.LowerBoundValue), up=getVal(p.UpperBoundValue);
       return `[${lo||'−∞'} .. ${up||'+∞'}]`;
     }
-    // IfcPropertyTableValue, IfcPropertyReferenceValue, IfcComplexProperty — fall through
-    // IfcQuantity*: LengthValue/AreaValue/VolumeValue/WeightValue/CountValue/TimeValue
-    const qv=getVal(p.LengthValue)||getVal(p.AreaValue)||getVal(p.VolumeValue)
-           ||getVal(p.WeightValue)||getVal(p.CountValue)||getVal(p.TimeValue);
-    if(qv)return qv;
-    // Last resort: show any .value we can find
     return getVal(p);
   };
   const resolveRef=async(ref, recursive=false)=>{
@@ -4509,11 +4729,75 @@ async function showProps(props,modelIdx){
     }
   }catch(e){}
 
-  if(materialLabel||levelLabel||systemLabel){
-    h+='<div class="ps"><div class="ps-t">Location &amp; Context</div>';
-    addRow('Level / Storey', levelLabel);
-    addRow('System / Group', systemLabel);
-    addRow('Material', materialLabel);
+  // ── Find current storey index (for computing distances to adjacent ones) ──
+  let currentStoreyIdx = -1;
+  if(spatial && levelLabel){
+    currentStoreyIdx = spatial.storeys.findIndex(s=>s.name===levelLabel);
+  }
+
+  // ── Compute elevation info from element bbox (Three.js Y-up space) ──
+  // In IFC Z is vertical (up), but three.js uses Y-up. web-ifc-three converts
+  // geometry so Z becomes Y. Meaning: Y in three-space == Z in IFC-space.
+  let topY=null, botY=null, gX=null, gY=null, gZ=null;
+  try{
+    const bb=getElementBBox(modelIdx, eid);
+    if(bb && bb.center){
+      topY = bb.center.y + bb.size.y/2;
+      botY = bb.center.y - bb.size.y/2;
+      // Global = bbox center. Reverse-apply model offset if model is translated.
+      const off = loadedModels[modelIdx]?.position || {x:0,y:0,z:0};
+      // Three.js (x,y,z) ↔ IFC (x,z,-y). y is vertical in three → Z in IFC.
+      gX = bb.center.x - off.x;
+      gY = -(bb.center.z - off.z);  // IFC Y = -three.Z
+      gZ = bb.center.y - off.y;     // IFC Z = three.Y
+      // Also unshift topY/botY from model offset to get world IFC Z
+      topY = topY - off.y;
+      botY = botY - off.y;
+    }
+  }catch(e){}
+
+  // ── Always render Location section if we have ANY data (project/site/
+  // building/storey/elevation/coords) ──
+  // This mirrors BIMcollab's Location tab: 13 fields of spatial + geometric
+  // context that help BIM engineers orient themselves in the model.
+  const haveLocation = spatial || materialLabel || systemLabel ||
+                       topY!==null || gX!==null;
+  if(haveLocation){
+    h+='<div class="ps"><div class="ps-t">Location</div>';
+    // Spatial hierarchy
+    if(spatial){
+      addRow('Model',          spatial.modelName || loadedModels[modelIdx]?.fileName);
+      addRow('Project',        spatial.projectName);
+      addRow('Site',           spatial.siteName);
+      addRow('Building',       spatial.buildingName);
+    }
+    addRow('Building Story',   levelLabel);
+    addRow('System',           systemLabel);
+    addRow('Material',         materialLabel);
+    // Elevations (IFC Z in project units → convert to mm via lengthFactor)
+    // Note: we use the model position offset so these are in project global
+    // coords, matching BIMcollab's "Top Elevation" / "Bottom Elevation".
+    if(topY!==null)addRow('Top Elevation',    fmtLength(topY));
+    if(botY!==null)addRow('Bottom Elevation', fmtLength(botY));
+    // Distances to adjacent storeys — find the storey ABOVE current and the
+    // one BELOW current (sorted by elevation). Compute signed distance from
+    // element top to next storey and from element bottom to storey below.
+    if(spatial && spatial.storeys.length>1 && topY!==null && botY!==null){
+      let next=null, prev=null;
+      for(const s of spatial.storeys){
+        if(s.elevation > topY && (!next || s.elevation<next.elevation))next=s;
+        if(s.elevation < botY && (!prev || s.elevation>prev.elevation))prev=s;
+      }
+      if(next)addRow('Top distance to next Story',    fmtLength(topY - next.elevation));
+      if(prev)addRow('Bottom distance to next Story', fmtLength(botY - prev.elevation));
+    }
+    // Global coords — element bbox center in IFC coord system
+    if(gX!==null)addRow('Global X', fmtLength(gX));
+    if(gY!==null)addRow('Global Y', fmtLength(gY));
+    if(gZ!==null)addRow('Global Z', fmtLength(gZ));
+    // "Elevation" in BIMcollab is usually the bottom Z of the element (aka
+    // floor-level elevation). Provide as an alias for convenience.
+    if(botY!==null)addRow('Elevation', fmtLength(botY));
     h+='</div>';
   }
 
@@ -6222,38 +6506,50 @@ window.exportClashBCF=async function(){
     document.head.appendChild(s);
     await new Promise((res,rej)=>{s.onload=res;s.onerror=rej});
   }
-  
+
   setStatus('loading','Exporting Clash BCF...');
   log('Exporting BCF for '+clashResults.length+' clashes...');
   const zip=new JSZip();
   const now=new Date().toISOString();
   const pid=crypto.randomUUID();
-  
-  // Model offset: reverse model.position to get original IFC coords
-  // IMPORTANT: Three.js uses Y-up, but IFC/BCF uses Z-up
-  // web-ifc-three swaps Y↔Z during load, so we must swap back for BCF
-  const off={x:0,y:0,z:0};
-  for(let i=0;i<2;i++){if(loadedModels[i]){off.x=-loadedModels[i].position.x;off.y=-loadedModels[i].position.y;off.z=-loadedModels[i].position.z;break}}
-  log('BCF offset (Three.js Y-up): ('+off.x.toFixed(2)+', '+off.y.toFixed(2)+', '+off.z.toFixed(2)+')');
-  
-  // Convert Three.js point (Y-up) to IFC/BCF point (Z-up): swap Y and Z, negate new Y
-  // Simple offset reversal — no axis swap
-  // BCF coordinates = Three.js app coordinates + model position offset
-  const addOff=(px,py,pz)=>({x:px+off.x, y:py+off.y, z:pz+off.z});
-  
-  // Save camera
+
+  // ── Coord transform: Three.js Y-up → IFC Z-up (BCF spec) ──
+  // Same logic as exportBCF (compare). The previous clash exporter only added
+  // the model offset back without doing the axis swap, so all viewpoint
+  // coordinates were in Three-space. Result: BCF Reader saw "viewpoint near
+  // origin" → no zoom-to-issue and the snapshot framing camera was also wrong.
+  const mdlPos={x:0,y:0,z:0};
+  for(let i=0;i<2;i++){if(loadedModels[i]){mdlPos.x=loadedModels[i].position.x;mdlPos.y=loadedModels[i].position.y;mdlPos.z=loadedModels[i].position.z;break}}
+  // Three (x,y,z) → IFC (x, z, -y): reverse offset first, then swap Y↔Z, negate Y.
+  const threeToIfc=(x,y,z)=>{
+    const tx=x-mdlPos.x, ty=y-mdlPos.y, tz=z-mdlPos.z;
+    return {x:tx, y:tz, z:-ty};
+  };
+  log('Clash BCF model offset (three-space): ('+mdlPos.x.toFixed(2)+', '+mdlPos.y.toFixed(2)+', '+mdlPos.z.toFixed(2)+')');
+
+  // Save camera + section box + previous focus state before mutating the scene
+  // for snapshot rendering. focusClash() modifies all of these; we restore at end.
   const saveCam=camera.position.clone();
   const saveTgt=controls.target.clone();
-  
+  const saveSectionActive=sectionActive;
+  const savePrevClashIdx=(typeof currentClashIdx!=='undefined')?currentClashIdx:-1;
+  // Snapshot section box slider values so we can restore the user's previous
+  // section box exactly. focusClash overwrites them per issue.
+  const saveSlider={
+    Xp:document.getElementById('slXp')?.value, Xn:document.getElementById('slXn')?.value,
+    Yp:document.getElementById('slYp')?.value, Yn:document.getElementById('slYn')?.value,
+    Zp:document.getElementById('slZp')?.value, Zn:document.getElementById('slZn')?.value,
+  };
+
   zip.file('bcf.version','<?xml version="1.0" encoding="UTF-8"?>\n<Version VersionId="2.1" xsi:noNamespaceSchemaLocation="version.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><DetailedVersion>2.1</DetailedVersion></Version>');
   zip.file('project.bcfp','<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Project ProjectId="'+pid+'"><n>IFC Delta Clash Detection</n></Project></ProjectExtension>');
-  
+
   for(let i=0;i<clashResults.length;i++){
     const cl=clashResults[i];
     const tid=crypto.randomUUID();
     const vid=crypto.randomUUID();
-    
-    // Get GlobalIds for both elements
+
+    // GlobalIds for both elements
     let guidA='',guidB='';
     try{
       const pA=await ifcLoader.ifcManager.getItemProperties(loadedModels[0].modelID,cl.elA.eid,false);
@@ -6263,68 +6559,108 @@ window.exportClashBCF=async function(){
       const pB=await ifcLoader.ifcManager.getItemProperties(loadedModels[1].modelID,cl.elB.eid,false);
       if(pB?.GlobalId?.value)guidB=pB.GlobalId.value;
     }catch(e){}
-    
-    // Clash zone center in BCF/IFC coords (Z-up)
-    const cp=addOff(cl.point.x,cl.point.y,cl.point.z);
-    const ix=cp.x, iy=cp.y, iz=cp.z;
-    
-    // Section box around BOTH FULL ELEMENTS in BCF coords
-    // Convert all 8 corners of combined bbox from Three.js to BCF, then find extents
-    const corners=[
-      addOff(Math.min(cl.elA.bbox.mnX,cl.elB.bbox.mnX), Math.min(cl.elA.bbox.mnY,cl.elB.bbox.mnY), Math.min(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ)),
-      addOff(Math.max(cl.elA.bbox.mxX,cl.elB.bbox.mxX), Math.max(cl.elA.bbox.mxY,cl.elB.bbox.mxY), Math.max(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ)),
-      addOff(Math.min(cl.elA.bbox.mnX,cl.elB.bbox.mnX), Math.max(cl.elA.bbox.mxY,cl.elB.bbox.mxY), Math.min(cl.elA.bbox.mnZ,cl.elB.bbox.mnZ)),
-      addOff(Math.max(cl.elA.bbox.mxX,cl.elB.bbox.mxX), Math.min(cl.elA.bbox.mnY,cl.elB.bbox.mnY), Math.max(cl.elA.bbox.mxZ,cl.elB.bbox.mxZ))
-    ];
-    let sbMnX=Infinity,sbMnY=Infinity,sbMnZ=Infinity,sbMxX=-Infinity,sbMxY=-Infinity,sbMxZ=-Infinity;
-    corners.forEach(c=>{
-      sbMnX=Math.min(sbMnX,c.x);sbMnY=Math.min(sbMnY,c.y);sbMnZ=Math.min(sbMnZ,c.z);
-      sbMxX=Math.max(sbMxX,c.x);sbMxY=Math.max(sbMxY,c.y);sbMxZ=Math.max(sbMxZ,c.z);
-    });
-    // Add padding (2m)
-    const bPad=2.0;
-    sbMnX-=bPad;sbMnY-=bPad;sbMnZ-=bPad;
-    sbMxX+=bPad;sbMxY+=bPad;sbMxZ+=bPad;
-    
-    // Camera distance based on element bounding box size
-    const sbSizeMax=Math.max(sbMxX-sbMnX,sbMxY-sbMnY,sbMxZ-sbMnZ);
-    const d=sbSizeMax*1.5+5;
-    const camX=ix+d*0.4, camY=iy+d*0.3, camZ=iz+d*0.4;
-    const ddx=ix-camX, ddy=iy-camY, ddz=iz-camZ;
-    const ln=Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz)||1;
-    
-    // Snapshot
+
+    // ── Compute clash zone in Three-space, then transform for BCF ──
+    // The "clash zone" is the OVERLAP region of the two element bboxes. We
+    // size camera distance from this overlap so floor-vs-WC clashes don't
+    // frame the entire floor — only the small intersection volume.
+    const A=cl.elA.bbox, B=cl.elB.bbox;
+    const ovMnX=Math.max(A.mnX,B.mnX), ovMxX=Math.min(A.mxX,B.mxX);
+    const ovMnY=Math.max(A.mnY,B.mnY), ovMxY=Math.min(A.mxY,B.mxY);
+    const ovMnZ=Math.max(A.mnZ,B.mnZ), ovMxZ=Math.min(A.mxZ,B.mxZ);
+    // Overlap could be degenerate (line/point) for clearance clashes — use
+    // penetration as a floor on size so camera doesn't get plastered against
+    // the surface.
+    const ovSx=Math.max(0.5, (ovMxX-ovMnX));
+    const ovSy=Math.max(0.5, (ovMxY-ovMnY));
+    const ovSz=Math.max(0.5, (ovMxZ-ovMnZ));
+    const ovSize=Math.max(ovSx,ovSy,ovSz);
+    // Section box around the overlap with padding so the user can see context
+    // (not just the intersection plane). Padding scales with element size.
+    const elSize=Math.max(
+      A.mxX-A.mnX, A.mxY-A.mnY, A.mxZ-A.mnZ,
+      B.mxX-B.mnX, B.mxY-B.mnY, B.mxZ-B.mnZ
+    );
+    const sbPad=Math.max(1.5, Math.min(elSize*0.3, 5)); // 1.5–5m of context
+    const sbMnX=ovMnX-sbPad, sbMxX=ovMxX+sbPad;
+    const sbMnY=ovMnY-sbPad, sbMxY=ovMxY+sbPad;
+    const sbMnZ=ovMnZ-sbPad, sbMxZ=ovMxZ+sbPad;
+
+    // Clash centre in Three-space (use overlap centre, fall back to clash point)
+    const cxT = (ovMxX>ovMnX) ? (ovMnX+ovMxX)/2 : cl.point.x;
+    const cyT = (ovMxY>ovMnY) ? (ovMnY+ovMxY)/2 : cl.point.y;
+    const czT = (ovMxZ>ovMnZ) ? (ovMnZ+ovMxZ)/2 : cl.point.z;
+
+    // ── Snapshot rendering ──
+    // CRITICAL: Reuse focusClash() — the in-app function the user already sees
+    // working (Image 1). It applies the section box (clip planes) tightly
+    // around the overlap zone, sets the camera to the clash centre at proper
+    // distance, and creates the red+blue highlights for both elements.
+    //
+    // Without calling focusClash, the snapshot just renders the full scene
+    // from a guessed camera position — for floor-vs-pipe clashes the slab
+    // (huge planar element) fills the entire frame and you see nothing else.
+    //
+    // After capturing, we restore the section box state below the loop.
     let snap64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/58BHgAIBwJ+Qil1RAAAAABJRU5ErkJggg==';
     try{
-      camera.position.set(cl.point.x+d*0.4,cl.point.y+d*0.3,cl.point.z+d*0.4);
-      controls.target.set(cl.point.x,cl.point.y,cl.point.z);
-      controls.update();renderer.render(scene,camera);
+      // Apply the same focus the user gets when clicking a clash card. This
+      // sets clipPlanes (section box) around the overlap, places camera at
+      // a proper 3/4 angle to the clash zone, and highlights both elements.
+      window.focusClash(i);
+      // focusClash uses requestAnimationFrame implicitly (controls.update);
+      // wait two frames for the renderer to commit the new state, then read
+      // the canvas pixels.
       await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
       renderer.render(scene,camera);
-      snap64=renderer.domElement.toDataURL('image/png').split(',')[1];
-    }catch(e){}
-    
+      try{snap64=renderer.domElement.toDataURL('image/png').split(',')[1]}catch(e){}
+    }catch(e){log('Clash snapshot err #'+(i+1)+':',e?.message)}
+
+    // ── BCF camera in IFC coords ──
+    // Position the BCF perspective camera at the same 3/4 angle that
+    // focusClash() uses for the in-app view, so the BCF Reader's
+    // "Zoom to Issue" frames the same view the user saw when reviewing
+    // in IFC Delta. focusClash uses Three-space offset (0.45, 0.35, 0.45)
+    // from the clash centre. Mapping Three (x,y,z) → IFC (x,z,-y), this
+    // becomes IFC offset (0.45, 0.45, -0.35) from the IFC centre.
+    const ifcCenter=threeToIfc(cxT,cyT,czT);
+    const ix=ifcCenter.x, iy=ifcCenter.y, iz=ifcCenter.z;
+    // Camera distance based on section-box size in IFC space (overlap + pad,
+    // NOT combined element bbox — combined bbox is huge for slabs).
+    const ifcSx=Math.abs(threeToIfc(sbMxX,0,0).x - threeToIfc(sbMnX,0,0).x);
+    const ifcSy=Math.abs(threeToIfc(0,0,sbMxZ).y - threeToIfc(0,0,sbMnZ).y);
+    const ifcSz=Math.abs(threeToIfc(0,sbMxY,0).z - threeToIfc(0,sbMnY,0).z);
+    const viewR=Math.max(ifcSx, ifcSy, ifcSz)*2.5 + 2;
+    const camX=ix + viewR*0.45, camY=iy + viewR*0.45, camZ=iz - viewR*0.35;
+    const ddx=ix-camX, ddy=iy-camY, ddz=iz-camZ;
+    const ln=Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz)||1;
+
+    // ── Section box in IFC coords ──
+    // Convert the 8 Three-space corners of the section box to IFC, then take
+    // the IFC-space extents. Direction vectors per BCF spec point OUTWARD.
+    const cornersIfc=[
+      threeToIfc(sbMnX,sbMnY,sbMnZ), threeToIfc(sbMxX,sbMnY,sbMnZ),
+      threeToIfc(sbMnX,sbMxY,sbMnZ), threeToIfc(sbMxX,sbMxY,sbMnZ),
+      threeToIfc(sbMnX,sbMnY,sbMxZ), threeToIfc(sbMxX,sbMnY,sbMxZ),
+      threeToIfc(sbMnX,sbMxY,sbMxZ), threeToIfc(sbMxX,sbMxY,sbMxZ),
+    ];
+    let cMnX=Infinity,cMnY=Infinity,cMnZ=Infinity,cMxX=-Infinity,cMxY=-Infinity,cMxZ=-Infinity;
+    cornersIfc.forEach(c=>{cMnX=Math.min(cMnX,c.x);cMnY=Math.min(cMnY,c.y);cMnZ=Math.min(cMnZ,c.z);cMxX=Math.max(cMxX,c.x);cMxY=Math.max(cMxY,c.y);cMxZ=Math.max(cMxZ,c.z)});
+    const clips=
+      '<ClippingPlanes>'+
+      '<ClippingPlane><Location><X>'+cMxX.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>1</X><Y>0</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+cMnX.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>-1</X><Y>0</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+cMxY.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>1</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+cMnY.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>-1</Y><Z>0</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+cMxZ.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>1</Z></Direction></ClippingPlane>'+
+      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+cMnZ.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>-1</Z></Direction></ClippingPlane>'+
+      '</ClippingPlanes>';
+
     const penMM=(cl.penetration*1000).toFixed(1);
     const title='Clash #'+(i+1)+' '+(cl.isHard?'HARD':'CLEARANCE')+' ('+penMM+'mm) — '+(cl.elA.name||cl.elA.type)+' vs '+(cl.elB.name||cl.elB.type);
     const desc='Penetration: '+penMM+'mm | Source: '+(cl.elA.name||'#'+cl.elA.eid)+' ('+cl.elA.type+') | Target: '+(cl.elB.name||'#'+cl.elB.eid)+' ('+cl.elB.type+')';
-    
-    // Section box (6 clipping planes) around BOTH elements with padding
-    // BCF spec: Direction points outward (invisible side)
-    const clips=
-      '<ClippingPlanes>'+
-      '<ClippingPlane><Location><X>'+sbMxX.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>1</X><Y>0</Y><Z>0</Z></Direction></ClippingPlane>'+
-      '<ClippingPlane><Location><X>'+sbMnX.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>-1</X><Y>0</Y><Z>0</Z></Direction></ClippingPlane>'+
-      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+sbMxY.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>1</Y><Z>0</Z></Direction></ClippingPlane>'+
-      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+sbMnY.toFixed(6)+'</Y><Z>'+iz.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>-1</Y><Z>0</Z></Direction></ClippingPlane>'+
-      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+sbMxZ.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>1</Z></Direction></ClippingPlane>'+
-      '<ClippingPlane><Location><X>'+ix.toFixed(6)+'</X><Y>'+iy.toFixed(6)+'</Y><Z>'+sbMnZ.toFixed(6)+'</Z></Location><Direction><X>0</X><Y>0</Y><Z>-1</Z></Direction></ClippingPlane>'+
-      '</ClippingPlanes>';
-    
-    // Build schema-valid <Component> XML per BCF 2.1 visinfo.xsd.
-    // IfcGuid is an attribute; OriginatingSystem and AuthoringToolId are CHILD ELEMENTS
-    // (not attributes). Writing them as attrs makes the whole Component malformed and
-    // BIMcollab silently drops them, falling back to IfcGuid-only — which can fail
-    // due to Revit's internal IfcGuid vs exported IFC GlobalId ~1-char difference.
+
+    // Build schema-valid <Component> XML (same structure as compare BCF)
     const tagA=cl.elA.tag||'';
     const tagB=cl.elB.tag||'';
     const makeComponent=(guid,tag)=>{
@@ -6339,22 +6675,16 @@ window.exportClashBCF=async function(){
     const compB=makeComponent(guidB,tagB);
     let selectionXml='<Selection>';
     let colorXml='<Coloring>';
-    if(compA){
-      selectionXml+=compA;
-      colorXml+='<Color Color="FFEF4444">'+compA+'</Color>';
-    }
-    if(compB){
-      selectionXml+=compB;
-      colorXml+='<Color Color="FFF97316">'+compB+'</Color>';
-    }
+    if(compA){selectionXml+=compA;colorXml+='<Color Color="FFEF4444">'+compA+'</Color>'}
+    if(compB){selectionXml+=compB;colorXml+='<Color Color="FFF97316">'+compB+'</Color>'}
     selectionXml+='</Selection>';
     colorXml+='</Coloring>';
-    
-    // markup.bcf — include Header with file references for Revit to locate elements
+
+    // markup.bcf — Header with file references for BCF Reader to resolve elements
     zip.file(tid+'/markup.bcf','<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'+
       '<Header>'+
-      (files[0]?'<File><Filename>'+escXml(files[0].name)+'</Filename></File>':'')+
-      (files[1]?'<File><Filename>'+escXml(files[1].name)+'</Filename></File>':'')+
+      (files[0]?'<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>'+escXml(files[0].name)+'</Filename><Date>'+now+'</Date></File>':'')+
+      (files[1]?'<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>'+escXml(files[1].name)+'</Filename><Date>'+now+'</Date></File>':'')+
       '</Header>\n'+
       '<Topic Guid="'+tid+'" TopicType="Clash" TopicStatus="Active">'+
       '<Title>'+escXml(title)+'</Title>'+
@@ -6367,30 +6697,72 @@ window.exportClashBCF=async function(){
       '<Comment Guid="'+crypto.randomUUID()+'"><Date>'+now+'</Date><Author>IFC Delta</Author><Comment>'+escXml(desc)+'</Comment><Viewpoint Guid="'+vid+'"/></Comment>\n'+
       '<Viewpoints Guid="'+vid+'"><Viewpoint>viewpoint.bcfv</Viewpoint><Snapshot>snapshot.png</Snapshot></Viewpoints>\n'+
       '</Markup>');
-    
-    // viewpoint.bcfv — per BCF 2.1 visinfo.xsd, Components must contain child
-    // elements in this order: ViewSetupHints? → Selection? → Visibility (REQUIRED) →
-    // Coloring?. Writing Visibility before Selection breaks the XSD sequence and
-    // causes strict parsers (incl. BIMcollab) to mis-parse the Selection block —
-    // which is why the wrong element gets highlighted in Revit.
+
+    // viewpoint.bcfv — PerspectiveCamera with proper IFC-coord viewpoint.
+    // Critical fix: was OrthogonalCamera with origin (0,0,0) — that's why
+    // BCF Reader couldn't zoom to the issue. Now matches compare BCF's working
+    // pattern: PerspectiveCamera with FieldOfView=60 + UpVector=(0,0,1).
     zip.file(tid+'/viewpoint.bcfv','<?xml version="1.0" encoding="UTF-8"?>\n<VisualizationInfo Guid="'+vid+'" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'+
       '<Components>'+
       selectionXml+
       '<Visibility DefaultVisibility="true"><Exceptions/></Visibility>'+
       colorXml+
       '</Components>\n'+
-      '<OrthogonalCamera><CameraViewPoint><X>0</X><Y>0</Y><Z>0</Z></CameraViewPoint><CameraDirection><X>0</X><Y>0</Y><Z>-1</Z></CameraDirection><CameraUpVector><X>0</X><Y>1</Y><Z>0</Z></CameraUpVector><ViewToWorldScale>1000</ViewToWorldScale></OrthogonalCamera>\n'+
+      '<PerspectiveCamera>'+
+      '<CameraViewPoint><X>'+camX.toFixed(6)+'</X><Y>'+camY.toFixed(6)+'</Y><Z>'+camZ.toFixed(6)+'</Z></CameraViewPoint>'+
+      '<CameraDirection><X>'+(ddx/ln).toFixed(6)+'</X><Y>'+(ddy/ln).toFixed(6)+'</Y><Z>'+(ddz/ln).toFixed(6)+'</Z></CameraDirection>'+
+      '<CameraUpVector><X>0</X><Y>0</Y><Z>1</Z></CameraUpVector>'+
+      '<FieldOfView>60</FieldOfView>'+
+      '</PerspectiveCamera>\n'+
+      clips+'\n'+
       '</VisualizationInfo>');
-    
-    // snapshot
+
     zip.file(tid+'/snapshot.png',snap64,{base64:true});
-    
+
     if(i%10===0)setStatus('loading','BCF: '+(i+1)+'/'+clashResults.length+'...');
   }
-  
-  // Restore camera
-  camera.position.copy(saveCam);controls.target.copy(saveTgt);controls.update();renderer.render(scene,camera);
-  
+
+  // ── Restore scene state after snapshot loop ──
+  // focusClash mutates: clipPlanes (section box), camera, target, section
+  // panel UI, clashFocus highlight subsets, and currentClashIdx. Undo all of
+  // these so the user's view returns to whatever it was before they clicked
+  // "Clash BCF".
+  // 1. Remove clashFocus highlights (focusClash leaves them in scene by design,
+  //    we don't want them piled up).
+  const focusHL=[];
+  scene.traverse(c=>{if(c.userData?.clashFocus)focusHL.push(c)});
+  focusHL.forEach(c=>{if(c.parent)c.parent.remove(c)});
+  // 2. If user wasn't in a section box before, deactivate section panel.
+  if(!saveSectionActive && sectionActive){
+    sectionActive=false;
+    document.getElementById('sectionPanel').classList.remove('show');
+    document.getElementById('btnSection').classList.remove('active');
+    // Remove the visual section box wireframe
+    const sb=scene.getObjectByName('sectionBox');
+    if(sb){scene.remove(sb)}
+    // Reset clipPlanes to no-clip
+    if(clipPlanes && clipPlanes.length===6){
+      clipPlanes[0].constant=99999;clipPlanes[1].constant=99999;
+      clipPlanes[2].constant=99999;clipPlanes[3].constant=99999;
+      clipPlanes[4].constant=99999;clipPlanes[5].constant=99999;
+    }
+  }else if(saveSectionActive){
+    // User had section box — restore its slider values exactly.
+    const setSl=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v};
+    setSl('slXp',saveSlider.Xp);setSl('slXn',saveSlider.Xn);
+    setSl('slYp',saveSlider.Yp);setSl('slYn',saveSlider.Yn);
+    setSl('slZp',saveSlider.Zp);setSl('slZn',saveSlider.Zn);
+    if(typeof updateSectionFromSliders==='function')updateSectionFromSliders();
+  }
+  // 3. If user had a clash focused before, re-focus it (so highlights are back).
+  //    Otherwise just restore camera position.
+  if(savePrevClashIdx>=0 && savePrevClashIdx<clashResults.length){
+    try{window.focusClash(savePrevClashIdx)}catch(e){}
+  }else{
+    camera.position.copy(saveCam);controls.target.copy(saveTgt);controls.update();
+  }
+  renderer.render(scene,camera);
+
   const blob=await zip.generateAsync({type:'blob'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ifc-delta-clashes.bcf';a.click();
   setStatus('done','BCF exported');setTimeout(()=>setStatus('',''),3000);
