@@ -408,6 +408,81 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
    a scroll area. */
 .clash-panel{display:none;flex-direction:column;background:var(--bg-panel);border-top:1px solid var(--border);height:var(--bottom-h);min-height:200px;flex-shrink:0;overflow:hidden}
 .clash-panel.show{display:flex}
+
+/* ── CORENET X / IFC-SG Validator panel ──────────────────────────────
+   Bottom-docked like the clash panel. Three-column layout:
+     • Left:   Rules library (groups by agency: BCA, URA, NEA, LTA, PUB)
+                with per-rule pass/fail counts.
+     • Center: Failing elements list for the selected rule — clickable
+                to focus in 3D + plan view (same focusIssue flow).
+     • Right:  Compliance dashboard (overall pass %, top issues, gateway
+                selector, export buttons).
+   The user picks the submission gateway (Design/Piling/Construction/
+   Completion), runs validation against all enabled rules, then reviews
+   the failures interactively. Pass criteria follow the IFC+SG Industry
+   Mapping Excel published by BCA. Phase 1 ships a hard-coded subset of
+   the most critical ~30 BCA Architectural Design Gateway rules; later
+   phases will load the full mapping table from JSON.
+   The Phase 1 disclaimer is mandatory because CORENET X is an Agile-
+   developed standard where requirements shift; the official validator
+   is the CORENET X portal itself. */
+.sg-panel{display:none;flex-direction:column;background:var(--bg-panel);border-top:1px solid var(--border);height:var(--bottom-h);min-height:200px;flex-shrink:0;overflow:hidden}
+.sg-panel.show{display:flex}
+.sg-header{padding:8px 12px;background:#fef2f2;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sg-header-icon{font-size:18px}
+.sg-header-title{font-weight:600;color:#991b1b;font-size:13px}
+.sg-header-sub{color:#9a3412;font-size:11px;margin-left:6px}
+.sg-gateway-select{height:26px;background:#fff;border:1px solid #fecaca;border-radius:4px;color:#7f1d1d;font-family:'Inter';font-size:11px;font-weight:500;padding:0 8px;outline:none;cursor:pointer}
+.sg-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
+.sg-btn{height:26px;padding:0 12px;background:#dc2626;color:#fff;border:none;border-radius:4px;font-family:'Inter';font-size:11px;font-weight:600;cursor:pointer}
+.sg-btn:hover{background:#b91c1c}
+.sg-btn:disabled{background:#fca5a5;cursor:not-allowed}
+.sg-btn-secondary{background:#fff;color:#991b1b;border:1px solid #fecaca}
+.sg-btn-secondary:hover{background:#fef2f2}
+.sg-body{flex:1;display:grid;grid-template-columns:280px 1fr 280px;gap:1px;background:var(--border);min-height:0;overflow:hidden}
+.sg-col{background:var(--bg-card);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.sg-col-hdr{padding:6px 10px;background:var(--bg-panel);border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.sg-col-hdr-count{margin-left:auto;background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:600;min-width:18px;text-align:center}
+.sg-col-hdr-count.ok{background:#16a34a}
+.sg-col-body{flex:1;overflow-y:auto;min-height:0}
+/* Rules list (left column) */
+.sg-rule-group{padding:6px 10px 4px;background:var(--bg-panel);font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
+.sg-rule{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:flex-start;gap:8px;font-size:11px}
+.sg-rule:hover{background:var(--bg-panel)}
+.sg-rule.selected{background:#fef2f2;border-left:3px solid #dc2626;padding-left:7px}
+.sg-rule-icon{font-size:13px;line-height:1;flex-shrink:0;margin-top:1px}
+.sg-rule-icon.pass{color:#16a34a}
+.sg-rule-icon.fail{color:#dc2626}
+.sg-rule-icon.warn{color:#d97706}
+.sg-rule-icon.skip{color:#9ca3af}
+.sg-rule-content{flex:1;min-width:0}
+.sg-rule-title{font-weight:500;color:var(--text);line-height:1.3}
+.sg-rule-counts{font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono';margin-top:2px}
+.sg-rule-counts .fail-n{color:#dc2626;font-weight:600}
+.sg-rule-counts .pass-n{color:#16a34a}
+/* Center column: failing elements */
+.sg-fail-list{padding:0}
+.sg-fail-item{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:flex-start;gap:8px;font-size:11px}
+.sg-fail-item:hover{background:var(--bg-panel)}
+.sg-fail-eid{font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);flex-shrink:0;min-width:50px}
+.sg-fail-content{flex:1;min-width:0}
+.sg-fail-name{font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sg-fail-detail{font-size:10px;color:#dc2626;margin-top:2px;line-height:1.4}
+.sg-empty{padding:40px 20px;text-align:center;color:var(--text-muted);font-size:11px}
+/* Right column: dashboard */
+.sg-dash-section{padding:10px 12px;border-bottom:1px solid var(--border)}
+.sg-dash-pct{font-size:42px;font-weight:700;line-height:1;text-align:center;font-family:'Inter';margin:8px 0 6px}
+.sg-dash-pct.good{color:#16a34a}
+.sg-dash-pct.warn{color:#d97706}
+.sg-dash-pct.fail{color:#dc2626}
+.sg-dash-pct-lbl{font-size:10px;text-align:center;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.sg-dash-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0}
+.sg-dash-row .k{color:var(--text-muted)}
+.sg-dash-row .v{font-family:'JetBrains Mono';font-weight:500}
+.sg-dash-row .v.pass{color:#16a34a}
+.sg-dash-row .v.fail{color:#dc2626}
+.sg-dash-row .v.warn{color:#d97706}
+.sg-disclaimer{padding:8px 12px;background:#fef3c7;border-top:1px solid #fde68a;font-size:10px;color:#78350f;line-height:1.5}
 /* Config region — scrollable if content taller than panel height. The
    config has 2 sub-sections (Source set + Target set) side by side, plus
    the bottom config grid (Type / Tolerances / Include results) and
@@ -710,6 +785,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
       <button class="btn" id="btnShowAll" style="display:none" onclick="showAllHidden()">👁 Show All</button>
       <button class="btn" id="btnWalk" onclick="toggleWalkMode()">🚶 Walk</button>
       <button class="btn" id="btnPlan" onclick="togglePlanOverlay()" title="Show 2D plan overlay (top-down view of current storey)">⊟ Plan</button>
+      <button class="btn" id="btnSGCheck" style="border-color:#dc2626;color:#dc2626" onclick="toggleSGCheckPanel()" title="CORENET X / IFC-SG pre-submission validation (Singapore)">🇸🇬 SG Check</button>
       <button class="btn" onclick="resetCam()">⌂ Reset</button>
       <div class="h-sep" style="margin:0 4px"></div>
       <button class="user-badge" id="userBadge" onclick="toggleUserMenu(event)" style="display:none">
@@ -1067,6 +1143,77 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
       <div class="clash-list" id="clashList">
         <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">
           Configure Source &amp; Target sets, then click <b>▶ Run Clash</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         CORENET X / IFC-SG VALIDATION PANEL
+         Bottom-docked, three columns: rules list | failing elements |
+         compliance dashboard. Shares the same bottom-h CSS var as the
+         clash panel so the layout reflows the same way.
+         ════════════════════════════════════════════════════════════════ -->
+    <div class="sg-panel" id="sgPanel">
+      <div class="sg-header">
+        <span class="sg-header-icon">🇸🇬</span>
+        <span class="sg-header-title">CORENET X / IFC-SG Pre-Submission Validator</span>
+        <span class="sg-header-sub">— Phase 1 MVP, subset of BCA rules</span>
+        <select class="sg-gateway-select" id="sgGateway" onchange="sgChangeGateway()" title="Submission Gateway — different rules apply per gateway">
+          <option value="design">Design Gateway</option>
+          <option value="piling" disabled>Piling Gateway (coming)</option>
+          <option value="construction" disabled>Construction Gateway (coming)</option>
+          <option value="completion" disabled>Completion Gateway (coming)</option>
+        </select>
+        <div class="sg-actions">
+          <button class="sg-btn" id="sgRunBtn" onclick="sgRunValidation()" title="Run all rules against the loaded model">▶ Validate</button>
+          <button class="sg-btn sg-btn-secondary" id="sgExportPDF" onclick="sgExportReport()" disabled title="Download validation report as PDF">📄 PDF Report</button>
+          <button class="sg-btn sg-btn-secondary" id="sgExportBCF" onclick="sgExportBCF()" disabled title="Export failures as BCF for sharing">📤 BCF</button>
+        </div>
+      </div>
+      <div class="sg-body">
+        <!-- Column 1: Rules library -->
+        <div class="sg-col">
+          <div class="sg-col-hdr">
+            Validation Rules
+            <span class="sg-col-hdr-count" id="sgRuleCount">0</span>
+          </div>
+          <div class="sg-col-body" id="sgRulesList">
+            <div class="sg-empty">Click <b>▶ Validate</b> to run rules</div>
+          </div>
+        </div>
+        <!-- Column 2: Failing elements for selected rule -->
+        <div class="sg-col">
+          <div class="sg-col-hdr">
+            <span id="sgFailColTitle">Failing Elements</span>
+            <span class="sg-col-hdr-count" id="sgFailCount">0</span>
+          </div>
+          <div class="sg-col-body" id="sgFailList">
+            <div class="sg-empty">Select a rule on the left to see failing elements</div>
+          </div>
+        </div>
+        <!-- Column 3: Compliance dashboard -->
+        <div class="sg-col">
+          <div class="sg-col-hdr">Compliance Dashboard</div>
+          <div class="sg-col-body" id="sgDashboard">
+            <div class="sg-dash-section">
+              <div class="sg-dash-pct" id="sgPctValue">—</div>
+              <div class="sg-dash-pct-lbl">Overall compliance</div>
+            </div>
+            <div class="sg-dash-section">
+              <div class="sg-dash-row"><span class="k">Rules checked</span><span class="v" id="sgStatRules">0</span></div>
+              <div class="sg-dash-row"><span class="k">Rules passing</span><span class="v pass" id="sgStatPass">0</span></div>
+              <div class="sg-dash-row"><span class="k">Rules failing</span><span class="v fail" id="sgStatFail">0</span></div>
+              <div class="sg-dash-row"><span class="k">Rules with warnings</span><span class="v warn" id="sgStatWarn">0</span></div>
+            </div>
+            <div class="sg-dash-section">
+              <div class="sg-dash-row"><span class="k">Elements scanned</span><span class="v" id="sgStatElements">0</span></div>
+              <div class="sg-dash-row"><span class="k">Elements with issues</span><span class="v fail" id="sgStatBadEl">0</span></div>
+              <div class="sg-dash-row"><span class="k">Total findings</span><span class="v fail" id="sgStatFindings">0</span></div>
+            </div>
+            <div class="sg-disclaimer">
+              <b>Disclaimer:</b> This is a <b>pre-submission helper</b> covering a subset of IFC+SG rules. The official validator is the CORENET X portal. Always cross-check with the latest BCA Industry Mapping Excel before submitting.
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -8431,6 +8578,1154 @@ window.requestPlanRebuild = function(){
     requestPlanRender();
   }
 };
+
+
+// ══════════════════════════════════════════════════════════════════════
+// ── CORENET X / IFC-SG VALIDATOR ──────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// Phase 1 MVP. Ships a hard-coded subset (~35) of the most critical
+// BCA Architectural Design Gateway rules. The rule schema is designed
+// so later phases can load the full IFC+SG Industry Mapping Excel
+// (294 BCA + URA + NEA + LTA + PUB parameters) without changing the
+// runner — just append to SG_RULES.
+//
+// Rule shape:
+//   {
+//     id:        'BCA-ARCH-001',          // stable identifier
+//     agency:    'BCA' | 'URA' | 'NEA' | 'LTA' | 'PUB' | 'GENERAL',
+//     gateway:   ['design'] | ['design','construction'] | ...
+//     category:  'Spatial' | 'Geo-referencing' | 'Wall' | 'Door' | ...,
+//     title:     short human label shown in UI,
+//     desc:      one-line explanation for tooltip / report,
+//     severity:  'error' | 'warn' | 'info',
+//     check:     (ctx) => { passed: [...], failed: [{eid, name, reason}], skipped: int }
+//   }
+//
+// `ctx` provided to each check has:
+//   ctx.entities    — flat array of {eid, type, name, tag, psets[], modelIdx}
+//   ctx.byClass     — Map: 'IfcWall' → entities[]
+//   ctx.modelIDs    — [{modelID, modelIdx, spatial}]
+//   ctx.gateway     — 'design' | etc.
+//
+// The runner iterates rules sequentially. Each rule decides which
+// entities are in-scope and returns three buckets: passed, failed,
+// skipped. The UI aggregates them into a compliance dashboard.
+//
+// Phase 1 limitations (publicly disclaimed):
+//   • Only a curated subset of rules — NOT a complete BCA submission check.
+//   • No federation across multiple discipline files yet (single A or A+B compare files).
+//   • Industry Mapping table is hardcoded; will load from JSON in Phase 2.
+//   • Gateway-specific differences not fully modelled — focus is Design Gateway.
+
+let sgState = {
+  open: false,
+  gateway: 'design',
+  results: null,         // {rules:[{rule, passed, failed, skipped}], stats:{...}}
+  selectedRuleIdx: null,
+  // Cached scan of all entities in loaded models — built lazily on first run
+  cachedCtx: null,
+  cachedCtxKey: null     // 'modelHash' of loadedModels — invalidated on reload
+};
+
+// ── Helper: read a parameter value from an entity's psets ────────────
+// IFC+SG often defines parameters in psets named either:
+//   - Standard IFC psets: Pset_WallCommon, Pset_DoorCommon, etc.
+//   - SG-specific: SGPset_<ElementClass>_<Group> (e.g. SGPset_Wall_Fire)
+// Some authoring tools place properties at the entity root, in
+// QuantitySets, or as type properties. We do a wide search to maximise
+// recall — if Revit/Archicad/Tekla put the value anywhere reasonable,
+// we find it. Returns null if not present.
+function sgReadParam(entity, paramName, psetNameHint){
+  if(!entity || !entity.psets) return null;
+  for(const ps of entity.psets){
+    // If a pset name hint is given, narrow to that pset for stricter checks
+    if(psetNameHint && ps.Name?.value !== psetNameHint) continue;
+    if(!ps.HasProperties) continue;
+    for(const p of ps.HasProperties){
+      if(p.Name?.value === paramName){
+        // IfcPropertySingleValue → NominalValue.value is the actual value
+        const nv = p.NominalValue;
+        if(nv == null) return { value: null, type: null, psetName: ps.Name?.value };
+        return {
+          value: nv.value,
+          type: nv.type || nv.label || typeof nv.value,
+          psetName: ps.Name?.value
+        };
+      }
+    }
+  }
+  return null;
+}
+
+// Check if entity has ANY non-empty value for a parameter (regardless of pset)
+function sgHasParam(entity, paramName){
+  const r = sgReadParam(entity, paramName);
+  if(!r) return false;
+  return r.value !== null && r.value !== undefined && r.value !== '';
+}
+
+// Read a numeric value, returns null if absent or not numeric
+function sgReadNumeric(entity, paramName, psetNameHint){
+  const r = sgReadParam(entity, paramName, psetNameHint);
+  if(!r || r.value === null || r.value === undefined) return null;
+  const n = Number(r.value);
+  return isNaN(n) ? null : n;
+}
+
+// ── Rule library (Phase 1: ~35 rules) ────────────────────────────────
+// Organised by agency. Each rule is independently testable. The order
+// here roughly matches the BCA submission workflow: project-level
+// metadata first, then spatial structure, then by element class.
+const SG_RULES = [
+  // ── GENERAL: project & spatial structure ──────────────────────────
+  {
+    id: 'GEN-001', agency: 'GENERAL', gateway: ['design','piling','construction','completion'],
+    category: 'Project', title: 'IfcProject exists',
+    desc: 'Every IFC file must have exactly one IfcProject as the root spatial container.',
+    severity: 'error',
+    check: (ctx) => {
+      const projects = ctx.modelIDs.flatMap(m=>m.spatial?.projects || []);
+      if(projects.length === 0)
+        return { passed:[], failed:[{eid:0, name:'(root)', reason:'No IfcProject found in any loaded file'}], skipped:0 };
+      if(projects.length > 1)
+        return { passed:[], failed:projects.map(p=>({eid:p.expressID, name:p.name, reason:'Multiple IfcProjects — federation expects one project per file'})), skipped:0 };
+      return { passed:[{eid:projects[0].expressID, name:projects[0].name}], failed:[], skipped:0 };
+    }
+  },
+  {
+    id: 'GEN-002', agency: 'GENERAL', gateway: ['design','piling','construction','completion'],
+    category: 'Project', title: 'IfcProject has a name',
+    desc: 'The project name should be set (not blank, not "Project Number"). CORENET X uses this for submission identification.',
+    severity: 'warn',
+    check: (ctx) => {
+      const projects = ctx.modelIDs.flatMap(m=>m.spatial?.projects || []);
+      const passed=[], failed=[];
+      for(const p of projects){
+        const nm = (p.name||'').trim();
+        if(!nm || /^(project\s*number|untitled|default|0001)$/i.test(nm))
+          failed.push({eid:p.expressID, name:p.name||'(blank)', reason:'Project name is blank or default placeholder'});
+        else passed.push({eid:p.expressID, name:nm});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'GEN-003', agency: 'GENERAL', gateway: ['design','piling','construction','completion'],
+    category: 'Spatial', title: 'IfcSite has geo-referencing',
+    desc: 'IfcSite must have RefLatitude, RefLongitude, and RefElevation. CORENET X uses these for SVY21 alignment.',
+    severity: 'error',
+    check: (ctx) => {
+      const sites = ctx.modelIDs.flatMap(m=>m.spatial?.sites || []);
+      const passed=[], failed=[];
+      for(const s of sites){
+        const missing = [];
+        if(s.RefLatitude == null || (Array.isArray(s.RefLatitude) && s.RefLatitude.every(v=>v===0))) missing.push('RefLatitude');
+        if(s.RefLongitude == null || (Array.isArray(s.RefLongitude) && s.RefLongitude.every(v=>v===0))) missing.push('RefLongitude');
+        if(s.RefElevation == null) missing.push('RefElevation');
+        if(missing.length>0) failed.push({eid:s.expressID, name:s.name||'(IfcSite)', reason:'Missing: '+missing.join(', ')});
+        else passed.push({eid:s.expressID, name:s.name||'(IfcSite)'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'GEN-004', agency: 'GENERAL', gateway: ['design','piling','construction','completion'],
+    category: 'Spatial', title: 'IfcSite coordinates within Singapore bounds',
+    desc: 'RefLatitude must be 1.15° – 1.50° N, RefLongitude 103.60° – 104.10° E. Outside this range suggests wrong coordinate system or wrong file.',
+    severity: 'warn',
+    check: (ctx) => {
+      const sites = ctx.modelIDs.flatMap(m=>m.spatial?.sites || []);
+      const passed=[], failed=[];
+      const compoundToDeg = (v) => {
+        // IfcCompoundPlaneAngleMeasure = [deg, min, sec, millionths_of_sec]
+        if(!Array.isArray(v)) return Number(v);
+        const sign = v[0] < 0 ? -1 : 1;
+        return sign * (Math.abs(v[0]) + (v[1]||0)/60 + (v[2]||0)/3600 + (v[3]||0)/3600000000);
+      };
+      for(const s of sites){
+        if(s.RefLatitude == null || s.RefLongitude == null){
+          // Already flagged in GEN-003; skip here
+          continue;
+        }
+        const lat = compoundToDeg(s.RefLatitude);
+        const lon = compoundToDeg(s.RefLongitude);
+        if(lat < 1.15 || lat > 1.50 || lon < 103.60 || lon > 104.10){
+          failed.push({eid:s.expressID, name:s.name||'(IfcSite)',
+            reason:`Lat ${lat.toFixed(4)}°, Lon ${lon.toFixed(4)}° — outside Singapore range`});
+        }else{
+          passed.push({eid:s.expressID, name:s.name||'(IfcSite)'});
+        }
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'GEN-005', agency: 'GENERAL', gateway: ['design','piling','construction','completion'],
+    category: 'Spatial', title: 'IfcBuilding present',
+    desc: 'Every project must have at least one IfcBuilding inside IfcSite.',
+    severity: 'error',
+    check: (ctx) => {
+      const blds = ctx.modelIDs.flatMap(m=>m.spatial?.buildings || []);
+      if(blds.length===0) return { passed:[], failed:[{eid:0,name:'(root)',reason:'No IfcBuilding found'}], skipped:0 };
+      return { passed: blds.map(b=>({eid:b.expressID, name:b.name||'(IfcBuilding)'})), failed:[], skipped:0 };
+    }
+  },
+  {
+    id: 'GEN-006', agency: 'GENERAL', gateway: ['design','piling','construction','completion'],
+    category: 'Spatial', title: 'IfcBuildingStorey with valid elevation',
+    desc: 'Every storey must have a numeric Elevation. Missing or NaN elevations break level-based regulatory checks.',
+    severity: 'error',
+    check: (ctx) => {
+      const storeys = ctx.modelIDs.flatMap(m=>m.spatial?.storeys || []);
+      const passed=[], failed=[];
+      for(const s of storeys){
+        if(s.elevation == null || isNaN(Number(s.elevation)))
+          failed.push({eid:s.expressID, name:s.name||'(Storey)', reason:'Elevation is missing or not numeric'});
+        else passed.push({eid:s.expressID, name:`${s.name||'(Storey)'} @ ${(+s.elevation).toFixed(2)}m`});
+      }
+      if(passed.length+failed.length === 0) return { passed:[], failed:[{eid:0,name:'(root)',reason:'No IfcBuildingStorey found'}], skipped:0 };
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'GEN-007', agency: 'GENERAL', gateway: ['design','piling','construction','completion'],
+    category: 'Spatial', title: 'Storey names follow naming convention',
+    desc: 'CORENET X recommends storey names like "L1", "L2", "B1", "RF" — not "Floor 1" or "Storey 1". This is a soft warning.',
+    severity: 'warn',
+    check: (ctx) => {
+      const storeys = ctx.modelIDs.flatMap(m=>m.spatial?.storeys || []);
+      const passed=[], failed=[];
+      const validPattern = /^(L\d{1,3}|B\d{1,2}|RF|MEZZ|GF|G|UR\d?)$/i;
+      for(const s of storeys){
+        const nm = (s.name||'').trim();
+        if(validPattern.test(nm)) passed.push({eid:s.expressID, name:nm});
+        else failed.push({eid:s.expressID, name:nm||'(blank)', reason:'Recommend pattern: L1, L2, B1, RF, MEZZ, GF'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── BCA ARCHITECTURAL: Walls ──────────────────────────────────────
+  {
+    id: 'BCA-ARCH-W01', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Wall', title: 'Walls have FireRating in Pset_WallCommon',
+    desc: 'BCA Fire Code requires fire-rating values on walls (e.g. "1HR", "2HR", "-/-/-").',
+    severity: 'error',
+    check: (ctx) => {
+      const walls = (ctx.byClass.get('IfcWall')||[]).concat(ctx.byClass.get('IfcWallStandardCase')||[]);
+      const passed=[], failed=[];
+      for(const w of walls){
+        if(sgHasParam(w, 'FireRating')) passed.push({eid:w.eid, name:w.name});
+        else failed.push({eid:w.eid, name:w.name, reason:'Missing FireRating'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-ARCH-W02', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Wall', title: 'Walls have LoadBearing flag',
+    desc: 'Pset_WallCommon.LoadBearing must be set to TRUE/FALSE so structural responsibility is clear.',
+    severity: 'warn',
+    check: (ctx) => {
+      const walls = (ctx.byClass.get('IfcWall')||[]).concat(ctx.byClass.get('IfcWallStandardCase')||[]);
+      const passed=[], failed=[];
+      for(const w of walls){
+        const r = sgReadParam(w, 'LoadBearing');
+        if(r && (r.value === true || r.value === false || r.value === 'T' || r.value === 'F'))
+          passed.push({eid:w.eid, name:w.name});
+        else failed.push({eid:w.eid, name:w.name, reason:'LoadBearing not set (must be TRUE or FALSE)'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-ARCH-W03', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Wall', title: 'Walls have IsExternal flag',
+    desc: 'External walls have different code requirements; this flag must be set.',
+    severity: 'error',
+    check: (ctx) => {
+      const walls = (ctx.byClass.get('IfcWall')||[]).concat(ctx.byClass.get('IfcWallStandardCase')||[]);
+      const passed=[], failed=[];
+      for(const w of walls){
+        const r = sgReadParam(w, 'IsExternal');
+        if(r && (r.value === true || r.value === false))
+          passed.push({eid:w.eid, name:w.name});
+        else failed.push({eid:w.eid, name:w.name, reason:'IsExternal not set'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── BCA ARCHITECTURAL: Doors ──────────────────────────────────────
+  {
+    id: 'BCA-ARCH-D01', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Door', title: 'Doors have FireRating',
+    desc: 'Fire-rated doors must have a FireRating value. Non-rated doors should explicitly say "-/-/-" or "None".',
+    severity: 'error',
+    check: (ctx) => {
+      const doors = ctx.byClass.get('IfcDoor')||[];
+      const passed=[], failed=[];
+      for(const d of doors){
+        if(sgHasParam(d, 'FireRating')) passed.push({eid:d.eid, name:d.name});
+        else failed.push({eid:d.eid, name:d.name, reason:'Missing FireRating'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-ARCH-D02', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Door', title: 'Doors have width ≥ 850mm for accessible routes',
+    desc: 'BCA Accessibility Code requires accessible doors to have ≥ 850mm clear width. This rule flags doors where width is below threshold OR width is missing entirely.',
+    severity: 'warn',
+    check: (ctx) => {
+      const doors = ctx.byClass.get('IfcDoor')||[];
+      const passed=[], failed=[];
+      for(const d of doors){
+        const ow = d.OverallWidth?.value;
+        if(ow == null){
+          failed.push({eid:d.eid, name:d.name, reason:'OverallWidth not set'});
+          continue;
+        }
+        // IFC stores in metres (model units may be mm); web-ifc-three uses the
+        // file's unit. Heuristic: if value > 10 assume mm, else metres.
+        const widthMM = ow > 10 ? ow : ow * 1000;
+        if(widthMM < 850) failed.push({eid:d.eid, name:d.name, reason:`Width ${widthMM.toFixed(0)}mm < 850mm threshold`});
+        else passed.push({eid:d.eid, name:`${d.name} (${widthMM.toFixed(0)}mm)`});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-ARCH-D03', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Door', title: 'Doors have OverallHeight',
+    desc: 'OverallHeight must be present for clearance calculations.',
+    severity: 'warn',
+    check: (ctx) => {
+      const doors = ctx.byClass.get('IfcDoor')||[];
+      const passed=[], failed=[];
+      for(const d of doors){
+        if(d.OverallHeight?.value != null) passed.push({eid:d.eid, name:d.name});
+        else failed.push({eid:d.eid, name:d.name, reason:'OverallHeight not set'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── BCA ARCHITECTURAL: Windows ────────────────────────────────────
+  {
+    id: 'BCA-ARCH-WIN01', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Window', title: 'Windows have OverallWidth and OverallHeight',
+    desc: 'Window dimensions needed for daylight + ventilation calculations.',
+    severity: 'warn',
+    check: (ctx) => {
+      const wins = ctx.byClass.get('IfcWindow')||[];
+      const passed=[], failed=[];
+      for(const w of wins){
+        const missing = [];
+        if(w.OverallWidth?.value == null) missing.push('OverallWidth');
+        if(w.OverallHeight?.value == null) missing.push('OverallHeight');
+        if(missing.length>0) failed.push({eid:w.eid, name:w.name, reason:'Missing: '+missing.join(', ')});
+        else passed.push({eid:w.eid, name:w.name});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-ARCH-WIN02', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Window', title: 'Windows have IsExternal flag',
+    desc: 'External windows count toward facade glazing area for energy-efficiency review.',
+    severity: 'warn',
+    check: (ctx) => {
+      const wins = ctx.byClass.get('IfcWindow')||[];
+      const passed=[], failed=[];
+      for(const w of wins){
+        const r = sgReadParam(w, 'IsExternal');
+        if(r && (r.value === true || r.value === false)) passed.push({eid:w.eid, name:w.name});
+        else failed.push({eid:w.eid, name:w.name, reason:'IsExternal not set'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── BCA ARCHITECTURAL: Slabs ──────────────────────────────────────
+  {
+    id: 'BCA-ARCH-S01', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Slab', title: 'Slabs have FireRating',
+    desc: 'Floor/roof slabs are fire compartmentation boundaries; rating required.',
+    severity: 'error',
+    check: (ctx) => {
+      const slabs = ctx.byClass.get('IfcSlab')||[];
+      const passed=[], failed=[];
+      for(const s of slabs){
+        if(sgHasParam(s, 'FireRating')) passed.push({eid:s.eid, name:s.name});
+        else failed.push({eid:s.eid, name:s.name, reason:'Missing FireRating'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-ARCH-S02', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Slab', title: 'Slabs have PredefinedType (FLOOR/ROOF/LANDING)',
+    desc: 'IfcSlab.PredefinedType must be one of FLOOR, ROOF, LANDING, BASESLAB so the agency knows which code applies.',
+    severity: 'error',
+    check: (ctx) => {
+      const slabs = ctx.byClass.get('IfcSlab')||[];
+      const passed=[], failed=[];
+      const VALID = new Set(['FLOOR','ROOF','LANDING','BASESLAB','USERDEFINED']);
+      for(const s of slabs){
+        const pt = s.PredefinedType?.value || s.PredefinedType;
+        if(pt && VALID.has(String(pt).toUpperCase())) passed.push({eid:s.eid, name:`${s.name} [${pt}]`});
+        else failed.push({eid:s.eid, name:s.name, reason:`PredefinedType "${pt||'null'}" not in FLOOR/ROOF/LANDING/BASESLAB`});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── BCA STRUCTURAL: Beams, Columns ────────────────────────────────
+  {
+    id: 'BCA-STR-B01', agency: 'BCA', gateway: ['design','piling','construction'],
+    category: 'Beam', title: 'Beams have FireRating',
+    desc: 'Structural beams need fire-rating for compartmentation review.',
+    severity: 'warn',
+    check: (ctx) => {
+      const beams = ctx.byClass.get('IfcBeam')||[];
+      const passed=[], failed=[];
+      for(const b of beams){
+        if(sgHasParam(b, 'FireRating')) passed.push({eid:b.eid, name:b.name});
+        else failed.push({eid:b.eid, name:b.name, reason:'Missing FireRating'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-STR-C01', agency: 'BCA', gateway: ['design','piling','construction'],
+    category: 'Column', title: 'Columns have FireRating',
+    desc: 'Structural columns need fire-rating for compartmentation review.',
+    severity: 'warn',
+    check: (ctx) => {
+      const cols = ctx.byClass.get('IfcColumn')||[];
+      const passed=[], failed=[];
+      for(const c of cols){
+        if(sgHasParam(c, 'FireRating')) passed.push({eid:c.eid, name:c.name});
+        else failed.push({eid:c.eid, name:c.name, reason:'Missing FireRating'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-STR-M01', agency: 'BCA', gateway: ['design','piling','construction'],
+    category: 'Material', title: 'Structural elements have a material grade',
+    desc: 'Beams and columns should have material info in IfcMaterial or Pset_*Common.Reference. Missing material blocks structural review.',
+    severity: 'warn',
+    check: (ctx) => {
+      const items = (ctx.byClass.get('IfcBeam')||[]).concat(ctx.byClass.get('IfcColumn')||[]);
+      const passed=[], failed=[];
+      for(const it of items){
+        // Material can come from many places — check pset Reference, Material, MaterialGrade
+        const r = sgReadParam(it, 'Reference') || sgReadParam(it, 'Material') || sgReadParam(it, 'MaterialGrade');
+        if(r && r.value) passed.push({eid:it.eid, name:`${it.name} [${r.value}]`});
+        else failed.push({eid:it.eid, name:it.name, reason:'No Reference / Material / MaterialGrade found'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── BCA: Spaces (IfcSpace) ────────────────────────────────────────
+  {
+    id: 'BCA-SP01', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Space', title: 'Spaces have a Name',
+    desc: 'Every IfcSpace must have a name describing its function (e.g. "Bedroom", "Kitchen").',
+    severity: 'error',
+    check: (ctx) => {
+      const spaces = ctx.byClass.get('IfcSpace')||[];
+      const passed=[], failed=[];
+      for(const s of spaces){
+        if(s.name && s.name.trim()) passed.push({eid:s.eid, name:s.name});
+        else failed.push({eid:s.eid, name:'(blank)', reason:'IfcSpace has no name'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-SP02', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Space', title: 'Spaces have a LongName / Function',
+    desc: 'IfcSpace.LongName or Pset_SpaceCommon.Reference should describe the regulatory category (e.g. "RESIDENTIAL/Bedroom").',
+    severity: 'warn',
+    check: (ctx) => {
+      const spaces = ctx.byClass.get('IfcSpace')||[];
+      const passed=[], failed=[];
+      for(const s of spaces){
+        const longName = s.LongName?.value || s.LongName;
+        const ref = sgReadParam(s, 'Reference');
+        if((longName && String(longName).trim()) || (ref && ref.value)) passed.push({eid:s.eid, name:s.name});
+        else failed.push({eid:s.eid, name:s.name, reason:'No LongName or Pset_SpaceCommon.Reference'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── URA: GFA / Site information ───────────────────────────────────
+  {
+    id: 'URA-001', agency: 'URA', gateway: ['design'],
+    category: 'Site', title: 'Site has plot ratio / GFA parameter',
+    desc: 'URA requires Gross Floor Area (GFA) values for plot ratio compliance. Look for "GFA", "PlotRatio", or SGPset_Site_GFA values.',
+    severity: 'warn',
+    check: (ctx) => {
+      const sites = ctx.modelIDs.flatMap(m=>m.spatial?.sites || []);
+      const passed=[], failed=[];
+      for(const s of sites){
+        // Site doesn't have psets in our spatial cache, so this is a stub —
+        // proper implementation needs reading IfcRelDefinesByProperties.
+        // For Phase 1 we flag as "manual check needed".
+        failed.push({eid:s.expressID, name:s.name||'(IfcSite)',
+          reason:'Manual check: GFA/PlotRatio must be in SGPset_Site or Pset_BuildingCommon'});
+      }
+      return { passed, failed, skipped: sites.length === 0 ? 1 : 0 };
+    }
+  },
+
+  // ── NEA: Environmental / waste ────────────────────────────────────
+  {
+    id: 'NEA-001', agency: 'NEA', gateway: ['design'],
+    category: 'Environmental', title: 'Refuse rooms / chutes marked',
+    desc: 'NEA requires refuse storage areas and chutes to be identified via IfcSpace.LongName containing "REFUSE" or "BIN CENTRE".',
+    severity: 'info',
+    check: (ctx) => {
+      const spaces = ctx.byClass.get('IfcSpace')||[];
+      const passed=[], failed=[];
+      let foundAny = false;
+      for(const s of spaces){
+        const ln = (s.LongName?.value || s.LongName || s.name || '').toUpperCase();
+        if(/\b(REFUSE|BIN\s*CENTRE|BIN\s*CHUTE|WASTE)\b/.test(ln)){
+          passed.push({eid:s.eid, name:s.name||'(Space)'});
+          foundAny = true;
+        }
+      }
+      // This is an INFO-level rule — we don't fail if none found, just notify
+      if(!foundAny){
+        return { passed:[], failed:[], skipped:1,
+          info:'No spaces tagged REFUSE/BIN CENTRE found — verify this is correct for project type' };
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── LTA: Carpark spaces ───────────────────────────────────────────
+  {
+    id: 'LTA-001', agency: 'LTA', gateway: ['design'],
+    category: 'Transport', title: 'Carpark spaces identified',
+    desc: 'LTA requires carpark spaces to be IfcSpace with LongName like "CARPARK" or "PARKING".',
+    severity: 'info',
+    check: (ctx) => {
+      const spaces = ctx.byClass.get('IfcSpace')||[];
+      const passed=[];
+      for(const s of spaces){
+        const ln = (s.LongName?.value || s.LongName || s.name || '').toUpperCase();
+        if(/\b(CARPARK|PARKING|CAR\s*PARK|MOTORCYCLE)\b/.test(ln)){
+          passed.push({eid:s.eid, name:s.name||'(Space)'});
+        }
+      }
+      if(passed.length===0)
+        return { passed:[], failed:[], skipped:1,
+          info:'No carpark spaces found — verify LTA submission requirements for project type' };
+      return { passed, failed:[], skipped:0 };
+    }
+  },
+
+  // ── PUB: Drainage / wet areas ─────────────────────────────────────
+  {
+    id: 'PUB-001', agency: 'PUB', gateway: ['design'],
+    category: 'Drainage', title: 'Wet area spaces (toilet/kitchen) identified',
+    desc: 'PUB drainage review needs wet areas tagged as IfcSpace with relevant function.',
+    severity: 'info',
+    check: (ctx) => {
+      const spaces = ctx.byClass.get('IfcSpace')||[];
+      const passed=[];
+      for(const s of spaces){
+        const ln = (s.LongName?.value || s.LongName || s.name || '').toUpperCase();
+        if(/\b(TOILET|WC|BATHROOM|KITCHEN|LAUNDRY|SHOWER|WET\s*AREA)\b/.test(ln)){
+          passed.push({eid:s.eid, name:s.name||'(Space)'});
+        }
+      }
+      if(passed.length===0)
+        return { passed:[], failed:[], skipped:1,
+          info:'No wet area spaces found — verify this matches project scope' };
+      return { passed, failed:[], skipped:0 };
+    }
+  },
+
+  // ── BCA: Stairs ───────────────────────────────────────────────────
+  {
+    id: 'BCA-ARCH-ST01', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Stair', title: 'Stairs have NumberOfRiser',
+    desc: 'Pset_StairCommon.NumberOfRiser needed for capacity review.',
+    severity: 'warn',
+    check: (ctx) => {
+      const stairs = ctx.byClass.get('IfcStair')||[];
+      const passed=[], failed=[];
+      for(const s of stairs){
+        if(sgReadNumeric(s, 'NumberOfRiser') != null) passed.push({eid:s.eid, name:s.name});
+        else failed.push({eid:s.eid, name:s.name, reason:'Missing NumberOfRiser'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-ARCH-ST02', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Stair', title: 'Stairs have RiserHeight ≤ 175mm',
+    desc: 'BCA accessibility requires riser height ≤ 175mm.',
+    severity: 'warn',
+    check: (ctx) => {
+      const stairs = ctx.byClass.get('IfcStair')||[];
+      const passed=[], failed=[];
+      for(const s of stairs){
+        const rh = sgReadNumeric(s, 'RiserHeight');
+        if(rh == null){ failed.push({eid:s.eid, name:s.name, reason:'RiserHeight not set'}); continue; }
+        const rhMM = rh > 1 ? rh : rh * 1000;
+        if(rhMM > 175) failed.push({eid:s.eid, name:s.name, reason:`RiserHeight ${rhMM.toFixed(0)}mm > 175mm`});
+        else passed.push({eid:s.eid, name:`${s.name} (${rhMM.toFixed(0)}mm)`});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-ARCH-ST03', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Stair', title: 'Stairs have TreadLength ≥ 250mm',
+    desc: 'BCA accessibility requires tread length ≥ 250mm.',
+    severity: 'warn',
+    check: (ctx) => {
+      const stairs = ctx.byClass.get('IfcStair')||[];
+      const passed=[], failed=[];
+      for(const s of stairs){
+        const tl = sgReadNumeric(s, 'TreadLength');
+        if(tl == null){ failed.push({eid:s.eid, name:s.name, reason:'TreadLength not set'}); continue; }
+        const tlMM = tl > 1 ? tl : tl * 1000;
+        if(tlMM < 250) failed.push({eid:s.eid, name:s.name, reason:`TreadLength ${tlMM.toFixed(0)}mm < 250mm`});
+        else passed.push({eid:s.eid, name:`${s.name} (${tlMM.toFixed(0)}mm)`});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── BCA: Railings ─────────────────────────────────────────────────
+  {
+    id: 'BCA-ARCH-R01', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Railing', title: 'Railings have a Height parameter',
+    desc: 'BCA accessibility requires railing height ≥ 1000mm (residential balcony) or ≥ 900mm (interior stair).',
+    severity: 'warn',
+    check: (ctx) => {
+      const rails = ctx.byClass.get('IfcRailing')||[];
+      const passed=[], failed=[];
+      for(const r of rails){
+        const h = sgReadNumeric(r, 'Height') || sgReadNumeric(r, 'OverallHeight');
+        if(h == null){ failed.push({eid:r.eid, name:r.name, reason:'Height/OverallHeight not set'}); continue; }
+        const hMM = h > 10 ? h : h * 1000;
+        if(hMM < 900) failed.push({eid:r.eid, name:r.name, reason:`Height ${hMM.toFixed(0)}mm < 900mm BCA minimum`});
+        else passed.push({eid:r.eid, name:`${r.name} (${hMM.toFixed(0)}mm)`});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  },
+
+  // ── BCA: Naming sanity (GUID conflicts) ───────────────────────────
+  {
+    id: 'BCA-G01', agency: 'BCA', gateway: ['design','construction','completion'],
+    category: 'Data Quality', title: 'No duplicate GlobalIds',
+    desc: 'Every element must have a unique GlobalId. Duplicates indicate model corruption or improper federation.',
+    severity: 'error',
+    check: (ctx) => {
+      const seen = new Map(); // globalId -> first entity
+      const dupes = [];
+      for(const e of ctx.entities){
+        const gid = e.globalId;
+        if(!gid) continue;
+        if(seen.has(gid)) dupes.push({eid:e.eid, name:e.name, reason:`Duplicate GlobalId — also on element ${seen.get(gid).name}`});
+        else seen.set(gid, e);
+      }
+      if(dupes.length===0) return { passed:[{eid:0, name:`${ctx.entities.length} unique GlobalIds`}], failed:[], skipped:0 };
+      return { passed:[], failed:dupes, skipped:0 };
+    }
+  },
+  {
+    id: 'BCA-G02', agency: 'BCA', gateway: ['design','construction'],
+    category: 'Data Quality', title: 'Element names are not blank or default',
+    desc: 'Elements with names like "Wall", "Door:Default", or blank suggest the model was not properly authored.',
+    severity: 'info',
+    check: (ctx) => {
+      const passed=[], failed=[];
+      const DEFAULTS = /^(wall|door|window|slab|beam|column|stair|railing|space|<unnamed>|untitled|default|new)$/i;
+      for(const e of ctx.entities){
+        const nm = (e.name || '').trim();
+        if(!nm || DEFAULTS.test(nm)) failed.push({eid:e.eid, name:nm||'(blank)', reason:`Default/blank name on ${e.type}`});
+        else passed.push({eid:e.eid, name:nm});
+      }
+      // Cap failures to first 50 to avoid overwhelming the UI
+      if(failed.length > 50){
+        const totalFailed = failed.length;
+        failed.length = 50;
+        failed.push({eid:0, name:`… and ${totalFailed-50} more`, reason:'List truncated for performance'});
+      }
+      return { passed, failed, skipped:0 };
+    }
+  }
+];
+
+// Build the validation context (entities array, byClass map, modelIDs) by
+// scanning all currently-loaded models. Cached until the next model load.
+async function sgBuildContext(){
+  const cacheKey = loadedModels.map(m=>m?.modelID).join('-');
+  if(sgState.cachedCtx && sgState.cachedCtxKey === cacheKey) return sgState.cachedCtx;
+
+  const entities = [];
+  const byClass = new Map();
+  const modelIDs = [];
+
+  for(let mi=0; mi<2; mi++){
+    const m = loadedModels[mi];
+    if(!m) continue;
+    modelIDs.push({modelID: m.modelID, modelIdx: mi, spatial: m.spatial});
+
+    const props = await getAllProps(m.modelID);
+    // props is keyed by GlobalId; each entry has expressID, type, name, psets, ...
+    for(const gid in props){
+      const p = props[gid];
+      const className = sgIfcCodeToClass(p.type);
+      const e = {
+        eid: p.expressID,
+        globalId: gid,
+        type: className,
+        typeCode: p.type,
+        name: (p.name || '').trim(),
+        tag: p.tag,
+        psets: p.psets || [],
+        OverallWidth: p.OverallWidth,
+        OverallHeight: p.OverallHeight,
+        PredefinedType: p.PredefinedType,
+        LongName: p.LongName,
+        modelIdx: mi
+      };
+      entities.push(e);
+      if(!byClass.has(className)) byClass.set(className, []);
+      byClass.get(className).push(e);
+      // Also bucket subtypes under their parent (IfcWallStandardCase → IfcWall)
+      if(className === 'IfcWallStandardCase'){
+        if(!byClass.has('IfcWall')) byClass.set('IfcWall',[]);
+        byClass.get('IfcWall').push(e);
+      }
+    }
+  }
+
+  sgState.cachedCtx = { entities, byClass, modelIDs, gateway: sgState.gateway };
+  sgState.cachedCtxKey = cacheKey;
+  return sgState.cachedCtx;
+}
+
+// Map IFC type code → class name. Subset coverage of the most common
+// classes — extend as needed. This is rough but sufficient for the MVP.
+function sgIfcCodeToClass(code){
+  const MAP = {
+    // Architectural
+    [IFCWALL]:'IfcWall', [IFCWALLSTANDARDCASE]:'IfcWallStandardCase',
+    [IFCSLAB]:'IfcSlab', [IFCROOF]:'IfcRoof',
+    [IFCDOOR]:'IfcDoor', [IFCWINDOW]:'IfcWindow',
+    [IFCSTAIR]:'IfcStair', [IFCSTAIRFLIGHT]:'IfcStairFlight',
+    [IFCRAILING]:'IfcRailing', [IFCMEMBER]:'IfcMember',
+    [IFCCURTAINWALL]:'IfcCurtainWall', [IFCPLATE]:'IfcPlate',
+    [IFCBUILDINGELEMENTPROXY]:'IfcBuildingElementProxy',
+    [IFCFURNISHINGELEMENT]:'IfcFurnishingElement',
+    // Structural
+    [IFCCOLUMN]:'IfcColumn', [IFCBEAM]:'IfcBeam', [IFCFOOTING]:'IfcFooting',
+    // Spaces
+    [IFCSPACE]:'IfcSpace'
+  };
+  return MAP[code] || ('Ifc#' + code);
+}
+
+// Run all enabled rules for the current gateway against the context.
+// Returns { rules: [...], stats: {...} } and stores in sgState.results.
+async function sgRunValidation(){
+  if(!loadedModels[0] && !loadedModels[1]){
+    log('SG Validate: no model loaded');
+    return;
+  }
+  document.getElementById('sgRunBtn').disabled = true;
+  document.getElementById('sgRunBtn').textContent = '⏳ Validating…';
+  document.getElementById('sgRulesList').innerHTML = '<div class="sg-empty">Scanning model entities…</div>';
+  await new Promise(r=>setTimeout(r, 10)); // yield to paint
+
+  try{
+    const ctx = await sgBuildContext();
+    const ruleResults = [];
+    const enabledRules = SG_RULES.filter(r => r.gateway.includes(sgState.gateway));
+    let totalFindings = 0;
+    const elementsWithIssues = new Set();
+
+    for(const rule of enabledRules){
+      try{
+        const r = rule.check(ctx);
+        ruleResults.push({
+          rule,
+          passed: r.passed || [],
+          failed: r.failed || [],
+          skipped: r.skipped || 0,
+          info: r.info || null
+        });
+        totalFindings += (r.failed || []).length;
+        for(const f of (r.failed||[])) if(f.eid) elementsWithIssues.add(f.eid);
+      }catch(err){
+        log('SG rule error:', rule.id, err?.message);
+        ruleResults.push({
+          rule, passed:[], failed:[{eid:0, name:'(error)', reason:'Rule execution failed: '+err?.message}],
+          skipped:0
+        });
+      }
+    }
+
+    const stats = {
+      rules: ruleResults.length,
+      pass: ruleResults.filter(r => r.failed.length===0 && r.passed.length>0).length,
+      fail: ruleResults.filter(r => r.failed.length>0 && r.rule.severity==='error').length,
+      warn: ruleResults.filter(r => r.failed.length>0 && r.rule.severity==='warn').length,
+      skipped: ruleResults.filter(r => r.skipped>0 && r.passed.length===0 && r.failed.length===0).length,
+      elements: ctx.entities.length,
+      badElements: elementsWithIssues.size,
+      findings: totalFindings,
+      gateway: sgState.gateway
+    };
+    sgState.results = { rules: ruleResults, stats };
+    sgRenderResults();
+  }catch(err){
+    log('SG validation error:', err?.message);
+    document.getElementById('sgRulesList').innerHTML = `<div class="sg-empty" style="color:#dc2626">Error: ${err?.message||err}</div>`;
+  }finally{
+    document.getElementById('sgRunBtn').disabled = false;
+    document.getElementById('sgRunBtn').textContent = '▶ Validate';
+  }
+}
+window.sgRunValidation = sgRunValidation;
+
+// Render the validation results into the three columns.
+function sgRenderResults(){
+  if(!sgState.results){return}
+  const {rules, stats} = sgState.results;
+
+  // ── Column 1: rules list grouped by agency ──
+  // Group by agency
+  const byAgency = new Map();
+  for(let i=0; i<rules.length; i++){
+    const a = rules[i].rule.agency;
+    if(!byAgency.has(a)) byAgency.set(a, []);
+    byAgency.get(a).push({...rules[i], idx:i});
+  }
+  let html = '';
+  const AGENCY_ORDER = ['GENERAL','BCA','URA','NEA','LTA','PUB'];
+  for(const ag of AGENCY_ORDER){
+    if(!byAgency.has(ag)) continue;
+    const items = byAgency.get(ag);
+    const passCnt = items.filter(r=>r.failed.length===0 && r.passed.length>0).length;
+    const failCnt = items.filter(r=>r.failed.length>0).length;
+    html += `<div class="sg-rule-group">${ag} — ${passCnt} pass / ${failCnt} fail / ${items.length} total</div>`;
+    for(const item of items){
+      const {rule, passed, failed, skipped, idx} = item;
+      let icon, iconCls;
+      if(failed.length===0 && passed.length>0){ icon='✓'; iconCls='pass'; }
+      else if(failed.length===0 && skipped>0){ icon='⊘'; iconCls='skip'; }
+      else if(rule.severity==='error'){ icon='✗'; iconCls='fail'; }
+      else if(rule.severity==='warn'){ icon='!'; iconCls='warn'; }
+      else { icon='ⓘ'; iconCls='warn'; }
+      const sel = (sgState.selectedRuleIdx === idx) ? 'selected' : '';
+      html += `<div class="sg-rule ${sel}" onclick="sgSelectRule(${idx})" title="${escapeHtml(rule.desc)}">
+        <span class="sg-rule-icon ${iconCls}">${icon}</span>
+        <div class="sg-rule-content">
+          <div class="sg-rule-title">${escapeHtml(rule.title)}</div>
+          <div class="sg-rule-counts">
+            <span class="pass-n">${passed.length} pass</span>
+            ${failed.length>0?` • <span class="fail-n">${failed.length} fail</span>`:''}
+            ${skipped>0?` • <span style="color:#9ca3af">${skipped} skip</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+  document.getElementById('sgRulesList').innerHTML = html;
+  document.getElementById('sgRuleCount').textContent = rules.length;
+  document.getElementById('sgRuleCount').className = 'sg-col-hdr-count ' + (stats.fail===0 ? 'ok':'');
+
+  // ── Column 3: dashboard ──
+  const pct = stats.rules === 0 ? 0 : Math.round((stats.pass / stats.rules) * 100);
+  const pctEl = document.getElementById('sgPctValue');
+  pctEl.textContent = pct + '%';
+  pctEl.className = 'sg-dash-pct ' + (pct>=90 ? 'good' : pct>=60 ? 'warn' : 'fail');
+  document.getElementById('sgStatRules').textContent = stats.rules;
+  document.getElementById('sgStatPass').textContent = stats.pass;
+  document.getElementById('sgStatFail').textContent = stats.fail;
+  document.getElementById('sgStatWarn').textContent = stats.warn;
+  document.getElementById('sgStatElements').textContent = stats.elements;
+  document.getElementById('sgStatBadEl').textContent = stats.badElements;
+  document.getElementById('sgStatFindings').textContent = stats.findings;
+
+  // Enable export buttons
+  document.getElementById('sgExportPDF').disabled = false;
+  document.getElementById('sgExportBCF').disabled = false;
+
+  // Auto-select first failing rule for instant context
+  if(sgState.selectedRuleIdx === null){
+    const firstFailIdx = rules.findIndex(r => r.failed.length > 0);
+    if(firstFailIdx >= 0) sgSelectRule(firstFailIdx);
+  }else{
+    sgSelectRule(sgState.selectedRuleIdx);  // refresh fail list
+  }
+}
+
+// Click a rule → show its failing elements in column 2
+window.sgSelectRule = function(idx){
+  if(!sgState.results) return;
+  sgState.selectedRuleIdx = idx;
+  // Update selected highlight
+  document.querySelectorAll('.sg-rule').forEach(el=>el.classList.remove('selected'));
+  const ruleEls = document.querySelectorAll('.sg-rule');
+  // The rules in the DOM are flat-listed, idx maps directly
+  // (We rebuilt the HTML with `onclick="sgSelectRule(${idx})"` so idx matches index in `rules` array)
+  // Find the corresponding DOM node
+  const matching = Array.from(ruleEls).filter(el=>el.getAttribute('onclick')?.includes(`sgSelectRule(${idx})`));
+  if(matching[0]) matching[0].classList.add('selected');
+
+  const {rule, passed, failed, info} = sgState.results.rules[idx];
+  document.getElementById('sgFailColTitle').textContent = rule.title;
+  document.getElementById('sgFailCount').textContent = failed.length;
+  document.getElementById('sgFailCount').className = 'sg-col-hdr-count ' + (failed.length===0 ? 'ok':'');
+
+  if(info){
+    document.getElementById('sgFailList').innerHTML =
+      `<div class="sg-empty" style="color:#0369a1"><b>Info:</b> ${escapeHtml(info)}</div>`;
+    return;
+  }
+  if(failed.length === 0){
+    document.getElementById('sgFailList').innerHTML =
+      `<div class="sg-empty" style="color:#16a34a">✓ All ${passed.length} elements pass this rule</div>`;
+    return;
+  }
+  let html = '';
+  for(const f of failed){
+    html += `<div class="sg-fail-item" onclick="sgFocusElement(${f.eid})">
+      <span class="sg-fail-eid">#${f.eid||'-'}</span>
+      <div class="sg-fail-content">
+        <div class="sg-fail-name">${escapeHtml(f.name||'(unnamed)')}</div>
+        <div class="sg-fail-detail">${escapeHtml(f.reason||'')}</div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('sgFailList').innerHTML = html;
+};
+
+// Click a failing element → focus in 3D (same flow as compare/clash issues)
+window.sgFocusElement = function(eid){
+  if(!eid) return;
+  // Find which model owns this expressID
+  for(let mi=0; mi<2; mi++){
+    const m = loadedModels[mi];
+    if(!m) continue;
+    try{
+      // Highlight using existing subset machinery
+      if(!window._hlMat){
+        window._hlMat = new THREE.MeshPhongMaterial({
+          color:0x2563eb, transparent:true, opacity:0.6,
+          side:THREE.DoubleSide, depthTest:true, clippingPlanes
+        });
+      }
+      const sub = ifcLoader.ifcManager.createSubset({
+        modelID:m.modelID, ids:[eid], material:window._hlMat,
+        scene, removePrevious:true
+      });
+      if(sub){
+        sub.position.copy(m.position);
+        sub.updateMatrixWorld(true);
+        window._lastHL = {subset:sub, mid:m.modelID};
+        // Zoom + section box around it (reuse compare focusIssue flow)
+        const bbox = new THREE.Box3().setFromObject(sub);
+        if(bbox.min.x !== Infinity){
+          const center = bbox.getCenter(new THREE.Vector3());
+          const size = bbox.getSize(new THREE.Vector3());
+          const elSize = Math.max(size.x, size.y, size.z);
+          const viewDist = Math.max(elSize * 1.5, 5);
+          camera.position.set(
+            center.x + viewDist * 0.7,
+            center.y + viewDist * 0.5,
+            center.z + viewDist * 0.7
+          );
+          controls.target.copy(center);
+          controls.update();
+        }
+        // Fetch + show props
+        ifcLoader.ifcManager.getItemProperties(m.modelID, eid, true)
+          .then(props => window.showProps && window.showProps(props, mi))
+          .catch(()=>{});
+        if(window.requestPlanRender) window.requestPlanRender();
+        return;
+      }
+    }catch(err){
+      // try next model
+    }
+  }
+  log('SG focus: element', eid, 'not found in loaded models');
+};
+
+window.sgChangeGateway = function(){
+  sgState.gateway = document.getElementById('sgGateway').value;
+  sgState.cachedCtx = null; // re-scan with new gateway scope
+  sgState.results = null;
+  sgState.selectedRuleIdx = null;
+  document.getElementById('sgRulesList').innerHTML = '<div class="sg-empty">Click <b>▶ Validate</b> to run rules for the new gateway</div>';
+  document.getElementById('sgFailList').innerHTML = '<div class="sg-empty">Select a rule on the left to see failing elements</div>';
+  document.getElementById('sgPctValue').textContent = '—';
+  document.getElementById('sgPctValue').className = 'sg-dash-pct';
+  ['sgStatRules','sgStatPass','sgStatFail','sgStatWarn','sgStatElements','sgStatBadEl','sgStatFindings'].forEach(id=>document.getElementById(id).textContent='0');
+  document.getElementById('sgExportPDF').disabled = true;
+  document.getElementById('sgExportBCF').disabled = true;
+};
+
+// ── Toggle panel ──
+window.toggleSGCheckPanel = function(){
+  const panel = document.getElementById('sgPanel');
+  const btn = document.getElementById('btnSGCheck');
+  sgState.open = !sgState.open;
+  btn.classList.toggle('active', sgState.open);
+
+  if(sgState.open){
+    // Close other bottom panels (clash) to avoid stacking
+    if(clashMode) toggleClashMode();
+    panel.classList.add('show');
+    const br = document.getElementById('bresize');
+    if(br) br.style.display = '';
+    if(window._vpResize) window._vpResize();
+  }else{
+    panel.classList.remove('show');
+    // If neither bottom panel is open, hide the resize handle
+    if(!clashMode){
+      const br = document.getElementById('bresize');
+      if(br) br.style.display = 'none';
+    }
+    if(window._vpResize) window._vpResize();
+  }
+};
+
+// ── PDF export (uses jsPDF via dynamic import — already used by reports elsewhere) ──
+window.sgExportReport = async function(){
+  if(!sgState.results){ log('SG: no results to export'); return; }
+  try{
+    // Use jsPDF from existing import if present, else CDN
+    if(!window.jspdf){
+      const mod = await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm');
+      window.jspdf = mod;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm', format:'a4'});
+    const W = 210, M = 15;
+    let y = M;
+    // Header
+    doc.setFillColor(15,23,42); doc.rect(0, 0, W, 22, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text('CORENET X / IFC-SG Validation Report', M, 11);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(new Date().toLocaleString('en-SG'), M, 17);
+    y = 32;
+    doc.setTextColor(15,23,42);
+    // KPIs
+    const s = sgState.results.stats;
+    const pct = s.rules===0 ? 0 : Math.round((s.pass/s.rules)*100);
+    doc.setFontSize(11); doc.setFont('helvetica','bold');
+    doc.text(`Compliance: ${pct}% (${s.pass}/${s.rules} rules passing)`, M, y);
+    y += 6;
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(`Gateway: ${s.gateway.toUpperCase()}  •  Elements scanned: ${s.elements}  •  Findings: ${s.findings}`, M, y);
+    y += 8;
+    // Rule-by-rule
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text('Rule results:', M, y); y += 5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    for(const r of sgState.results.rules){
+      if(y > 270){ doc.addPage(); y = M; }
+      const icon = r.failed.length===0 && r.passed.length>0 ? '[PASS]' : r.failed.length>0 ? '[FAIL]' : '[SKIP]';
+      const color = r.failed.length===0 && r.passed.length>0 ? [22,163,74] : r.failed.length>0 ? [220,38,38] : [156,163,175];
+      doc.setTextColor(...color);
+      doc.text(icon, M, y);
+      doc.setTextColor(15,23,42);
+      doc.text(`${r.rule.id}  ${r.rule.title}`, M + 12, y);
+      doc.setTextColor(100,116,139);
+      doc.text(`${r.passed.length} pass / ${r.failed.length} fail`, W - M - 35, y);
+      doc.setTextColor(15,23,42);
+      y += 4;
+      if(r.failed.length > 0){
+        const sample = r.failed.slice(0, 3);
+        for(const f of sample){
+          if(y > 275){ doc.addPage(); y = M; }
+          doc.setTextColor(220,38,38);
+          doc.text(`  · #${f.eid} ${(f.name||'').substring(0,30)} — ${(f.reason||'').substring(0,55)}`, M + 4, y);
+          doc.setTextColor(15,23,42);
+          y += 3.5;
+        }
+        if(r.failed.length > 3){
+          doc.setTextColor(100,116,139);
+          doc.text(`  · …and ${r.failed.length - 3} more`, M + 4, y);
+          doc.setTextColor(15,23,42);
+          y += 3.5;
+        }
+      }
+      y += 1;
+    }
+    // Footer disclaimer
+    doc.addPage();
+    y = M;
+    doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text('Disclaimer', M, y); y += 6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    const disclaimer = 'This validation is a pre-submission helper based on a subset of CORENET X IFC+SG rules. The official validator is the CORENET X portal at info.corenet.gov.sg. Always cross-check with the latest BCA Industry Mapping Excel before submission. IFC Delta and DQT BIM team accept no liability for submissions rejected based on this report.';
+    const lines = doc.splitTextToSize(disclaimer, W - 2*M);
+    doc.text(lines, M, y);
+    doc.save(`IFC-SG_Validation_${new Date().toISOString().slice(0,10)}.pdf`);
+    log('SG: PDF report saved');
+  }catch(err){
+    log('SG PDF export err:', err?.message);
+    alert('PDF export failed: ' + err?.message);
+  }
+};
+
+// ── BCF export of failures ──
+window.sgExportBCF = function(){
+  if(!sgState.results){ return; }
+  // Reuse the existing BCF export plumbing — convert SG failures to BCF issues
+  const issues = [];
+  for(const r of sgState.results.rules){
+    if(r.failed.length === 0) continue;
+    for(const f of r.failed){
+      if(!f.eid) continue;
+      issues.push({
+        title: `[${r.rule.id}] ${r.rule.title}`,
+        description: `${r.rule.desc}\n\nElement: ${f.name}\nFinding: ${f.reason}\nAgency: ${r.rule.agency}\nSeverity: ${r.rule.severity}`,
+        eid: f.eid,
+        priority: r.rule.severity === 'error' ? 'High' : r.rule.severity === 'warn' ? 'Medium' : 'Low',
+        labels: ['IFC-SG', 'CORENET X', r.rule.agency, r.rule.category],
+        ruleId: r.rule.id
+      });
+    }
+  }
+  if(issues.length === 0){ alert('No failures to export'); return; }
+  log(`SG BCF: ${issues.length} issues prepared, calling main BCF exporter`);
+  // Stash issues where the existing exporter expects them, then trigger
+  if(window.exportBCFForList){
+    window.exportBCFForList(issues, 'IFC-SG_Validation');
+  }else{
+    // Fallback: notify that BCF integration is pending
+    alert(`SG BCF export prepared ${issues.length} issues. Full BCF export integration is wired up in a follow-up — for now, use the PDF report.`);
+  }
+};
+
+// Small helper used in HTML templates above
+function escapeHtml(s){
+  if(s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 
 initThree();initSectionDrag();initViewCube();log('Ready');
