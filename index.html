@@ -770,6 +770,48 @@ body.field-mode .field-loader.show{display:flex}
 }
 .field-toast.show{opacity:1}
 
+/* ── Full-screen Plan 2D (Field Mode) ── */
+.field-plan2d{
+  display:none;position:fixed;inset:0;z-index:220;
+  background:var(--bg);flex-direction:column;
+}
+body.field-mode .field-plan2d.show{display:flex}
+.field-plan2d-hdr{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;
+  background:var(--bg-panel);border-bottom:1px solid var(--border);
+  flex-shrink:0;overflow-x:auto;scrollbar-width:none;
+}
+.field-plan2d-hdr::-webkit-scrollbar{display:none}
+.field-plan2d-title{font-family:'JetBrains Mono';font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;flex-shrink:0}
+.field-plan2d-storey-wrap{display:flex;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.field-plan2d-storey-wrap::-webkit-scrollbar{display:none}
+.field-plan2d-pill{
+  padding:6px 14px;border-radius:20px;
+  border:1.5px solid var(--border);background:var(--bg-card);
+  color:var(--text);font-family:'JetBrains Mono';font-size:11px;font-weight:500;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;transition:all .15s;
+}
+.field-plan2d-pill:active{transform:scale(.95)}
+.field-plan2d-pill.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.field-plan2d-close{
+  padding:8px 14px;border-radius:8px;border:1.5px solid var(--border);
+  background:none;color:var(--text);font-family:'Inter';font-size:12px;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;min-height:40px;
+}
+.field-plan2d-close:active{background:var(--bg-hover)}
+.field-plan2d-canvas{
+  flex:1;position:relative;overflow:hidden;background:#f8f9fb;
+  touch-action:none;
+}
+.field-plan2d-canvas canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+.field-plan2d-canvas svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.field-plan2d-info{
+  padding:6px 12px;font-family:'JetBrains Mono';font-size:10px;
+  color:var(--text-muted);background:var(--bg-panel);border-top:1px solid var(--border);
+  flex-shrink:0;text-align:center;
+}
+
 /* ── Field storey selector: horizontal pill strip ── */
 .field-storeys{
   display:none;position:fixed;top:12px;left:12px;right:12px;z-index:180;
@@ -1508,6 +1550,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
   <button class="field-btn" id="fieldBtnWalk" onclick="fieldToggleWalk()"><span class="field-btn-icon">🚶</span><span class="field-btn-label">Walk</span></button>
   <div class="field-sep"></div>
   <button class="field-btn" id="fieldBtnStoreys" onclick="fieldToggleStoreys()"><span class="field-btn-icon">🏢</span><span class="field-btn-label">Storeys</span></button>
+  <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon">📐</span><span class="field-btn-label">Plan 2D</span></button>
   <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon">⊞</span><span class="field-btn-label">Fit</span></button>
   <button class="field-btn" onclick="fieldShowAll()"><span class="field-btn-icon">👁</span><span class="field-btn-label">Show All</span></button>
   <div class="field-sep"></div>
@@ -1545,6 +1588,17 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 
 <!-- Info toast -->
 <div class="field-toast" id="fieldToast"></div>
+
+<!-- Full-screen Plan 2D (Field Mode) -->
+<div class="field-plan2d" id="fieldPlan2D">
+  <div class="field-plan2d-hdr">
+    <div class="field-plan2d-title" id="fieldPlan2DTitle">📐 2D Plan View</div>
+    <div class="field-plan2d-storey-wrap" id="fieldPlan2DStoreys"></div>
+    <button class="field-plan2d-close" onclick="fieldClosePlan2D()">✕ Close</button>
+  </div>
+  <div class="field-plan2d-canvas" id="fieldPlan2DCanvas"></div>
+  <div class="field-plan2d-info" id="fieldPlan2DInfo">Tap a storey to view plan</div>
+</div>
 
 <!-- Touch walk controls (visible only in Field Mode + walk active) -->
 <div class="walk-touch" id="walkTouch">
@@ -12331,6 +12385,302 @@ function fieldDoubleTapZoom(clientX, clientY){
     controls.update();
   }
   fieldToast('Zoomed to point');
+}
+
+// ── Auto-detect touch device → suggest field mode ──
+
+// ══════════════════════════════════════════════════════════════════════
+// ── FULL-SCREEN PLAN 2D (Field Mode) ────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// Uses the existing planView infrastructure (2nd Three.js renderer +
+// OrthographicCamera) but renders into a full-viewport container with
+// storey pills and touch pan/zoom.
+
+let fieldPlan2DActive = false;
+let fieldPlan2DRenderer = null;
+let fieldPlan2DCamera = null;
+let fieldPlan2DStoreyIdx = -1;
+let _fp2dAnimId = null;
+
+window.fieldTogglePlan2D = function(){
+  if(fieldPlan2DActive){
+    fieldClosePlan2D();
+  } else {
+    fieldOpenPlan2D();
+  }
+  document.getElementById('fieldBtnPlan2D').classList.toggle('on', fieldPlan2DActive);
+};
+
+window.fieldOpenPlan2D = function(){
+  if(!loadedModels.some(m=>!!m)){
+    fieldToast('Load a model first');
+    return;
+  }
+  fieldPlan2DActive = true;
+  document.getElementById('fieldPlan2D').classList.add('show');
+  
+  // Build storey pills
+  fieldPlan2DBuildStoreys();
+  
+  // Create renderer if needed
+  const container = document.getElementById('fieldPlan2DCanvas');
+  if(!fieldPlan2DRenderer){
+    fieldPlan2DRenderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    fieldPlan2DRenderer.localClippingEnabled = true;
+    fieldPlan2DRenderer.setClearColor(0xf8f9fb, 1);
+    container.appendChild(fieldPlan2DRenderer.domElement);
+    
+    fieldPlan2DCamera = new THREE.OrthographicCamera(-50, 50, 50, -50, 0.1, 5000);
+    fieldPlan2DCamera.position.set(0, 500, 0);
+    // Apply TrueNorth
+    let tnAngle = 0;
+    for(let i=0; i<loadedModels.length; i++){
+      if(loadedModels[i]?.spatial?.trueNorthAngle){
+        tnAngle = loadedModels[i].spatial.trueNorthAngle; break;
+      }
+    }
+    fieldPlan2DCamera.up.set(-Math.sin(tnAngle), 0, -Math.cos(tnAngle));
+    fieldPlan2DCamera.lookAt(0, 0, 0);
+  }
+  
+  // Resize
+  fieldPlan2DResize();
+  
+  // Setup touch pan/zoom
+  fieldPlan2DSetupTouch();
+  
+  // Start render loop
+  fieldPlan2DRender();
+  
+  // Auto-select first storey
+  if(fieldPlan2DStoreyIdx < 0){
+    const storeys = fieldPlan2DGetStoreys();
+    if(storeys.length > 0) fieldPlan2DSelectStorey(0);
+  }
+};
+
+window.fieldClosePlan2D = function(){
+  fieldPlan2DActive = false;
+  document.getElementById('fieldPlan2D').classList.remove('show');
+  document.getElementById('fieldBtnPlan2D').classList.remove('on');
+  if(_fp2dAnimId){ cancelAnimationFrame(_fp2dAnimId); _fp2dAnimId = null; }
+  // Remove storey clip planes
+  clipPlanes.length = 0;
+};
+
+function fieldPlan2DResize(){
+  if(!fieldPlan2DRenderer) return;
+  const container = document.getElementById('fieldPlan2DCanvas');
+  const w = container.clientWidth, h = container.clientHeight;
+  if(w === 0 || h === 0) return;
+  fieldPlan2DRenderer.setSize(w, h);
+  fieldPlan2DRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+}
+
+function fieldPlan2DGetStoreys(){
+  const all = [];
+  for(let i=0; i<loadedModels.length; i++){
+    const m = loadedModels[i];
+    if(!m?.spatial?.storeys) continue;
+    for(const s of m.spatial.storeys){
+      if(!all.some(u => Math.abs(u.elevation - s.elevation) < 0.1)){
+        all.push({ name: s.name, elevation: s.elevation });
+      }
+    }
+  }
+  all.sort((a,b) => a.elevation - b.elevation);
+  return all;
+}
+
+function fieldPlan2DBuildStoreys(){
+  const container = document.getElementById('fieldPlan2DStoreys');
+  const storeys = fieldPlan2DGetStoreys();
+  if(storeys.length === 0){
+    container.innerHTML = '<span style="font-size:11px;color:var(--text-muted)">No storeys</span>';
+    return;
+  }
+  container.innerHTML = storeys.map((s, i) =>
+    `<button class="field-plan2d-pill${i===fieldPlan2DStoreyIdx?' on':''}" onclick="fieldPlan2DSelectStorey(${i})">${s.name}</button>`
+  ).join('');
+}
+
+window.fieldPlan2DSelectStorey = function(idx){
+  const storeys = fieldPlan2DGetStoreys();
+  if(idx < 0 || idx >= storeys.length) return;
+  fieldPlan2DStoreyIdx = idx;
+  const s = storeys[idx];
+  
+  // Update pills
+  document.querySelectorAll('.field-plan2d-pill').forEach((p,i) => p.classList.toggle('on', i===idx));
+  
+  // Setup clipping planes for this storey
+  const cy = sharedCenterOffset?.y || 0;
+  const elevBot = s.elevation - cy;
+  const nextStorey = storeys[idx+1];
+  const elevTop = nextStorey ? (nextStorey.elevation - cy) : (elevBot + 3.5);
+  const cutY = elevBot + (elevTop - elevBot) * 0.4; // cut at 40% height (window/door level)
+  
+  // 2 horizontal clip planes: top and bottom
+  clipPlanes.length = 0;
+  clipPlanes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), cutY + 0.5)); // ceiling
+  clipPlanes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -elevBot + 0.1)); // floor
+  
+  // Position camera looking down at this storey
+  if(fieldPlan2DCamera){
+    const cx = (modelBounds.min.x + modelBounds.max.x) / 2;
+    const cz = (modelBounds.min.z + modelBounds.max.z) / 2;
+    fieldPlan2DCamera.position.set(cx, cutY + 200, cz);
+    
+    // Fit bounds
+    const spanX = modelBounds.max.x - modelBounds.min.x;
+    const spanZ = modelBounds.max.z - modelBounds.min.z;
+    const container = document.getElementById('fieldPlan2DCanvas');
+    const aspect = container.clientWidth / (container.clientHeight || 1);
+    const pad = 1.15;
+    let halfW, halfH;
+    if(spanX / aspect > spanZ){
+      halfW = spanX * pad / 2;
+      halfH = halfW / aspect;
+    } else {
+      halfH = spanZ * pad / 2;
+      halfW = halfH * aspect;
+    }
+    fieldPlan2DCamera.left = -halfW;
+    fieldPlan2DCamera.right = halfW;
+    fieldPlan2DCamera.top = halfH;
+    fieldPlan2DCamera.bottom = -halfH;
+    fieldPlan2DCamera.updateProjectionMatrix();
+  }
+  
+  // Update info
+  document.getElementById('fieldPlan2DInfo').textContent = 
+    `${s.name} — Elev: ${s.elevation.toFixed(2)}m — Cut height: ${(s.elevation + (elevTop-elevBot+cy)*0.4).toFixed(2)}m`;
+  
+  fieldToast(`Plan: ${s.name}`);
+};
+
+function fieldPlan2DRender(){
+  if(!fieldPlan2DActive) return;
+  if(fieldPlan2DRenderer && fieldPlan2DCamera){
+    fieldPlan2DRenderer.render(scene, fieldPlan2DCamera);
+  }
+  _fp2dAnimId = requestAnimationFrame(fieldPlan2DRender);
+}
+
+// ── Touch pan/zoom for Plan 2D ──
+function fieldPlan2DSetupTouch(){
+  const container = document.getElementById('fieldPlan2DCanvas');
+  let panActive = false;
+  let panPrev = {x:0, y:0};
+  let pinchDist0 = 0;
+  
+  container.ontouchstart = (e) => {
+    if(e.touches.length === 1){
+      panActive = true;
+      panPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if(e.touches.length === 2){
+      panActive = false;
+      const t0 = e.touches[0], t1 = e.touches[1];
+      pinchDist0 = Math.sqrt(Math.pow(t1.clientX-t0.clientX,2) + Math.pow(t1.clientY-t0.clientY,2));
+    }
+  };
+  
+  container.ontouchmove = (e) => {
+    e.preventDefault();
+    if(!fieldPlan2DCamera) return;
+    
+    if(e.touches.length === 1 && panActive){
+      // Pan
+      const dx = e.touches[0].clientX - panPrev.x;
+      const dy = e.touches[0].clientY - panPrev.y;
+      panPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      
+      const w = fieldPlan2DCamera.right - fieldPlan2DCamera.left;
+      const h = fieldPlan2DCamera.top - fieldPlan2DCamera.bottom;
+      const rect = container.getBoundingClientRect();
+      const panX = -dx / rect.width * w;
+      const panZ = dy / rect.height * h;
+      
+      // Apply pan relative to camera up direction
+      fieldPlan2DCamera.position.x += panX;
+      fieldPlan2DCamera.position.z += panZ;
+    } else if(e.touches.length === 2){
+      // Pinch zoom
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.sqrt(Math.pow(t1.clientX-t0.clientX,2) + Math.pow(t1.clientY-t0.clientY,2));
+      if(pinchDist0 > 0){
+        const scale = pinchDist0 / dist;
+        const cx = (fieldPlan2DCamera.left + fieldPlan2DCamera.right) / 2;
+        const cy = (fieldPlan2DCamera.top + fieldPlan2DCamera.bottom) / 2;
+        const hw = (fieldPlan2DCamera.right - fieldPlan2DCamera.left) / 2 * scale;
+        const hh = (fieldPlan2DCamera.top - fieldPlan2DCamera.bottom) / 2 * scale;
+        // Clamp: don't zoom in too far or out too far
+        if(hw > 0.5 && hw < 5000){
+          fieldPlan2DCamera.left = cx - hw;
+          fieldPlan2DCamera.right = cx + hw;
+          fieldPlan2DCamera.top = cy + hh;
+          fieldPlan2DCamera.bottom = cy - hh;
+          fieldPlan2DCamera.updateProjectionMatrix();
+        }
+        pinchDist0 = dist;
+      }
+    }
+  };
+  
+  container.ontouchend = container.ontouchcancel = () => {
+    panActive = false;
+  };
+  
+  // Tap to select element on plan
+  container.onclick = async (e) => {
+    if(!fieldPlan2DRenderer || !fieldPlan2DCamera) return;
+    const rect = container.getBoundingClientRect();
+    const mx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const my = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(mx, my), fieldPlan2DCamera);
+    const ms = [];
+    scene.traverse(c => { if(c.isMesh && c.visible) ms.push(c); });
+    const hits = ray.intersectObjects(ms, false);
+    if(hits.length === 0) return;
+    
+    const hit = hits[0];
+    let targetModelIdx = hit.object.userData?.srcModelIdx ?? -1;
+    if(targetModelIdx < 0) targetModelIdx = findModelIdx(hit.object);
+    if(targetModelIdx < 0 || !loadedModels[targetModelIdx]) return;
+    
+    let foundEid = null;
+    try{
+      const eid = ifcLoader.ifcManager.getExpressId(hit.object.geometry, hit.faceIndex);
+      if(eid > 0) foundEid = eid;
+    }catch(e2){}
+    if(!foundEid && hit.object.geometry.attributes.expressID){
+      try{
+        const idx2 = hit.object.geometry.index
+          ? hit.object.geometry.index.array[hit.faceIndex*3]
+          : hit.faceIndex*3;
+        if(idx2 >= 0) foundEid = hit.object.geometry.attributes.expressID.array[idx2];
+      }catch(e2){}
+    }
+    if(!foundEid) return;
+    
+    // Show properties in field sheet
+    const modelID = loadedModels[targetModelIdx].modelID;
+    try{
+      const props = await ifcLoader.ifcManager.getItemProperties(modelID, foundEid, true);
+      if(props) showProps(props, targetModelIdx);
+    }catch(e2){}
+    
+    // Highlight
+    try{
+      clearHighlight();
+      if(!window._hlMat) window._hlMat = new THREE.MeshPhongMaterial({color:0x2563eb, transparent:true, opacity:0.6, side:THREE.DoubleSide, depthTest:true, clippingPlanes:clipPlanes});
+      const sub = ifcLoader.ifcManager.createSubset({modelID, ids:[foundEid], material:window._hlMat, scene, removePrevious:true, customID:'userHighlight'});
+      if(sub){ sub.position.copy(loadedModels[targetModelIdx].position); sub.updateMatrixWorld(true); window._lastHL={subset:sub, mid:modelID}; }
+    }catch(e2){}
+    
+    fieldToast('Element selected');
+  };
 }
 
 // ── Auto-detect touch device → suggest field mode ──
