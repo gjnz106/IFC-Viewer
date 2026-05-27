@@ -794,6 +794,18 @@ body.field-mode .field-storeys.show{display:flex;gap:6px}
 body.field-mode .ctx-menu{border-radius:12px;min-width:200px}
 body.field-mode .ctx-menu .ctx-item{padding:12px 16px;font-size:14px;min-height:44px;display:flex;align-items:center}
 
+/* ── Touch walk controls (Field Mode only) ── */
+.walk-touch{display:none;position:fixed;bottom:80px;left:0;right:0;z-index:210;pointer-events:none}
+body.field-mode .walk-touch.show{display:block}
+.walk-joy{position:absolute;bottom:20px;left:24px;width:120px;height:120px;pointer-events:auto;touch-action:none}
+.walk-joy-bg{width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.walk-joy-knob{position:absolute;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.45);border:1.5px solid rgba(255,255,255,.5);top:38px;left:38px;transition:none;pointer-events:none}
+.walk-look-zone{position:absolute;bottom:0;right:0;width:calc(100% - 168px);height:100%;pointer-events:auto;touch-action:none}
+.walk-speed-pill{position:absolute;bottom:150px;left:46px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.6);font-family:'JetBrains Mono';font-size:10px;padding:3px 10px;border-radius:12px;pointer-events:none}
+.walk-ud-btns{position:absolute;bottom:20px;right:24px;display:flex;flex-direction:column;gap:6px;pointer-events:auto}
+.walk-ud-btn{width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.walk-ud-btn:active{background:rgba(255,255,255,.25)}
+
 /* ── Auth UI ────────────────────────────────────────────────── */
 /* Full-page overlay shown while auth state is unknown OR user is logged out. */
 /* Uses display:flex by default (covers app on first paint to prevent flash of */
@@ -1532,6 +1544,20 @@ body.field-mode .ctx-menu .ctx-item{padding:12px 16px;font-size:14px;min-height:
 
 <!-- Info toast -->
 <div class="field-toast" id="fieldToast"></div>
+
+<!-- Touch walk controls (visible only in Field Mode + walk active) -->
+<div class="walk-touch" id="walkTouch">
+  <div class="walk-joy" id="walkJoy">
+    <div class="walk-joy-bg"></div>
+    <div class="walk-joy-knob" id="walkJoyKnob"></div>
+  </div>
+  <div class="walk-speed-pill" id="walkSpeedPill">Speed: 1.0×</div>
+  <div class="walk-look-zone" id="walkLookZone"></div>
+  <div class="walk-ud-btns">
+    <button class="walk-ud-btn" id="walkUpBtn" ontouchstart="walkTouchUD('up',true)" ontouchend="walkTouchUD('up',false)">▲</button>
+    <button class="walk-ud-btn" id="walkDownBtn" ontouchstart="walkTouchUD('down',true)" ontouchend="walkTouchUD('down',false)">▼</button>
+  </div>
+</div>
 <div class="sg-json-overlay" id="sgJsonOverlay">
   <div class="sg-json-dialog">
     <div class="sg-json-dialog-hdr">
@@ -2408,6 +2434,39 @@ function initThree(){
             }
           }
         }catch(pe){log('Pivot err:',pe?.message||pe)}
+        
+        // ── Field Mode: auto-zoom to picked element ──
+        // On tablet, tapping an element should zoom the camera to it
+        // since there's no mouse scroll-to-zoom precision available.
+        if(fieldActive){
+          const fbb = getElementBBox(targetModelIdx, foundEid);
+          if(fbb && fbb.center){
+            const sz = Math.max(fbb.size.x, fbb.size.y, fbb.size.z);
+            const d = Math.max(sz * 2.5, 3);
+            // Smooth zoom: animate camera to frame the element
+            const targetPos = new THREE.Vector3(
+              fbb.center.x + d * 0.45,
+              fbb.center.y + d * 0.35,
+              fbb.center.z + d * 0.45
+            );
+            // If walk mode is active, teleport camera near the element at eye height
+            if(walkActive){
+              camera.position.set(fbb.center.x + sz + 1.5, fbb.center.y + 1.6, fbb.center.z + sz + 1.5);
+              walkYaw = Math.atan2(
+                fbb.center.x - camera.position.x,
+                fbb.center.z - camera.position.z
+              );
+              walkPitch = Math.atan2(
+                fbb.center.y - camera.position.y,
+                Math.sqrt(Math.pow(fbb.center.x - camera.position.x, 2) + Math.pow(fbb.center.z - camera.position.z, 2))
+              );
+            } else {
+              camera.position.copy(targetPos);
+              controls.target.copy(fbb.center);
+              controls.update();
+            }
+          }
+        }
       }
     }catch(pe){log('Props err:',pe.message)}
   });
@@ -8442,7 +8501,7 @@ function walkLoop(){
   const right=new THREE.Vector3(Math.cos(walkYaw),0,-Math.sin(walkYaw));
   const up=new THREE.Vector3(0,1,0);
   
-  // Movement
+  // Movement from keyboard (WASD)
   const move=new THREE.Vector3(0,0,0);
   if(walkKeys.w)move.add(forward.clone().multiplyScalar(spd));
   if(walkKeys.s)move.add(forward.clone().multiplyScalar(-spd));
@@ -8450,6 +8509,13 @@ function walkLoop(){
   if(walkKeys.d)move.add(right.clone().multiplyScalar(spd));
   if(walkKeys.e)move.add(up.clone().multiplyScalar(spd));
   if(walkKeys.q)move.add(up.clone().multiplyScalar(-spd));
+  
+  // Movement from touch joystick (Field Mode)
+  if(_walkJoyVec && (Math.abs(_walkJoyVec.x)>0.05 || Math.abs(_walkJoyVec.y)>0.05)){
+    // Joystick Y axis (up = forward), X axis (right = strafe right)
+    move.add(forward.clone().multiplyScalar(-_walkJoyVec.y * spd));
+    move.add(right.clone().multiplyScalar(_walkJoyVec.x * spd));
+  }
   
   camera.position.add(move);
   
@@ -11872,8 +11938,90 @@ window.fieldToggleMeasure = function(){
 window.fieldToggleWalk = function(){
   toggleWalkMode();
   const btn = document.getElementById('fieldBtnWalk');
-  btn.classList.toggle('on', walkMode);
-  fieldToast(walkMode ? 'Walk mode ON' : 'Walk mode OFF');
+  btn.classList.toggle('on', walkActive);
+  // Show/hide touch controls
+  document.getElementById('walkTouch').classList.toggle('show', walkActive);
+  if(walkActive){
+    fieldToast('Walk mode — drag left joystick to move, drag right to look');
+    walkTouchInit();
+    // On touch devices, skip pointer lock (doesn't work on iPad)
+    if('ontouchstart' in window){
+      try{ document.exitPointerLock?.(); }catch(e){}
+    }
+  } else {
+    fieldToast('Walk mode OFF');
+  }
+};
+
+// ── Touch walk controls: virtual joystick + look zone ──
+let _walkJoyActive = false;
+let _walkJoyCenter = {x:0, y:0};
+let _walkJoyVec = {x:0, y:0}; // -1..1 normalized
+let _walkLookActive = false;
+let _walkLookPrev = {x:0, y:0};
+
+function walkTouchInit(){
+  const joy = document.getElementById('walkJoy');
+  const knob = document.getElementById('walkJoyKnob');
+  const lookZone = document.getElementById('walkLookZone');
+
+  // Joystick touch
+  joy.ontouchstart = (e) => {
+    e.preventDefault();
+    _walkJoyActive = true;
+    const rect = joy.getBoundingClientRect();
+    _walkJoyCenter = { x: rect.left + 60, y: rect.top + 60 };
+    walkJoyMove(e.touches[0]);
+  };
+  joy.ontouchmove = (e) => {
+    e.preventDefault();
+    if(_walkJoyActive && e.touches[0]) walkJoyMove(e.touches[0]);
+  };
+  joy.ontouchend = joy.ontouchcancel = (e) => {
+    e.preventDefault();
+    _walkJoyActive = false;
+    _walkJoyVec = {x:0, y:0};
+    knob.style.transform = 'translate(0px, 0px)';
+  };
+
+  // Look zone touch (right side of screen)
+  lookZone.ontouchstart = (e) => {
+    e.preventDefault();
+    _walkLookActive = true;
+    _walkLookPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  lookZone.ontouchmove = (e) => {
+    e.preventDefault();
+    if(!_walkLookActive || !e.touches[0]) return;
+    const dx = e.touches[0].clientX - _walkLookPrev.x;
+    const dy = e.touches[0].clientY - _walkLookPrev.y;
+    _walkLookPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    // Apply to walk yaw/pitch
+    walkYaw -= dx * 0.004;
+    walkPitch -= dy * 0.004;
+    walkPitch = Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, walkPitch));
+  };
+  lookZone.ontouchend = lookZone.ontouchcancel = () => {
+    _walkLookActive = false;
+  };
+}
+
+function walkJoyMove(touch){
+  const dx = touch.clientX - _walkJoyCenter.x;
+  const dy = touch.clientY - _walkJoyCenter.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxR = 40;
+  const clamped = Math.min(dist, maxR);
+  const angle = Math.atan2(dy, dx);
+  const cx = Math.cos(angle) * clamped;
+  const cy = Math.sin(angle) * clamped;
+  document.getElementById('walkJoyKnob').style.transform = `translate(${cx}px, ${cy}px)`;
+  _walkJoyVec = { x: cx / maxR, y: cy / maxR };
+}
+
+window.walkTouchUD = function(dir, pressed){
+  if(dir === 'up') walkKeys.e = pressed;
+  if(dir === 'down') walkKeys.q = pressed;
 };
 
 window.fieldScreenshot = function(){
@@ -11967,20 +12115,39 @@ function fieldSetupLongPress(){
   let lpTimer = null;
   let lpPos = {x:0, y:0};
   let lpMoved = false;
+  
+  // Double-tap detection for zoom-to-element
+  let lastTapTime = 0;
+  let lastTapPos = {x:0, y:0};
 
   canvas.addEventListener('touchstart', (e)=>{
     if(!fieldActive) return;
     if(e.touches.length !== 1) return;
-    lpPos = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+    const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+    lpPos = {x: tx, y: ty};
     lpMoved = false;
+    
+    // Double-tap detection (300ms window, 30px tolerance)
+    const now = Date.now();
+    const dt = now - lastTapTime;
+    const dist = Math.sqrt(Math.pow(tx - lastTapPos.x, 2) + Math.pow(ty - lastTapPos.y, 2));
+    if(dt < 300 && dist < 30){
+      // Double-tap → zoom to tapped element
+      e.preventDefault();
+      lastTapTime = 0; // reset to avoid triple-tap
+      fieldDoubleTapZoom(tx, ty);
+      return;
+    }
+    lastTapTime = now;
+    lastTapPos = {x: tx, y: ty};
+    
+    // Long-press timer
     lpTimer = setTimeout(()=>{
       if(!lpMoved){
-        // Simulate right-click context menu
         const ev = new MouseEvent('contextmenu', {
           bubbles:true, clientX:lpPos.x, clientY:lpPos.y
         });
         canvas.dispatchEvent(ev);
-        // Prevent the subsequent touchend from also triggering a click
         e.preventDefault();
       }
     }, 600);
@@ -12006,6 +12173,86 @@ function fieldSetupLongPress(){
     clearTimeout(lpTimer);
     lpTimer = null;
   });
+}
+
+// ── Double-tap zoom: raycast at tap point, zoom to hit element ──
+function fieldDoubleTapZoom(clientX, clientY){
+  if(!renderer || !camera) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mx = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const my = -((clientY - rect.top) / rect.height) * 2 + 1;
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(mx, my), camera);
+  
+  // Collect visible meshes
+  const ms = [];
+  scene.traverse(c => { if(c.isMesh && c.visible) ms.push(c); });
+  const hits = ray.intersectObjects(ms, false);
+  
+  if(hits.length === 0){
+    // No element hit — zoom to clicked point on nearest surface
+    fieldToast('No element at tap point');
+    return;
+  }
+  
+  const hit = hits[0];
+  const point = hit.point;
+  
+  // Try to get element bbox for better framing
+  let targetModelIdx = -1;
+  if(hit.object.userData?.srcModelIdx !== undefined){
+    targetModelIdx = hit.object.userData.srcModelIdx;
+  } else {
+    targetModelIdx = findModelIdx(hit.object);
+  }
+  
+  let foundEid = null;
+  try{
+    const eid = ifcLoader.ifcManager.getExpressId(hit.object.geometry, hit.faceIndex);
+    if(eid > 0) foundEid = eid;
+  }catch(e){}
+  if(!foundEid && hit.object.geometry.attributes.expressID){
+    try{
+      const idx = hit.object.geometry.index
+        ? hit.object.geometry.index.array[hit.faceIndex * 3]
+        : hit.faceIndex * 3;
+      if(idx >= 0 && idx < hit.object.geometry.attributes.expressID.array.length){
+        foundEid = hit.object.geometry.attributes.expressID.array[idx];
+      }
+    }catch(e){}
+  }
+  
+  if(foundEid && targetModelIdx >= 0){
+    const bbox = getElementBBox(targetModelIdx, foundEid);
+    if(bbox?.center){
+      const sz = Math.max(bbox.size.x, bbox.size.y, bbox.size.z);
+      const d = Math.max(sz * 2.5, 3);
+      if(walkActive){
+        camera.position.set(bbox.center.x + sz + 1.5, bbox.center.y + 1.6, bbox.center.z + sz + 1.5);
+        walkYaw = Math.atan2(bbox.center.x - camera.position.x, bbox.center.z - camera.position.z);
+        walkPitch = 0;
+      } else {
+        camera.position.set(bbox.center.x + d*0.45, bbox.center.y + d*0.35, bbox.center.z + d*0.45);
+        controls.target.copy(bbox.center);
+        controls.update();
+      }
+      fieldToast('Zoomed to element');
+      return;
+    }
+  }
+  
+  // Fallback: zoom to hit point
+  const d = 5;
+  if(walkActive){
+    camera.position.set(point.x + 2, point.y + 1.6, point.z + 2);
+    walkYaw = Math.atan2(point.x - camera.position.x, point.z - camera.position.z);
+    walkPitch = 0;
+  } else {
+    camera.position.set(point.x + d*0.5, point.y + d*0.4, point.z + d*0.5);
+    controls.target.copy(point);
+    controls.update();
+  }
+  fieldToast('Zoomed to point');
 }
 
 // ── Auto-detect touch device → suggest field mode ──
