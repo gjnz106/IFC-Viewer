@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IFC Delta — 3D Version Compare</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 <style>
 :root{
   --bg:#f5f6f8;--bg-panel:#ffffff;--bg-card:#f0f1f4;--bg-hover:#e8eaef;
@@ -98,6 +99,34 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .fed-slot-rm:hover{color:var(--red)}
 .fed-add-btn{width:100%;padding:5px;border:1.5px dashed var(--border);border-radius:var(--radius);background:none;cursor:pointer;font-family:'Inter';font-size:11px;color:var(--text-muted);transition:all var(--t)}
 .fed-add-btn:hover{border-color:var(--green);color:var(--green);background:#f0fdf4}
+
+/* ── OneDrive Panel ── */
+.od-panel{border-top:1px solid var(--border);padding:0;flex-shrink:0}
+.od-toggle{width:100%;padding:8px 10px;border:none;background:none;cursor:pointer;font-family:'Inter';font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:6px;transition:all var(--t);text-align:left}
+.od-toggle:hover{background:var(--bg-hover);color:var(--text)}
+.od-toggle-icon{font-size:14px}
+.od-toggle-badge{margin-left:auto;font-family:'JetBrains Mono';font-size:9px;padding:1px 6px;border-radius:8px;background:var(--bg);color:var(--text-muted)}
+.od-toggle-badge.on{background:#dbeafe;color:#1e40af}
+.od-body{display:none;padding:4px 8px 8px;max-height:240px;overflow-y:auto;flex-direction:column;gap:4px}
+.od-body.show{display:flex}
+.od-login-btn{width:100%;padding:7px;border-radius:var(--radius);border:1px solid #2563eb;background:rgba(37,99,235,.08);color:#3b82f6;font-family:'Inter';font-size:11px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all var(--t)}
+.od-login-btn:hover{background:rgba(37,99,235,.15)}
+.od-login-btn svg{width:14px;height:14px}
+.od-status{font-family:'JetBrains Mono';font-size:9px;color:var(--text-muted);padding:2px 0}
+.od-breadcrumb{display:flex;align-items:center;gap:2px;font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);padding:2px 0;flex-wrap:wrap}
+.od-crumb{cursor:pointer;color:var(--blue);padding:1px 3px;border-radius:3px}
+.od-crumb:hover{background:rgba(37,99,235,.1)}
+.od-crumb-sep{color:var(--text-muted);font-size:8px}
+.od-file-list{display:flex;flex-direction:column;gap:1px}
+.od-file{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:var(--radius);cursor:pointer;transition:background var(--t);font-size:11px}
+.od-file:hover{background:var(--bg-hover)}
+.od-file-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center}
+.od-file-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.od-file-size{font-family:'JetBrains Mono';font-size:9px;color:var(--text-muted);flex-shrink:0}
+.od-file-load{font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--green);color:var(--green);background:none;cursor:pointer;flex-shrink:0;font-family:'Inter';font-weight:500;opacity:0;transition:opacity var(--t)}
+.od-file:hover .od-file-load{opacity:1}
+.od-file-load:hover{background:var(--green);color:#fff}
+.od-loading{text-align:center;padding:12px;font-size:11px;color:var(--text-muted)}
 .vis-row{padding:2px 10px 4px;}
 
 /* Tab switcher for Tree/Issues */
@@ -1082,6 +1111,22 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
         <div class="fed-slots" id="fedSlots"></div>
         <button class="fed-add-btn" id="fedAddBtn" onclick="fedAddSlot()" title="Load additional IFC files to view together">+ Add more files</button>
         <input type="file" id="fedFileInput" accept=".ifc,*/*" style="display:none" onchange="fedHandleFile(event)">
+      </div>
+    </div>
+    <!-- OneDrive Panel -->
+    <div class="od-panel" id="odPanel">
+      <button class="od-toggle" onclick="odToggle()">
+        <span class="od-toggle-icon">☁️</span> OneDrive
+        <span class="od-toggle-badge" id="odBadge">offline</span>
+      </button>
+      <div class="od-body" id="odBody">
+        <div id="odContent">
+          <button class="od-login-btn" onclick="odLogin()">
+            <svg viewBox="0 0 23 23" fill="none"><path d="M1 1h10v10H1z" fill="#f25022"/><path d="M12 1h10v10H12z" fill="#7fba00"/><path d="M1 12h10v10H1z" fill="#00a4ef"/><path d="M12 12h10v10H12z" fill="#ffb900"/></svg>
+            Sign in with Microsoft
+          </button>
+          <div class="od-status" id="odStatus">Connect OneDrive to browse IFC files from cloud</div>
+        </div>
       </div>
     </div>
     <div class="summary-strip" id="sumStrip">
@@ -2383,8 +2428,9 @@ function initThree(){
       if(pinchDist0 > 0){
         const scale = dist / pinchDist0;
         // Feed into the same zoom velocity system used by mouse wheel
+        // Higher multiplier = more responsive (matching 2D plan feel)
         const zs = window._zoomState;
-        const delta = Math.log(scale) * -0.5; // negative = zoom in when spreading
+        const delta = Math.log(scale) * -2.5;
         zs.accum = delta;
         pinchDist0 = dist;
       }
@@ -2511,6 +2557,25 @@ function initThree(){
     if(!foundEid){console.log('[PICK] no expressID found, faceIndex=',hit.faceIndex,'hasExpressID=',!!hit.object.geometry.attributes.expressID);return}
     
     log('Pick: expressID='+foundEid+' model='+targetModelIdx+(hit.object.userData?.diffSubset?' (diff:'+hit.object.userData.diffSubset+')':''));
+    
+    // ── Field Mode: tap does NOT show properties or highlight ──
+    // User must long-press → context menu → Properties/Zoom for inspection.
+    // Tap only sets the orbit pivot so subsequent pinch/rotate centers on element.
+    if(fieldActive){
+      try{
+        const bb=getElementBBox(targetModelIdx, foundEid);
+        if(bb && bb.center){
+          window._pendingPivot = new THREE.Vector3(bb.center.x, bb.center.y, bb.center.z);
+          if(window._zoomState){
+            window._zoomState.pivot.copy(window._pendingPivot);
+            window._zoomState.pivotValid=true;
+            window._zoomState.accum=0;
+          }
+        }
+      }catch(e){}
+      return; // skip properties, highlight, auto-zoom
+    }
+    
     try{
       const props=await ifcLoader.ifcManager.getItemProperties(modelID,foundEid,true);
       if(props){
@@ -2559,39 +2624,6 @@ function initThree(){
             }
           }
         }catch(pe){log('Pivot err:',pe?.message||pe)}
-        
-        // ── Field Mode: auto-zoom to picked element ──
-        // On tablet, tapping an element should zoom the camera to it
-        // since there's no mouse scroll-to-zoom precision available.
-        if(fieldActive){
-          const fbb = getElementBBox(targetModelIdx, foundEid);
-          if(fbb && fbb.center){
-            const sz = Math.max(fbb.size.x, fbb.size.y, fbb.size.z);
-            const d = Math.max(sz * 2.5, 3);
-            // Smooth zoom: animate camera to frame the element
-            const targetPos = new THREE.Vector3(
-              fbb.center.x + d * 0.45,
-              fbb.center.y + d * 0.35,
-              fbb.center.z + d * 0.45
-            );
-            // If walk mode is active, teleport camera near the element at eye height
-            if(walkActive){
-              camera.position.set(fbb.center.x + sz + 1.5, fbb.center.y + 1.6, fbb.center.z + sz + 1.5);
-              walkYaw = Math.atan2(
-                fbb.center.x - camera.position.x,
-                fbb.center.z - camera.position.z
-              );
-              walkPitch = Math.atan2(
-                fbb.center.y - camera.position.y,
-                Math.sqrt(Math.pow(fbb.center.x - camera.position.x, 2) + Math.pow(fbb.center.z - camera.position.z, 2))
-              );
-            } else {
-              camera.position.copy(targetPos);
-              controls.target.copy(fbb.center);
-              controls.update();
-            }
-          }
-        }
       }
     }catch(pe){log('Props err:',pe.message)}
   });
@@ -11578,6 +11610,275 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+
+// ══════════════════════════════════════════════════════════════════════
+// ── ONEDRIVE INTEGRATION ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// Browse IFC files from OneDrive, download and load directly into viewer.
+// Uses MSAL.js for auth + Microsoft Graph API for file operations.
+// Config: set OD_CONFIG.CLIENT_ID and TENANT_ID from Azure AD app registration.
+
+const OD_CONFIG = {
+  CLIENT_ID: '57eed238-5bb0-4633-86b9-7cc41f5abecd',
+  TENANT_ID: '834af53b-cd9e-4281-93e0-0b9b7f0becd6',  // or 'common' for multi-tenant
+  SCOPES: ['User.Read', 'Files.ReadWrite'],
+  ROOT_FOLDER: 'IFC-Projects'
+};
+
+let _odMsal = null;
+let _odAccount = null;
+let _odToken = null;
+let _odCurrentPath = []; // breadcrumb: [{id, name}]
+let _odExpanded = false;
+
+// ── Init MSAL for OneDrive ──
+function odInitMSAL(){
+  if(OD_CONFIG.CLIENT_ID === 'YOUR_CLIENT_ID_HERE') return false;
+  try{
+    _odMsal = new msal.PublicClientApplication({
+      auth: {
+        clientId: OD_CONFIG.CLIENT_ID,
+        authority: `https://login.microsoftonline.com/${OD_CONFIG.TENANT_ID}`,
+        redirectUri: window.location.origin + window.location.pathname
+      },
+      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+    });
+    const accounts = _odMsal.getAllAccounts();
+    if(accounts.length > 0){
+      _odAccount = accounts[0];
+      odAcquireToken().then(()=>{
+        odUpdateBadge('on');
+        log('OneDrive: auto-signed in as ' + _odAccount.name);
+      });
+    }
+    return true;
+  }catch(e){ log('OneDrive MSAL init err:', e.message); return false; }
+}
+
+async function odAcquireToken(){
+  if(!_odMsal || !_odAccount) return null;
+  try{
+    const r = await _odMsal.acquireTokenSilent({scopes: OD_CONFIG.SCOPES, account: _odAccount});
+    _odToken = r.accessToken;
+    return _odToken;
+  }catch{
+    const r = await _odMsal.acquireTokenPopup({scopes: OD_CONFIG.SCOPES, account: _odAccount});
+    _odToken = r.accessToken;
+    return _odToken;
+  }
+}
+
+async function odFetch(path, opts={}){
+  if(!_odToken) await odAcquireToken();
+  const r = await fetch('https://graph.microsoft.com/v1.0' + path, {
+    ...opts, headers: {'Authorization':'Bearer '+_odToken, ...(opts.headers||{})}
+  });
+  if(r.status === 401){ await odAcquireToken(); return odFetch(path, opts); }
+  return r;
+}
+
+// ── UI ──
+window.odToggle = function(){
+  _odExpanded = !_odExpanded;
+  document.getElementById('odBody').classList.toggle('show', _odExpanded);
+};
+
+function odUpdateBadge(state){
+  const b = document.getElementById('odBadge');
+  b.textContent = state === 'on' ? 'connected' : 'offline';
+  b.classList.toggle('on', state === 'on');
+}
+
+window.odLogin = async function(){
+  if(!_odMsal){
+    if(!odInitMSAL()){
+      // Not configured — show instructions
+      alert('OneDrive not configured.\n\n1. Register app at portal.azure.com → App registrations\n2. Get CLIENT_ID and TENANT_ID\n3. Open this HTML file and search for OD_CONFIG\n4. Replace YOUR_CLIENT_ID_HERE and YOUR_TENANT_ID_HERE');
+      return;
+    }
+  }
+  try{
+    const resp = await _odMsal.loginPopup({scopes: OD_CONFIG.SCOPES});
+    _odAccount = resp.account;
+    await odAcquireToken();
+    odUpdateBadge('on');
+    log('OneDrive: signed in as ' + _odAccount.name);
+    // Browse root folder
+    odBrowseRoot();
+  }catch(e){
+    if(e.errorCode !== 'user_cancelled') log('OneDrive login err:', e.message);
+  }
+};
+
+async function odBrowseRoot(){
+  const content = document.getElementById('odContent');
+  content.innerHTML = '<div class="od-loading">Loading…</div>';
+  try{
+    // Ensure root folder exists
+    let rootResp = await odFetch(`/me/drive/root:/${OD_CONFIG.ROOT_FOLDER}`);
+    if(!rootResp.ok){
+      await odFetch('/me/drive/root/children', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name:OD_CONFIG.ROOT_FOLDER, folder:{}, '@microsoft.graph.conflictBehavior':'rename'})
+      });
+      rootResp = await odFetch(`/me/drive/root:/${OD_CONFIG.ROOT_FOLDER}`);
+    }
+    const root = await rootResp.json();
+    _odCurrentPath = [{id: root.id, name: OD_CONFIG.ROOT_FOLDER}];
+    await odBrowseFolder(root.id);
+  }catch(e){
+    content.innerHTML = `<div class="od-status" style="color:var(--red)">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function odBrowseFolder(folderId){
+  const content = document.getElementById('odContent');
+  content.innerHTML = '<div class="od-loading">Loading…</div>';
+  try{
+    const resp = await odFetch(`/me/drive/items/${folderId}/children?$select=id,name,size,folder,lastModifiedDateTime,@microsoft.graph.downloadUrl&$top=100`);
+    const data = await resp.json();
+    const items = data.value || [];
+    
+    // Breadcrumb
+    let bcHtml = '<div class="od-breadcrumb">';
+    _odCurrentPath.forEach((p, i) => {
+      if(i > 0) bcHtml += '<span class="od-crumb-sep">›</span>';
+      bcHtml += `<span class="od-crumb" onclick="odNavigateTo(${i})">${escapeHtml(p.name)}</span>`;
+    });
+    bcHtml += '</div>';
+    
+    // File list
+    let listHtml = '<div class="od-file-list">';
+    // Folders first
+    const folders = items.filter(i => i.folder);
+    const files = items.filter(i => !i.folder);
+    
+    for(const f of folders){
+      listHtml += `<div class="od-file" onclick="odOpenFolder('${f.id}','${escapeHtml(f.name)}')">
+        <span class="od-file-icon">📁</span>
+        <span class="od-file-name">${escapeHtml(f.name)}</span>
+        <span class="od-file-size">${f.folder.childCount||0} items</span>
+      </div>`;
+    }
+    for(const f of files){
+      const isIfc = f.name.toLowerCase().endsWith('.ifc');
+      const sz = f.size < 1048576 ? (f.size/1024).toFixed(0)+'KB' : (f.size/1048576).toFixed(1)+'MB';
+      listHtml += `<div class="od-file" ${isIfc?`ondblclick="odLoadFile('${f.id}','${escapeHtml(f.name)}')"`:''}>
+        <span class="od-file-icon">${isIfc?'📐':'📄'}</span>
+        <span class="od-file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+        <span class="od-file-size">${sz}</span>
+        ${isIfc?`<button class="od-file-load" onclick="event.stopPropagation();odLoadFile('${f.id}','${escapeHtml(f.name)}')">Load</button>`:''}
+      </div>`;
+    }
+    if(items.length === 0) listHtml += '<div class="od-status">Empty folder</div>';
+    listHtml += '</div>';
+    
+    // User info + logout
+    const userHtml = `<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;margin-bottom:4px">
+      <span class="od-status">☁️ ${escapeHtml(_odAccount?.name||'Connected')}</span>
+      <button style="font-size:9px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-family:'JetBrains Mono'" onclick="odLogout()">Sign out</button>
+    </div>`;
+    
+    content.innerHTML = userHtml + bcHtml + listHtml;
+  }catch(e){
+    content.innerHTML = `<div class="od-status" style="color:var(--red)">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+window.odOpenFolder = function(folderId, folderName){
+  _odCurrentPath.push({id: folderId, name: folderName});
+  odBrowseFolder(folderId);
+};
+
+window.odNavigateTo = function(idx){
+  _odCurrentPath = _odCurrentPath.slice(0, idx + 1);
+  odBrowseFolder(_odCurrentPath[idx].id);
+};
+
+// ── Download and load IFC file into viewer ──
+window.odLoadFile = async function(fileId, fileName){
+  const content = document.getElementById('odContent');
+  const statusEl = document.getElementById('odStatus');
+  log('OneDrive: downloading ' + fileName);
+  
+  // Show progress in the panel
+  const origHtml = content.innerHTML;
+  content.innerHTML = `<div class="od-loading">⏳ Downloading ${escapeHtml(fileName)}…</div>`;
+  
+  try{
+    // Get download URL
+    const resp = await odFetch(`/me/drive/items/${fileId}?$select=@microsoft.graph.downloadUrl,size`);
+    const data = await resp.json();
+    const url = data['@microsoft.graph.downloadUrl'];
+    const fileSize = data.size || 0;
+    
+    if(!url) throw new Error('No download URL');
+    
+    content.innerHTML = `<div class="od-loading">⏳ Downloading ${(fileSize/1048576).toFixed(1)}MB…</div>`;
+    
+    // Download file content
+    const dlResp = await fetch(url);
+    if(!dlResp.ok) throw new Error('Download failed: ' + dlResp.status);
+    const blob = await dlResp.blob();
+    
+    // Create a File object for loadIFC
+    const file = new File([blob], fileName, {type: 'application/octet-stream'});
+    
+    // Find an empty slot: prefer slot 0, then federation slots
+    let targetSlot = -1;
+    if(!loadedModels[0]){ targetSlot = 0; }
+    else if(!loadedModels[1]){ targetSlot = 1; }
+    else {
+      // Use next federation slot
+      targetSlot = fedNextSlot;
+      fedNextSlot = Math.max(fedNextSlot, targetSlot + 1);
+    }
+    
+    files[targetSlot] = file;
+    
+    // Update upload card UI if slot 0 or 1
+    if(targetSlot < 2){
+      const uc = document.getElementById('uc'+targetSlot);
+      if(uc) uc.classList.add('loaded');
+      const fn = document.getElementById('fn'+targetSlot);
+      if(fn) fn.textContent = fileName;
+      const fs = document.getElementById('fs'+targetSlot);
+      if(fs) fs.textContent = (fileSize/1048576).toFixed(1)+' MB';
+    }
+    
+    content.innerHTML = `<div class="od-loading">⏳ Loading into viewer…</div>`;
+    
+    // Init IFC if needed, then load
+    if(!ifcLoader){ if(!await initIFC()){ throw new Error('IFC engine init failed'); }}
+    await loadIFC(targetSlot);
+    
+    if(targetSlot >= 2) fedRenderSlots();
+    
+    log('OneDrive: ' + fileName + ' loaded into slot ' + targetSlot);
+    content.innerHTML = origHtml;
+    
+  }catch(e){
+    log('OneDrive load err:', e.message);
+    content.innerHTML = origHtml;
+    alert('Failed to load: ' + e.message);
+  }
+};
+
+window.odLogout = function(){
+  if(_odMsal) try{ _odMsal.logoutPopup(); }catch(e){}
+  _odToken = null;
+  _odAccount = null;
+  odUpdateBadge('offline');
+  document.getElementById('odContent').innerHTML = `
+    <button class="od-login-btn" onclick="odLogin()">
+      <svg viewBox="0 0 23 23" fill="none"><path d="M1 1h10v10H1z" fill="#f25022"/><path d="M12 1h10v10H12z" fill="#7fba00"/><path d="M1 12h10v10H1z" fill="#00a4ef"/><path d="M12 12h10v10H12z" fill="#ffb900"/></svg>
+      Sign in with Microsoft
+    </button>
+    <div class="od-status">Connect OneDrive to browse IFC files from cloud</div>`;
+};
+
+// Auto-init MSAL on page load
+try{ odInitMSAL(); }catch(e){}
 
 // ══════════════════════════════════════════════════════════════════════
 // ── ELEMENT SEARCH & FILTER ─────────────────────────────────────────
