@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IFC Delta — 3D Version Compare</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 <style>
 :root{
   --bg:#f5f6f8;--bg-panel:#ffffff;--bg-card:#f0f1f4;--bg-hover:#e8eaef;
@@ -47,7 +48,8 @@ body.resizing,body.resizing *{user-select:none !important;cursor:col-resize !imp
 body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-resize !important}
 
 /* Header */
-.header{grid-column:1/-1;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px;z-index:50}
+.header{grid-column:1/-1;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px;z-index:50;overflow-x:auto;scrollbar-width:none}
+.header::-webkit-scrollbar{display:none}
 .logo{display:flex;align-items:center;gap:7px}
 .logo-mark{width:24px;height:24px;background:linear-gradient(135deg,var(--blue),var(--indigo));border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-weight:700;font-size:16px;color:#fff}
 .logo-name{font-weight:600;font-size:17px;color:var(--text)}
@@ -84,9 +86,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .uc-status{font-size:10px;margin-top:2px;font-weight:600}
 .uc-status.ok{color:var(--green)}.uc-status.err{color:var(--red)}.uc-status.prog{color:var(--amber)}
 /* Federation file slots */
-.fed-section{border-top:1px solid var(--border);padding:6px 8px}
-.fed-title{font-family:'JetBrains Mono';font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.fed-title .fed-count{background:var(--blue);color:#fff;border-radius:8px;padding:0 6px;font-size:9px;min-width:16px;text-align:center}
+.fed-section{padding:4px 8px}
 .fed-slots{display:flex;flex-direction:column;gap:4px}
 .fed-slot{display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-card);font-size:11px}
 .fed-slot.loaded{border-color:var(--green);background:#f0fdf4}
@@ -99,6 +99,34 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .fed-slot-rm:hover{color:var(--red)}
 .fed-add-btn{width:100%;padding:5px;border:1.5px dashed var(--border);border-radius:var(--radius);background:none;cursor:pointer;font-family:'Inter';font-size:11px;color:var(--text-muted);transition:all var(--t)}
 .fed-add-btn:hover{border-color:var(--green);color:var(--green);background:#f0fdf4}
+
+/* ── OneDrive Panel ── */
+.od-panel{border-top:1px solid var(--border);padding:0;flex-shrink:0}
+.od-toggle{width:100%;padding:8px 10px;border:none;background:none;cursor:pointer;font-family:'Inter';font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:6px;transition:all var(--t);text-align:left}
+.od-toggle:hover{background:var(--bg-hover);color:var(--text)}
+.od-toggle-icon{font-size:14px}
+.od-toggle-badge{margin-left:auto;font-family:'JetBrains Mono';font-size:9px;padding:1px 6px;border-radius:8px;background:var(--bg);color:var(--text-muted)}
+.od-toggle-badge.on{background:#dbeafe;color:#1e40af}
+.od-body{display:none;padding:4px 8px 8px;max-height:240px;overflow-y:auto;flex-direction:column;gap:4px}
+.od-body.show{display:flex}
+.od-login-btn{width:100%;padding:7px;border-radius:var(--radius);border:1px solid #2563eb;background:rgba(37,99,235,.08);color:#3b82f6;font-family:'Inter';font-size:11px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all var(--t)}
+.od-login-btn:hover{background:rgba(37,99,235,.15)}
+.od-login-btn svg{width:14px;height:14px}
+.od-status{font-family:'JetBrains Mono';font-size:9px;color:var(--text-muted);padding:2px 0}
+.od-breadcrumb{display:flex;align-items:center;gap:2px;font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);padding:2px 0;flex-wrap:wrap}
+.od-crumb{cursor:pointer;color:var(--blue);padding:1px 3px;border-radius:3px}
+.od-crumb:hover{background:rgba(37,99,235,.1)}
+.od-crumb-sep{color:var(--text-muted);font-size:8px}
+.od-file-list{display:flex;flex-direction:column;gap:1px}
+.od-file{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:var(--radius);cursor:pointer;transition:background var(--t);font-size:11px}
+.od-file:hover{background:var(--bg-hover)}
+.od-file-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center}
+.od-file-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.od-file-size{font-family:'JetBrains Mono';font-size:9px;color:var(--text-muted);flex-shrink:0}
+.od-file-load{font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--green);color:var(--green);background:none;cursor:pointer;flex-shrink:0;font-family:'Inter';font-weight:500;opacity:0;transition:opacity var(--t)}
+.od-file:hover .od-file-load{opacity:1}
+.od-file-load:hover{background:var(--green);color:#fff}
+.od-loading{text-align:center;padding:12px;font-size:11px;color:var(--text-muted)}
 .vis-row{padding:2px 10px 4px;}
 
 /* Tab switcher for Tree/Issues */
@@ -185,6 +213,36 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 
 /* Tree */
 .entity-tree{flex:1;overflow-y:auto;padding:2px 0}
+/* ── Element Search panel ── */
+.search-panel{display:none;flex:1;overflow-y:auto;flex-direction:column}
+.search-panel.show{display:flex}
+.search-bar{padding:6px 8px;display:flex;flex-direction:column;gap:5px;border-bottom:1px solid var(--border);flex-shrink:0}
+.search-input{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:'Inter';font-size:12px;background:var(--bg);color:var(--text);outline:none}
+.search-input:focus{border-color:var(--blue)}
+.search-input::placeholder{color:var(--text-muted)}
+.search-filters{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.search-type-select{padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius);font-family:'JetBrains Mono';font-size:10px;background:var(--bg);color:var(--text);cursor:pointer}
+.search-chip{padding:2px 8px;border-radius:10px;border:1px solid var(--border);font-family:'JetBrains Mono';font-size:9px;cursor:pointer;background:var(--bg);color:var(--text-muted);transition:all var(--t);white-space:nowrap}
+.search-chip:hover{border-color:var(--blue);color:var(--blue)}
+.search-chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.search-adv{display:none;padding:0 8px 6px;border-bottom:1px solid var(--border);flex-shrink:0}
+.search-adv.show{display:flex;flex-direction:column;gap:4px}
+.search-adv-row{display:flex;gap:4px;align-items:center;font-size:11px}
+.search-adv-select{padding:3px 4px;border:1px solid var(--border);border-radius:var(--radius);font-family:'JetBrains Mono';font-size:10px;background:var(--bg);color:var(--text);max-width:120px}
+.search-adv-val{padding:3px 6px;border:1px solid var(--border);border-radius:var(--radius);font-family:'JetBrains Mono';font-size:10px;background:var(--bg);color:var(--text);width:80px}
+.search-adv-label{color:var(--text-muted);font-family:'JetBrains Mono';font-size:10px;white-space:nowrap}
+.search-stats{padding:4px 8px;font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;flex-shrink:0}
+.search-results{flex:1;overflow-y:auto;padding:2px 0}
+.search-item{padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border);transition:background var(--t)}
+.search-item:hover{background:var(--bg-hover)}
+.search-item.selected{background:rgba(37,99,235,.1);border-left:3px solid var(--blue)}
+.search-item-name{font-family:'JetBrains Mono';font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search-item-meta{font-size:10px;color:var(--text-muted);display:flex;gap:8px;margin-top:1px}
+.search-item-tag{font-family:'JetBrains Mono';font-size:9px;padding:0 4px;border-radius:3px;background:var(--bg);border:1px solid var(--border)}
+.search-actions{padding:4px 8px;border-top:1px solid var(--border);display:flex;gap:4px;flex-shrink:0}
+.search-act-btn{padding:3px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:'Inter';font-size:10px;background:var(--bg);color:var(--text);cursor:pointer;transition:all var(--t)}
+.search-act-btn:hover{border-color:var(--blue);color:var(--blue)}
+.search-act-btn.danger:hover{border-color:var(--red);color:var(--red)}
 .tg-hdr{display:flex;align-items:center;gap:5px;padding:5px 10px;cursor:pointer;transition:background var(--t);user-select:none}
 .tg-hdr:hover{background:var(--bg-hover)}
 .tg-arr{font-size:10px;color:var(--text-muted);transition:transform var(--t);width:12px;text-align:center}
@@ -632,6 +690,194 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @media(max-width:1100px){.app{grid-template-columns:240px 0 1fr 0 0}.col-resize{display:none}.right-panel{display:none}}
 
+/* ══════════════════════════════════════════════════════════════════
+   FIELD MODE — tablet-optimized layout for on-site BIM review
+   Activated via 📱 Field button or auto on touch + screen ≤ 1200px
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Field mode toggle button in header (always visible, before Compare) */
+.field-toggle{padding:6px 12px;border-radius:6px;border:1.5px solid var(--green);background:none;cursor:pointer;font-size:13px;font-family:'Inter';color:var(--green);transition:all var(--t);flex-shrink:0;white-space:nowrap}
+.field-toggle:hover{background:var(--green);color:#fff}
+body.field-mode .field-toggle{background:var(--green);color:#fff;border-color:var(--green)}
+/* On touch devices, make Field button bigger */
+@media(pointer:coarse){.field-toggle{padding:8px 14px;font-size:14px;font-weight:600}}
+
+/* ── Field mode overrides ── */
+body.field-mode .app{
+  grid-template-columns:0 0 1fr 0 0 !important;
+  grid-template-rows:0 1fr !important; /* hide header row */
+}
+body.field-mode .header{display:none !important}
+body.field-mode .left-panel{display:none !important}
+body.field-mode .right-panel{display:none !important}
+body.field-mode .col-resize{display:none !important}
+body.field-mode .sg-panel{display:none !important}
+body.field-mode .viewport-area{grid-column:1/-1 !important;grid-row:1/-1 !important}
+body.field-mode .empty-vp .ev-title{font-size:18px}
+body.field-mode .empty-vp .ev-hint{font-size:13px}
+
+/* ── Field toolbar: fixed bottom bar ── */
+.field-bar{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:rgba(24,24,27,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-top:1px solid rgba(255,255,255,.1);
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  gap:4px;justify-content:center;flex-wrap:wrap;
+}
+body.field-mode .field-bar{display:flex}
+
+.field-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:54px;min-height:54px;padding:6px 8px;
+  border:none;border-radius:10px;background:transparent;
+  color:rgba(255,255,255,.7);cursor:pointer;
+  font-family:'Inter';font-size:9px;font-weight:500;letter-spacing:.3px;
+  transition:all .15s;gap:2px;-webkit-tap-highlight-color:transparent;
+}
+.field-btn:active{transform:scale(.92);background:rgba(255,255,255,.12)}
+.field-btn.on{color:#4ade80;background:rgba(74,222,128,.12)}
+.field-btn-icon{font-size:22px;line-height:1}
+.field-btn-label{white-space:nowrap}
+.field-sep{width:1px;height:36px;background:rgba(255,255,255,.12);margin:0 2px;align-self:center}
+
+/* ── Field properties sheet: slide-up from bottom ── */
+.field-sheet{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:250;
+  background:var(--bg-panel);border-top:1px solid var(--border);
+  border-radius:16px 16px 0 0;
+  max-height:55vh;overflow-y:auto;overflow-x:hidden;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.9,.3,1);
+  padding-bottom:calc(68px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 30px rgba(0,0,0,.25);
+}
+body.field-mode .field-sheet{display:block}
+.field-sheet.open{transform:translateY(0)}
+.field-sheet-handle{
+  width:36px;height:4px;background:var(--border);border-radius:2px;
+  margin:10px auto 4px;
+}
+.field-sheet-hdr{
+  display:flex;align-items:center;padding:6px 16px 10px;gap:8px;
+  position:sticky;top:0;background:var(--bg-panel);z-index:1;
+  border-bottom:1px solid var(--border);
+}
+.field-sheet-title{font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:var(--text);flex:1}
+.field-sheet-close{background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:8px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.field-sheet-body{padding:8px 12px}
+
+/* ── Field file loader overlay ── */
+.field-loader{
+  display:none;position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.6);align-items:center;justify-content:center;
+}
+body.field-mode .field-loader.show{display:flex}
+.field-loader-card{
+  background:var(--bg-panel);border-radius:16px;padding:32px;
+  width:90%;max-width:420px;text-align:center;
+}
+.field-loader-card h3{font-size:16px;margin-bottom:16px;color:var(--text)}
+.field-loader-drop{
+  border:2.5px dashed var(--border);border-radius:12px;padding:40px 20px;
+  cursor:pointer;transition:all .2s;margin-bottom:16px;
+}
+.field-loader-drop:active{border-color:var(--green);background:#f0fdf4}
+.field-loader-drop-icon{font-size:40px;margin-bottom:8px}
+.field-loader-drop-text{font-size:14px;color:var(--text-muted)}
+.field-loader-status{font-size:12px;color:var(--green);margin-top:8px;min-height:18px}
+.field-loader-close{
+  background:none;border:1.5px solid var(--border);border-radius:8px;
+  padding:10px 24px;font-size:14px;font-family:'Inter';color:var(--text);cursor:pointer;margin-top:8px;
+  min-height:44px;
+}
+
+/* ── Field mode info toast ── */
+.field-toast{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:300;
+  background:rgba(24,24,27,.9);color:#fff;padding:8px 16px;border-radius:8px;
+  font-size:12px;font-family:'Inter';pointer-events:none;
+  opacity:0;transition:opacity .3s;
+}
+.field-toast.show{opacity:1}
+
+/* ── Full-screen Plan 2D (Field Mode) ── */
+.field-plan2d{
+  display:none;position:fixed;inset:0;z-index:220;
+  background:var(--bg);flex-direction:column;
+}
+body.field-mode .field-plan2d.show{display:flex}
+.field-plan2d-hdr{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;
+  background:var(--bg-panel);border-bottom:1px solid var(--border);
+  flex-shrink:0;overflow-x:auto;scrollbar-width:none;
+}
+.field-plan2d-hdr::-webkit-scrollbar{display:none}
+.field-plan2d-title{font-family:'JetBrains Mono';font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;flex-shrink:0}
+.field-plan2d-storey-wrap{display:flex;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.field-plan2d-storey-wrap::-webkit-scrollbar{display:none}
+.field-plan2d-pill{
+  padding:6px 14px;border-radius:20px;
+  border:1.5px solid var(--border);background:var(--bg-card);
+  color:var(--text);font-family:'JetBrains Mono';font-size:11px;font-weight:500;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;transition:all .15s;
+}
+.field-plan2d-pill:active{transform:scale(.95)}
+.field-plan2d-pill.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.field-plan2d-close{
+  padding:8px 14px;border-radius:8px;border:1.5px solid var(--border);
+  background:none;color:var(--text);font-family:'Inter';font-size:12px;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;min-height:40px;
+}
+.field-plan2d-close:active{background:var(--bg-hover)}
+.field-plan2d-canvas{
+  flex:1;position:relative;overflow:hidden;background:#f8f9fb;
+  touch-action:none;
+}
+.field-plan2d-canvas canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+.field-plan2d-canvas svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.field-plan2d-info{
+  padding:6px 12px;font-family:'JetBrains Mono';font-size:10px;
+  color:var(--text-muted);background:var(--bg-panel);border-top:1px solid var(--border);
+  flex-shrink:0;text-align:center;
+}
+
+/* ── Field storey selector: horizontal pill strip ── */
+.field-storeys{
+  display:none;position:fixed;top:12px;left:12px;right:12px;z-index:180;
+  overflow-x:auto;overflow-y:hidden;white-space:nowrap;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;padding:4px 0;
+}
+.field-storeys::-webkit-scrollbar{display:none}
+body.field-mode .field-storeys.show{display:flex;gap:6px}
+.field-storey-pill{
+  display:inline-flex;align-items:center;padding:7px 14px;
+  border-radius:20px;border:1.5px solid rgba(255,255,255,.2);
+  background:rgba(24,24,27,.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  color:rgba(255,255,255,.7);font-family:'JetBrains Mono';font-size:11px;font-weight:500;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;transition:all .15s;
+}
+.field-storey-pill:active{transform:scale(.95)}
+.field-storey-pill.on{background:rgba(74,222,128,.2);border-color:rgba(74,222,128,.5);color:#4ade80}
+
+/* ── Long-press context menu for touch ── */
+body.field-mode .ctx-menu{border-radius:12px;min-width:200px}
+body.field-mode .ctx-menu .ctx-item{padding:12px 16px;font-size:14px;min-height:44px;display:flex;align-items:center}
+
+/* ── Touch walk controls (Field Mode only) ── */
+.walk-touch{display:none;position:fixed;bottom:80px;left:0;right:0;z-index:210;pointer-events:none}
+body.field-mode .walk-touch.show{display:flex;justify-content:space-between;align-items:flex-end;padding:0 16px 12px}
+.walk-joy{position:relative;width:130px;height:130px;pointer-events:auto;touch-action:none;flex-shrink:0}
+.walk-joy-bg{width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.18);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.walk-joy-knob{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.4);border:1.5px solid rgba(255,255,255,.5);top:41px;left:41px;transition:none;pointer-events:none}
+.walk-joy-label{position:absolute;bottom:-16px;left:0;right:0;text-align:center;font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;color:rgba(255,255,255,.35);pointer-events:none}
+.walk-center-btns{display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:auto;flex-shrink:0}
+.walk-ud-btn{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.18);color:rgba(255,255,255,.65);font-size:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);gap:1px}
+.walk-ud-btn:active{background:rgba(255,255,255,.25)}
+.walk-ud-label{font-size:8px;font-family:'JetBrains Mono';letter-spacing:.5px;opacity:.6}
+.walk-speed-pill{background:rgba(255,255,255,.1);color:rgba(255,255,255,.5);font-family:'JetBrains Mono';font-size:10px;padding:4px 10px;border-radius:12px;pointer-events:none;white-space:nowrap}
+
 /* ── Auth UI ────────────────────────────────────────────────── */
 /* Full-page overlay shown while auth state is unknown OR user is logged out. */
 /* Uses display:flex by default (covers app on first paint to prevent flash of */
@@ -802,6 +1048,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 <div class="app">
   <header class="header">
     <div class="logo"><div class="logo-mark">Δ</div><div class="logo-name">IFC Delta<span>3D Compare</span></div></div>
+    <button class="field-toggle" id="fieldModeBtn" onclick="fieldEnterMode()" title="Field Mode — tablet-optimized for on-site review">📱 Field</button>
     <div class="h-sep"></div>
     <button class="btn primary" id="btnCompare" disabled onclick="runCompare()">▶ Compare</button>
     <button class="btn" id="btnClash" style="border-color:var(--red);color:var(--red)" onclick="toggleClashMode()">⚡ Clash</button>
@@ -835,11 +1082,11 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 
   <div class="left-panel">
     <div class="upload-area">
-      <div class="upload-card" id="uc0" onclick="document.getElementById('f0').click()">
-        <input type="file" id="f0" accept=".ifc" onchange="handleFile(0)">
+      <label class="upload-card" id="uc0" for="f0">
+        <input type="file" id="f0" accept=".ifc,*/*" onchange="handleFile(0)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
         <div class="uc-placeholder"><div class="uc-label">Version A — Baseline</div><div class="uc-text">📐 Drop IFC here</div><div class="uc-hint">click or drag .ifc</div></div>
         <div class="uc-file"><div class="uc-label">Version A</div><div class="uc-filename" id="fn0"></div><div class="uc-size" id="fs0"></div><div class="uc-status" id="us0"></div></div>
-      </div>
+      </label>
       <div class="vis-row" id="visRow0" style="display:none">
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:2px 0">
           <input type="checkbox" checked id="visA" onchange="toggleModelVis(0)" style="accent-color:var(--red);width:13px;height:13px">
@@ -847,11 +1094,11 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
           Version A (Baseline)
         </label>
       </div>
-      <div class="upload-card" id="uc1" onclick="document.getElementById('f1').click()">
-        <input type="file" id="f1" accept=".ifc" onchange="handleFile(1)">
+      <label class="upload-card" id="uc1" for="f1">
+        <input type="file" id="f1" accept=".ifc,*/*" onchange="handleFile(1)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
         <div class="uc-placeholder"><div class="uc-label">Version B — Updated</div><div class="uc-text">📐 Drop IFC here</div><div class="uc-hint">click or drag .ifc</div></div>
         <div class="uc-file"><div class="uc-label">Version B</div><div class="uc-filename" id="fn1"></div><div class="uc-size" id="fs1"></div><div class="uc-status" id="us1"></div></div>
-      </div>
+      </label>
       <div class="vis-row" id="visRow1" style="display:none">
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:2px 0">
           <input type="checkbox" checked id="visB" onchange="toggleModelVis(1)" style="accent-color:var(--blue);width:13px;height:13px">
@@ -861,10 +1108,25 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
       </div>
       <!-- Federation files (slots 2+) -->
       <div class="fed-section" id="fedSection">
-        <div class="fed-title">Federation Files <span class="fed-count" id="fedCount">0</span></div>
         <div class="fed-slots" id="fedSlots"></div>
-        <button class="fed-add-btn" id="fedAddBtn" onclick="fedAddSlot()" title="Load additional IFC file (MEP, Structure, etc.)">+ Add discipline file</button>
-        <input type="file" id="fedFileInput" accept=".ifc" style="display:none" onchange="fedHandleFile(event)">
+        <button class="fed-add-btn" id="fedAddBtn" onclick="fedAddSlot()" title="Load additional IFC files to view together">+ Add more files</button>
+        <input type="file" id="fedFileInput" accept=".ifc,*/*" style="display:none" onchange="fedHandleFile(event)">
+      </div>
+    </div>
+    <!-- OneDrive Panel -->
+    <div class="od-panel" id="odPanel">
+      <button class="od-toggle" onclick="odToggle()">
+        <span class="od-toggle-icon">☁️</span> OneDrive
+        <span class="od-toggle-badge" id="odBadge">offline</span>
+      </button>
+      <div class="od-body" id="odBody">
+        <div id="odContent">
+          <button class="od-login-btn" onclick="odLogin()">
+            <svg viewBox="0 0 23 23" fill="none"><path d="M1 1h10v10H1z" fill="#f25022"/><path d="M12 1h10v10H12z" fill="#7fba00"/><path d="M1 12h10v10H1z" fill="#00a4ef"/><path d="M12 12h10v10H12z" fill="#ffb900"/></svg>
+            Sign in with Microsoft
+          </button>
+          <div class="od-status" id="odStatus">Connect OneDrive to browse IFC files from cloud</div>
+        </div>
       </div>
     </div>
     <div class="summary-strip" id="sumStrip">
@@ -899,6 +1161,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
     <div class="panel-tabs" id="panelTabs">
       <div class="ptab on" onclick="switchTab('tree')">Entity Tree</div>
       <div class="ptab" onclick="switchTab('issues')">Issues <span class="ptab-count" id="issueCount">0</span></div>
+      <div class="ptab" onclick="switchTab('search')">🔍 Search <span class="ptab-count" id="searchCount" style="display:none">0</span></div>
     </div>
     <div class="issue-nav" id="issueNav">
       <span class="issue-nav-info" id="issueNavInfo">0 / 0</span>
@@ -909,6 +1172,51 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
     </div>
     <div class="entity-tree" id="eTree"></div>
     <div class="issues-list" id="issuesList"></div>
+    <!-- Element Search Panel -->
+    <div class="search-panel" id="searchPanel">
+      <div class="search-bar">
+        <input class="search-input" id="searchInput" placeholder="Search by name, type, tag…" oninput="searchDebounce()" onkeydown="if(event.key==='Enter')searchRun()">
+        <div class="search-filters">
+          <select class="search-type-select" id="searchTypeFilter" onchange="searchRun()">
+            <option value="">All types</option>
+          </select>
+          <div class="search-chip" onclick="searchToggleChip(this,'missing')" title="Elements missing a specific property">❌ Missing prop</div>
+          <div class="search-chip" onclick="searchToggleChip(this,'has')" title="Elements that have a specific property">✓ Has prop</div>
+          <div class="search-chip" onclick="searchToggleAdvanced()" title="Advanced property filter">⚙ Advanced</div>
+        </div>
+      </div>
+      <div class="search-adv" id="searchAdv">
+        <div class="search-adv-row">
+          <span class="search-adv-label">Where</span>
+          <input class="search-adv-val" id="searchAdvProp" placeholder="Property name" style="width:110px" list="searchPropList">
+          <datalist id="searchPropList"></datalist>
+          <select class="search-adv-select" id="searchAdvOp" style="max-width:80px">
+            <option value="exists">exists</option>
+            <option value="empty">is empty</option>
+            <option value="eq">equals</option>
+            <option value="neq">not equals</option>
+            <option value="contains">contains</option>
+            <option value="gt">greater than</option>
+            <option value="lt">less than</option>
+            <option value="gte">≥</option>
+            <option value="lte">≤</option>
+          </select>
+          <input class="search-adv-val" id="searchAdvVal" placeholder="Value">
+          <button class="search-act-btn" onclick="searchRun()" style="padding:3px 10px">Go</button>
+        </div>
+      </div>
+      <div class="search-stats" id="searchStats">
+        <span id="searchStatsText">Load a model to search</span>
+        <span id="searchStatsActions"></span>
+      </div>
+      <div class="search-results" id="searchResults"></div>
+      <div class="search-actions" id="searchActions" style="display:none">
+        <button class="search-act-btn" onclick="searchIsolateAll()" title="Isolate all results in 3D">👁 Isolate all</button>
+        <button class="search-act-btn" onclick="searchHideAll()" title="Hide all results">🚫 Hide all</button>
+        <button class="search-act-btn" onclick="searchSelectAll()" title="Select all for export">☑ Select all</button>
+        <button class="search-act-btn danger" onclick="searchClear()">✕ Clear</button>
+      </div>
+    </div>
     
   </div>
 
@@ -1275,6 +1583,89 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 </div>
 
 <!-- ── SG JSON Loader Dialog ── -->
+
+<!-- ══ FIELD MODE UI ELEMENTS ══ -->
+<!-- Bottom toolbar -->
+<div class="field-bar" id="fieldBar">
+  <button class="field-btn" onclick="fieldOpenLoader()"><span class="field-btn-icon">📂</span><span class="field-btn-label">Open</span></button>
+  <div class="field-sep"></div>
+  <button class="field-btn" id="fieldBtnSection" onclick="fieldToggleSection()"><span class="field-btn-icon">✂️</span><span class="field-btn-label">Section</span></button>
+  <button class="field-btn" id="fieldBtnMeasure" onclick="fieldToggleMeasure()"><span class="field-btn-icon">📏</span><span class="field-btn-label">Measure</span></button>
+  <button class="field-btn" onclick="fieldScreenshot()"><span class="field-btn-icon">📸</span><span class="field-btn-label">Photo</span></button>
+  <button class="field-btn" id="fieldBtnWalk" onclick="fieldToggleWalk()"><span class="field-btn-icon">🚶</span><span class="field-btn-label">Walk</span></button>
+  <div class="field-sep"></div>
+  <button class="field-btn" id="fieldBtnStoreys" onclick="fieldToggleStoreys()"><span class="field-btn-icon">🏢</span><span class="field-btn-label">Storeys</span></button>
+  <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon">📐</span><span class="field-btn-label">Plan 2D</span></button>
+  <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon">⊞</span><span class="field-btn-label">Fit</span></button>
+  <button class="field-btn" onclick="fieldShowAll()"><span class="field-btn-icon">👁</span><span class="field-btn-label">Show All</span></button>
+  <div class="field-sep"></div>
+  <button class="field-btn" onclick="fieldExitMode()"><span class="field-btn-icon">🖥</span><span class="field-btn-label">Desktop</span></button>
+</div>
+
+<!-- Properties slide-up sheet -->
+<div class="field-sheet" id="fieldSheet">
+  <div class="field-sheet-handle"></div>
+  <div class="field-sheet-hdr">
+    <div class="field-sheet-title" id="fieldSheetTitle">Properties</div>
+    <button class="field-sheet-close" onclick="fieldCloseSheet()">✕</button>
+  </div>
+  <div class="field-sheet-body" id="fieldSheetBody">
+    <div class="prop-empty">Tap an element to inspect</div>
+  </div>
+</div>
+
+<!-- File loader overlay -->
+<div class="field-loader" id="fieldLoader">
+  <div class="field-loader-card">
+    <h3>Load IFC Model</h3>
+    <label for="fieldFileInput" class="field-loader-drop" id="fieldLoaderDrop">
+      <div class="field-loader-drop-icon">📐</div>
+      <div class="field-loader-drop-text">Tap to select .ifc file</div>
+    </label>
+    <div class="field-loader-status" id="fieldLoaderStatus"></div>
+    <input type="file" id="fieldFileInput" accept=".ifc,*/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" onchange="fieldLoadFile(event)">
+    <button class="field-loader-close" onclick="fieldCloseLoader()">Close</button>
+  </div>
+</div>
+
+<!-- Storey pills strip -->
+<div class="field-storeys" id="fieldStoreys"></div>
+
+<!-- Info toast -->
+<div class="field-toast" id="fieldToast"></div>
+
+<!-- Full-screen Plan 2D (Field Mode) -->
+<div class="field-plan2d" id="fieldPlan2D">
+  <div class="field-plan2d-hdr">
+    <div class="field-plan2d-title" id="fieldPlan2DTitle">📐 2D Plan View</div>
+    <div class="field-plan2d-storey-wrap" id="fieldPlan2DStoreys"></div>
+    <button class="field-plan2d-close" onclick="fieldClosePlan2D()">✕ Close</button>
+  </div>
+  <div class="field-plan2d-canvas" id="fieldPlan2DCanvas"></div>
+  <div class="field-plan2d-info" id="fieldPlan2DInfo">Tap a storey to view plan</div>
+</div>
+
+<!-- Touch walk controls (visible only in Field Mode + walk active) -->
+<div class="walk-touch" id="walkTouch">
+  <!-- Left: Move joystick -->
+  <div class="walk-joy walk-joy-left" id="walkJoy">
+    <div class="walk-joy-bg"></div>
+    <div class="walk-joy-knob" id="walkJoyKnob"></div>
+    <div class="walk-joy-label">MOVE</div>
+  </div>
+  <!-- Center: Up/Down buttons -->
+  <div class="walk-center-btns">
+    <button class="walk-ud-btn" ontouchstart="walkTouchUD('up',true)" ontouchend="walkTouchUD('up',false)">▲<span class="walk-ud-label">Up</span></button>
+    <div class="walk-speed-pill" id="walkSpeedPill">1.0×</div>
+    <button class="walk-ud-btn" ontouchstart="walkTouchUD('down',true)" ontouchend="walkTouchUD('down',false)">▼<span class="walk-ud-label">Down</span></button>
+  </div>
+  <!-- Right: Look joystick -->
+  <div class="walk-joy walk-joy-right" id="walkLookJoy">
+    <div class="walk-joy-bg"></div>
+    <div class="walk-joy-knob" id="walkLookKnob"></div>
+    <div class="walk-joy-label">LOOK</div>
+  </div>
+</div>
 <div class="sg-json-overlay" id="sgJsonOverlay">
   <div class="sg-json-dialog">
     <div class="sg-json-dialog-hdr">
@@ -1989,6 +2380,69 @@ function initThree(){
   }
 
   scene.add(new THREE.AmbientLight(0xffffff,0.8));
+
+  // ── Pinch-to-zoom toward finger midpoint (touch devices) ──
+  // OrbitControls' built-in pinch zooms toward controls.target (model center).
+  // This override zooms toward the MIDPOINT between the two fingers, raycast 
+  // to the model surface, giving intuitive "zoom where I'm looking" behavior.
+  {
+    let pinchDist0 = 0;
+    let pinchMid = {x:0, y:0};
+    let pinchActive = false;
+    const pinchRay = new THREE.Raycaster();
+    
+    renderer.domElement.addEventListener('touchstart', (e) => {
+      if(e.touches.length === 2 && !walkActive){
+        pinchActive = true;
+        const t0 = e.touches[0], t1 = e.touches[1];
+        pinchDist0 = Math.sqrt(Math.pow(t1.clientX-t0.clientX,2) + Math.pow(t1.clientY-t0.clientY,2));
+        pinchMid = { x: (t0.clientX+t1.clientX)/2, y: (t0.clientY+t1.clientY)/2 };
+        
+        // Raycast from midpoint to find zoom pivot
+        const rect = renderer.domElement.getBoundingClientRect();
+        const mx = ((pinchMid.x - rect.left)/rect.width)*2-1;
+        const my = -((pinchMid.y - rect.top)/rect.height)*2+1;
+        pinchRay.setFromCamera(new THREE.Vector2(mx, my), camera);
+        const targets = [];
+        scene.traverse(o => { if(o.isMesh && o.visible) targets.push(o); });
+        const hits = pinchRay.intersectObjects(targets, false);
+        
+        const zs = window._zoomState;
+        if(hits.length > 0){
+          zs.pivot.copy(hits[0].point);
+        } else {
+          const d = camera.position.distanceTo(controls.target);
+          zs.pivot.copy(pinchRay.ray.origin).addScaledVector(pinchRay.ray.direction, d);
+        }
+        zs.pivotValid = true;
+        
+        // Disable OrbitControls zoom to prevent double-zoom
+        controls.enableZoom = false;
+      }
+    }, {passive:true});
+    
+    renderer.domElement.addEventListener('touchmove', (e) => {
+      if(!pinchActive || e.touches.length !== 2 || walkActive) return;
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.sqrt(Math.pow(t1.clientX-t0.clientX,2) + Math.pow(t1.clientY-t0.clientY,2));
+      if(pinchDist0 > 0){
+        const scale = dist / pinchDist0;
+        // Feed into the same zoom velocity system used by mouse wheel
+        // Higher multiplier = more responsive (matching 2D plan feel)
+        const zs = window._zoomState;
+        const delta = Math.log(scale) * -2.5;
+        zs.accum = delta;
+        pinchDist0 = dist;
+      }
+    }, {passive:true});
+    
+    renderer.domElement.addEventListener('touchend', () => {
+      if(pinchActive){
+        pinchActive = false;
+        controls.enableZoom = true; // re-enable OrbitControls zoom
+      }
+    }, {passive:true});
+  }
   const d1=new THREE.DirectionalLight(0xffffff,1.5);d1.position.set(80,120,80);scene.add(d1);
   const d2=new THREE.DirectionalLight(0x99aacc,0.5);d2.position.set(-50,80,-50);scene.add(d2);
   scene.add(new THREE.HemisphereLight(0xddeeff,0x99aa88,0.5));
@@ -2103,6 +2557,25 @@ function initThree(){
     if(!foundEid){console.log('[PICK] no expressID found, faceIndex=',hit.faceIndex,'hasExpressID=',!!hit.object.geometry.attributes.expressID);return}
     
     log('Pick: expressID='+foundEid+' model='+targetModelIdx+(hit.object.userData?.diffSubset?' (diff:'+hit.object.userData.diffSubset+')':''));
+    
+    // ── Field Mode: tap does NOT show properties or highlight ──
+    // User must long-press → context menu → Properties/Zoom for inspection.
+    // Tap only sets the orbit pivot so subsequent pinch/rotate centers on element.
+    if(fieldActive){
+      try{
+        const bb=getElementBBox(targetModelIdx, foundEid);
+        if(bb && bb.center){
+          window._pendingPivot = new THREE.Vector3(bb.center.x, bb.center.y, bb.center.z);
+          if(window._zoomState){
+            window._zoomState.pivot.copy(window._pendingPivot);
+            window._zoomState.pivotValid=true;
+            window._zoomState.accum=0;
+          }
+        }
+      }catch(e){}
+      return; // skip properties, highlight, auto-zoom
+    }
+    
     try{
       const props=await ifcLoader.ifcManager.getItemProperties(modelID,foundEid,true);
       if(props){
@@ -4222,6 +4695,8 @@ async function buildCatFromModels(){
   
   log('Categories found:',Object.keys(window._catData).length,'types');
   document.getElementById('catFilter').classList.add('show');
+  // Show panel tabs so Search is accessible even without compare
+  document.getElementById('panelTabs').classList.add('show');
   activeCategories=new Set();
   buildCatDropdown();
   updateCatTags();
@@ -4741,7 +5216,6 @@ function fedRecomputeBounds(){
 
 function fedRenderSlots(){
   const container = document.getElementById('fedSlots');
-  const countEl = document.getElementById('fedCount');
   let html = '';
   let count = 0;
   for(let i=2; i<loadedModels.length || i<files.length; i++){
@@ -4749,7 +5223,6 @@ function fedRenderSlots(){
     count++;
     const colorIdx = (i-2) % FED_COLORS.length;
     const color = FED_COLORS[colorIdx];
-    const label = FED_LABELS[colorIdx] || String.fromCharCode(65+i);
     const loaded = !!loadedModels[i];
     const fname = files[i]?.name || '(unknown)';
     const size = files[i] ? (files[i].size/1048576).toFixed(1)+'MB' : '';
@@ -4758,7 +5231,7 @@ function fedRenderSlots(){
     html += `<div class="fed-slot ${loaded?'loaded':''}">
       <div class="fed-slot-color" style="background:${color}"></div>
       <div class="fed-slot-info">
-        <div class="fed-slot-name" title="${escapeHtml(fname)}">${label}: ${escapeHtml(fname)}</div>
+        <div class="fed-slot-name" title="${escapeHtml(fname)}">${escapeHtml(fname)}</div>
         <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}</div>
       </div>
       <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${loaded?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">
@@ -4766,7 +5239,6 @@ function fedRenderSlots(){
     </div>`;
   }
   container.innerHTML = html;
-  countEl.textContent = count;
 }
 
 // Helper: get total number of loaded models (any slot)
@@ -6386,10 +6858,13 @@ let issuesList=[];
 let currentIssueIdx=-1;
 
 window.switchTab=function(tab){
-  document.querySelectorAll('.ptab').forEach((t,i)=>t.classList.toggle('on',i===(tab==='tree'?0:1)));
+  const tabs = document.querySelectorAll('.ptab');
+  tabs.forEach((t,i)=>t.classList.toggle('on', (tab==='tree'&&i===0)||(tab==='issues'&&i===1)||(tab==='search'&&i===2)));
   document.getElementById('eTree').style.display=tab==='tree'?'':'none';
   document.getElementById('issuesList').classList.toggle('show',tab==='issues');
   document.getElementById('issueNav').classList.toggle('show',tab==='issues');
+  document.getElementById('searchPanel').classList.toggle('show',tab==='search');
+  if(tab==='search') searchInit();
 };
 
 function buildIssues(){
@@ -8183,7 +8658,7 @@ function walkLoop(){
   const right=new THREE.Vector3(Math.cos(walkYaw),0,-Math.sin(walkYaw));
   const up=new THREE.Vector3(0,1,0);
   
-  // Movement
+  // Movement from keyboard (WASD)
   const move=new THREE.Vector3(0,0,0);
   if(walkKeys.w)move.add(forward.clone().multiplyScalar(spd));
   if(walkKeys.s)move.add(forward.clone().multiplyScalar(-spd));
@@ -8191,6 +8666,20 @@ function walkLoop(){
   if(walkKeys.d)move.add(right.clone().multiplyScalar(spd));
   if(walkKeys.e)move.add(up.clone().multiplyScalar(spd));
   if(walkKeys.q)move.add(up.clone().multiplyScalar(-spd));
+  
+  // Movement from touch joystick (Field Mode)
+  if(_walkJoyVec && (Math.abs(_walkJoyVec.x)>0.05 || Math.abs(_walkJoyVec.y)>0.05)){
+    // Joystick Y axis (up = forward), X axis (right = strafe right)
+    move.add(forward.clone().multiplyScalar(-_walkJoyVec.y * spd));
+    move.add(right.clone().multiplyScalar(_walkJoyVec.x * spd));
+  }
+  
+  // Look rotation from touch look joystick (Field Mode)
+  if(_walkLookVec && (Math.abs(_walkLookVec.x)>0.08 || Math.abs(_walkLookVec.y)>0.08)){
+    walkYaw -= _walkLookVec.x * 0.03;   // horizontal look speed
+    walkPitch -= _walkLookVec.y * 0.02;  // vertical look speed (slower)
+    walkPitch = Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, walkPitch));
+  }
   
   camera.position.add(move);
   
@@ -11121,6 +11610,1402 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+
+// ══════════════════════════════════════════════════════════════════════
+// ── ONEDRIVE INTEGRATION ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// Browse IFC files from OneDrive, download and load directly into viewer.
+// Uses MSAL.js for auth + Microsoft Graph API for file operations.
+// Config: set OD_CONFIG.CLIENT_ID and TENANT_ID from Azure AD app registration.
+
+const OD_CONFIG = {
+  CLIENT_ID: '57eed238-5bb0-4633-86b9-7cc41f5abecd',
+  TENANT_ID: '834af53b-cd9e-4281-93e0-0b9b7f0becd6',  // or 'common' for multi-tenant
+  SCOPES: ['User.Read', 'Files.ReadWrite'],
+  ROOT_FOLDER: 'IFC-Projects'
+};
+
+let _odMsal = null;
+let _odAccount = null;
+let _odToken = null;
+let _odCurrentPath = []; // breadcrumb: [{id, name}]
+let _odExpanded = false;
+
+// ── Init MSAL for OneDrive ──
+function odInitMSAL(){
+  if(OD_CONFIG.CLIENT_ID === 'YOUR_CLIENT_ID_HERE') return false;
+  try{
+    _odMsal = new msal.PublicClientApplication({
+      auth: {
+        clientId: OD_CONFIG.CLIENT_ID,
+        authority: `https://login.microsoftonline.com/${OD_CONFIG.TENANT_ID}`,
+        redirectUri: window.location.origin + window.location.pathname
+      },
+      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+    });
+    const accounts = _odMsal.getAllAccounts();
+    if(accounts.length > 0){
+      _odAccount = accounts[0];
+      odAcquireToken().then(()=>{
+        odUpdateBadge('on');
+        log('OneDrive: auto-signed in as ' + _odAccount.name);
+      });
+    }
+    return true;
+  }catch(e){ log('OneDrive MSAL init err:', e.message); return false; }
+}
+
+async function odAcquireToken(){
+  if(!_odMsal || !_odAccount) return null;
+  try{
+    const r = await _odMsal.acquireTokenSilent({scopes: OD_CONFIG.SCOPES, account: _odAccount});
+    _odToken = r.accessToken;
+    return _odToken;
+  }catch{
+    const r = await _odMsal.acquireTokenPopup({scopes: OD_CONFIG.SCOPES, account: _odAccount});
+    _odToken = r.accessToken;
+    return _odToken;
+  }
+}
+
+async function odFetch(path, opts={}){
+  if(!_odToken) await odAcquireToken();
+  const r = await fetch('https://graph.microsoft.com/v1.0' + path, {
+    ...opts, headers: {'Authorization':'Bearer '+_odToken, ...(opts.headers||{})}
+  });
+  if(r.status === 401){ await odAcquireToken(); return odFetch(path, opts); }
+  return r;
+}
+
+// ── UI ──
+window.odToggle = function(){
+  _odExpanded = !_odExpanded;
+  document.getElementById('odBody').classList.toggle('show', _odExpanded);
+};
+
+function odUpdateBadge(state){
+  const b = document.getElementById('odBadge');
+  b.textContent = state === 'on' ? 'connected' : 'offline';
+  b.classList.toggle('on', state === 'on');
+}
+
+window.odLogin = async function(){
+  if(!_odMsal){
+    if(!odInitMSAL()){
+      // Not configured — show instructions
+      alert('OneDrive not configured.\n\n1. Register app at portal.azure.com → App registrations\n2. Get CLIENT_ID and TENANT_ID\n3. Open this HTML file and search for OD_CONFIG\n4. Replace YOUR_CLIENT_ID_HERE and YOUR_TENANT_ID_HERE');
+      return;
+    }
+  }
+  try{
+    const resp = await _odMsal.loginPopup({scopes: OD_CONFIG.SCOPES});
+    _odAccount = resp.account;
+    await odAcquireToken();
+    odUpdateBadge('on');
+    log('OneDrive: signed in as ' + _odAccount.name);
+    // Browse root folder
+    odBrowseRoot();
+  }catch(e){
+    if(e.errorCode !== 'user_cancelled') log('OneDrive login err:', e.message);
+  }
+};
+
+async function odBrowseRoot(){
+  const content = document.getElementById('odContent');
+  content.innerHTML = '<div class="od-loading">Loading…</div>';
+  try{
+    // Ensure root folder exists
+    let rootResp = await odFetch(`/me/drive/root:/${OD_CONFIG.ROOT_FOLDER}`);
+    if(!rootResp.ok){
+      await odFetch('/me/drive/root/children', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name:OD_CONFIG.ROOT_FOLDER, folder:{}, '@microsoft.graph.conflictBehavior':'rename'})
+      });
+      rootResp = await odFetch(`/me/drive/root:/${OD_CONFIG.ROOT_FOLDER}`);
+    }
+    const root = await rootResp.json();
+    _odCurrentPath = [{id: root.id, name: OD_CONFIG.ROOT_FOLDER}];
+    await odBrowseFolder(root.id);
+  }catch(e){
+    content.innerHTML = `<div class="od-status" style="color:var(--red)">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function odBrowseFolder(folderId){
+  const content = document.getElementById('odContent');
+  content.innerHTML = '<div class="od-loading">Loading…</div>';
+  try{
+    const resp = await odFetch(`/me/drive/items/${folderId}/children?$select=id,name,size,folder,lastModifiedDateTime,@microsoft.graph.downloadUrl&$top=100`);
+    const data = await resp.json();
+    const items = data.value || [];
+    
+    // Breadcrumb
+    let bcHtml = '<div class="od-breadcrumb">';
+    _odCurrentPath.forEach((p, i) => {
+      if(i > 0) bcHtml += '<span class="od-crumb-sep">›</span>';
+      bcHtml += `<span class="od-crumb" onclick="odNavigateTo(${i})">${escapeHtml(p.name)}</span>`;
+    });
+    bcHtml += '</div>';
+    
+    // File list
+    let listHtml = '<div class="od-file-list">';
+    // Folders first
+    const folders = items.filter(i => i.folder);
+    const files = items.filter(i => !i.folder);
+    
+    for(const f of folders){
+      listHtml += `<div class="od-file" onclick="odOpenFolder('${f.id}','${escapeHtml(f.name)}')">
+        <span class="od-file-icon">📁</span>
+        <span class="od-file-name">${escapeHtml(f.name)}</span>
+        <span class="od-file-size">${f.folder.childCount||0} items</span>
+      </div>`;
+    }
+    for(const f of files){
+      const isIfc = f.name.toLowerCase().endsWith('.ifc');
+      const sz = f.size < 1048576 ? (f.size/1024).toFixed(0)+'KB' : (f.size/1048576).toFixed(1)+'MB';
+      listHtml += `<div class="od-file" ${isIfc?`ondblclick="odLoadFile('${f.id}','${escapeHtml(f.name)}')"`:''}>
+        <span class="od-file-icon">${isIfc?'📐':'📄'}</span>
+        <span class="od-file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+        <span class="od-file-size">${sz}</span>
+        ${isIfc?`<button class="od-file-load" onclick="event.stopPropagation();odLoadFile('${f.id}','${escapeHtml(f.name)}')">Load</button>`:''}
+      </div>`;
+    }
+    if(items.length === 0) listHtml += '<div class="od-status">Empty folder</div>';
+    listHtml += '</div>';
+    
+    // User info + logout
+    const userHtml = `<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;margin-bottom:4px">
+      <span class="od-status">☁️ ${escapeHtml(_odAccount?.name||'Connected')}</span>
+      <button style="font-size:9px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-family:'JetBrains Mono'" onclick="odLogout()">Sign out</button>
+    </div>`;
+    
+    content.innerHTML = userHtml + bcHtml + listHtml;
+  }catch(e){
+    content.innerHTML = `<div class="od-status" style="color:var(--red)">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+window.odOpenFolder = function(folderId, folderName){
+  _odCurrentPath.push({id: folderId, name: folderName});
+  odBrowseFolder(folderId);
+};
+
+window.odNavigateTo = function(idx){
+  _odCurrentPath = _odCurrentPath.slice(0, idx + 1);
+  odBrowseFolder(_odCurrentPath[idx].id);
+};
+
+// ── Download and load IFC file into viewer ──
+window.odLoadFile = async function(fileId, fileName){
+  const content = document.getElementById('odContent');
+  const statusEl = document.getElementById('odStatus');
+  log('OneDrive: downloading ' + fileName);
+  
+  // Show progress in the panel
+  const origHtml = content.innerHTML;
+  content.innerHTML = `<div class="od-loading">⏳ Downloading ${escapeHtml(fileName)}…</div>`;
+  
+  try{
+    // Get download URL
+    const resp = await odFetch(`/me/drive/items/${fileId}?$select=@microsoft.graph.downloadUrl,size`);
+    const data = await resp.json();
+    const url = data['@microsoft.graph.downloadUrl'];
+    const fileSize = data.size || 0;
+    
+    if(!url) throw new Error('No download URL');
+    
+    content.innerHTML = `<div class="od-loading">⏳ Downloading ${(fileSize/1048576).toFixed(1)}MB…</div>`;
+    
+    // Download file content
+    const dlResp = await fetch(url);
+    if(!dlResp.ok) throw new Error('Download failed: ' + dlResp.status);
+    const blob = await dlResp.blob();
+    
+    // Create a File object for loadIFC
+    const file = new File([blob], fileName, {type: 'application/octet-stream'});
+    
+    // Find an empty slot: prefer slot 0, then federation slots
+    let targetSlot = -1;
+    if(!loadedModels[0]){ targetSlot = 0; }
+    else if(!loadedModels[1]){ targetSlot = 1; }
+    else {
+      // Use next federation slot
+      targetSlot = fedNextSlot;
+      fedNextSlot = Math.max(fedNextSlot, targetSlot + 1);
+    }
+    
+    files[targetSlot] = file;
+    
+    // Update upload card UI if slot 0 or 1
+    if(targetSlot < 2){
+      const uc = document.getElementById('uc'+targetSlot);
+      if(uc) uc.classList.add('loaded');
+      const fn = document.getElementById('fn'+targetSlot);
+      if(fn) fn.textContent = fileName;
+      const fs = document.getElementById('fs'+targetSlot);
+      if(fs) fs.textContent = (fileSize/1048576).toFixed(1)+' MB';
+    }
+    
+    content.innerHTML = `<div class="od-loading">⏳ Loading into viewer…</div>`;
+    
+    // Init IFC if needed, then load
+    if(!ifcLoader){ if(!await initIFC()){ throw new Error('IFC engine init failed'); }}
+    await loadIFC(targetSlot);
+    
+    if(targetSlot >= 2) fedRenderSlots();
+    
+    log('OneDrive: ' + fileName + ' loaded into slot ' + targetSlot);
+    content.innerHTML = origHtml;
+    
+  }catch(e){
+    log('OneDrive load err:', e.message);
+    content.innerHTML = origHtml;
+    alert('Failed to load: ' + e.message);
+  }
+};
+
+window.odLogout = function(){
+  if(_odMsal) try{ _odMsal.logoutPopup(); }catch(e){}
+  _odToken = null;
+  _odAccount = null;
+  odUpdateBadge('offline');
+  document.getElementById('odContent').innerHTML = `
+    <button class="od-login-btn" onclick="odLogin()">
+      <svg viewBox="0 0 23 23" fill="none"><path d="M1 1h10v10H1z" fill="#f25022"/><path d="M12 1h10v10H12z" fill="#7fba00"/><path d="M1 12h10v10H1z" fill="#00a4ef"/><path d="M12 12h10v10H12z" fill="#ffb900"/></svg>
+      Sign in with Microsoft
+    </button>
+    <div class="od-status">Connect OneDrive to browse IFC files from cloud</div>`;
+};
+
+// Auto-init MSAL on page load
+try{ odInitMSAL(); }catch(e){}
+
+// ══════════════════════════════════════════════════════════════════════
+// ── ELEMENT SEARCH & FILTER ─────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// Search elements across all loaded models by name, type, tag, property.
+// Results can be clicked to highlight+zoom, or bulk isolated/hidden.
+
+let _searchCache = null;     // {elements[], propNames[], typeNames[], key}
+let _searchResults = [];     // filtered subset
+let _searchTimer = null;
+let _searchSelectedIdx = -1;
+
+// Build search cache from all loaded models (reuses getAllProps)
+async function searchBuildCache(){
+  const key = loadedModels.map(m=>m?.modelID).join('-');
+  if(_searchCache && _searchCache.key === key) return _searchCache;
+
+  const elements = [];
+  const typeSet = new Set();
+  const propNameSet = new Set();
+
+  for(let mi=0; mi<loadedModels.length; mi++){
+    const m = loadedModels[mi];
+    if(!m) continue;
+    const props = await getAllProps(m.modelID);
+
+    // Also batch-read psets for property search
+    const mgr = ifcLoader?.ifcManager;
+    const api = mgr?.state?.api;
+    const psetLookup = new Map();
+    if(api){
+      try{
+        const relIDs = api.GetLineIDsWithType(m.modelID, 4186316022);
+        for(let ri=0; ri<relIDs.size(); ri++){
+          try{
+            const rel = await mgr.getItemProperties(m.modelID, relIDs.get(ri), false);
+            if(!rel?.RelatingPropertyDefinition) continue;
+            const pdefID = rel.RelatingPropertyDefinition.value ?? rel.RelatingPropertyDefinition;
+            if(typeof pdefID !== 'number') continue;
+            let relatedEIDs = [];
+            if(Array.isArray(rel.RelatedObjects)) relatedEIDs = rel.RelatedObjects.map(o=>o.value??o).filter(v=>typeof v==='number');
+            else if(rel.RelatedObjects?.value) relatedEIDs = [rel.RelatedObjects.value];
+            let pset;
+            try{pset = await mgr.getItemProperties(m.modelID, pdefID, true);}catch(e){continue;}
+            if(!pset) continue;
+            for(const eid of relatedEIDs){
+              if(!psetLookup.has(eid)) psetLookup.set(eid, []);
+              psetLookup.get(eid).push(pset);
+            }
+          }catch(e){}
+        }
+      }catch(e){}
+    }
+
+    for(const gid in props){
+      const p = props[gid];
+      const typeName = IFC_NAMES[p.type] || sgIfcCodeToClass(p.type);
+      typeSet.add(typeName);
+
+      // Collect property names + values from psets
+      const psets = psetLookup.get(p.expressID) || [];
+      const propMap = new Map(); // propName → {value, psetName}
+      for(const ps of psets){
+        const psetName = ps.Name?.value || '';
+        const hps = Array.isArray(ps.HasProperties) ? ps.HasProperties : (ps.HasProperties ? [ps.HasProperties] : []);
+        for(const hp of hps){
+          if(!hp?.Name?.value) continue;
+          const pn = hp.Name.value;
+          propNameSet.add(pn);
+          const nv = hp.NominalValue;
+          propMap.set(pn, { value: nv?.value ?? nv ?? null, psetName });
+        }
+        const qs = Array.isArray(ps.Quantities) ? ps.Quantities : (ps.Quantities ? [ps.Quantities] : []);
+        for(const q of qs){
+          if(!q?.Name?.value) continue;
+          propNameSet.add(q.Name.value);
+          const val = q.LengthValue?.value ?? q.AreaValue?.value ?? q.VolumeValue?.value ?? q.CountValue?.value ?? null;
+          propMap.set(q.Name.value, { value: val, psetName: ps.Name?.value || '' });
+        }
+      }
+
+      elements.push({
+        eid: p.expressID,
+        globalId: gid,
+        name: (p.name || '').trim(),
+        type: typeName,
+        typeCode: p.type,
+        tag: p.tag || '',
+        modelIdx: mi,
+        modelID: m.modelID,
+        props: propMap,
+        // Searchable text: concatenate name + type + tag + all prop values
+        _text: [(p.name||''), typeName, (p.tag||''), ...Array.from(propMap.values()).map(v=>String(v.value||''))].join(' ').toLowerCase()
+      });
+    }
+  }
+
+  _searchCache = {
+    elements,
+    propNames: Array.from(propNameSet).sort(),
+    typeNames: Array.from(typeSet).sort(),
+    key
+  };
+  log(`Search cache: ${elements.length} elements, ${propNameSet.size} property names, ${typeSet.size} types`);
+  return _searchCache;
+}
+
+// Initialize search panel: populate type dropdown and property datalist
+async function searchInit(){
+  if(!loadedModels.some(m=>!!m)){
+    document.getElementById('searchStatsText').textContent = 'Load a model to search';
+    return;
+  }
+  document.getElementById('searchStatsText').textContent = '⏳ Building search index…';
+  await new Promise(r=>setTimeout(r, 10));
+
+  const cache = await searchBuildCache();
+
+  // Populate type dropdown
+  const sel = document.getElementById('searchTypeFilter');
+  const curVal = sel.value;
+  sel.innerHTML = '<option value="">All types (' + cache.typeNames.length + ')</option>';
+  for(const t of cache.typeNames){
+    sel.innerHTML += '<option value="' + escapeHtml(t) + '">' + t.replace('Ifc','') + '</option>';
+  }
+  sel.value = curVal;
+
+  // Populate property datalist for advanced filter
+  const dl = document.getElementById('searchPropList');
+  dl.innerHTML = cache.propNames.slice(0, 200).map(n => '<option value="' + escapeHtml(n) + '">').join('');
+
+  document.getElementById('searchStatsText').textContent = cache.elements.length + ' elements indexed';
+}
+
+// Debounced search trigger
+function searchDebounce(){
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(searchRun, 250);
+}
+
+// Run search with current filters
+async function searchRun(){
+  if(!_searchCache) await searchBuildCache();
+  if(!_searchCache) return;
+
+  const query = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  const typeFilter = document.getElementById('searchTypeFilter').value;
+  const advProp = (document.getElementById('searchAdvProp').value || '').trim();
+  const advOp = document.getElementById('searchAdvOp').value;
+  const advVal = (document.getElementById('searchAdvVal').value || '').trim();
+  const advActive = document.getElementById('searchAdv').classList.contains('show') && advProp;
+
+  // Check chip states
+  const chips = document.querySelectorAll('#searchPanel .search-chip');
+  const missingMode = chips[0]?.classList.contains('on');
+  const hasMode = chips[1]?.classList.contains('on');
+  const chipProp = missingMode || hasMode ? advProp : '';
+
+  let results = _searchCache.elements;
+
+  // Text search
+  if(query){
+    const terms = query.split(/\s+/);
+    results = results.filter(e => terms.every(t => e._text.includes(t)));
+  }
+
+  // Type filter
+  if(typeFilter){
+    results = results.filter(e => e.type === typeFilter);
+  }
+
+  // Missing/Has property chip
+  if(chipProp && (missingMode || hasMode)){
+    results = results.filter(e => {
+      const has = e.props.has(chipProp);
+      const val = e.props.get(chipProp)?.value;
+      const hasValue = has && val !== null && val !== undefined && val !== '';
+      return missingMode ? !hasValue : hasValue;
+    });
+  }
+
+  // Advanced property filter
+  if(advActive && !missingMode && !hasMode){
+    results = results.filter(e => {
+      const p = e.props.get(advProp);
+      const val = p?.value;
+      switch(advOp){
+        case 'exists': return val !== null && val !== undefined && val !== '';
+        case 'empty': return val === null || val === undefined || val === '';
+        case 'eq': return String(val).toLowerCase() === advVal.toLowerCase();
+        case 'neq': return String(val).toLowerCase() !== advVal.toLowerCase();
+        case 'contains': return String(val||'').toLowerCase().includes(advVal.toLowerCase());
+        case 'gt': return Number(val) > Number(advVal);
+        case 'lt': return Number(val) < Number(advVal);
+        case 'gte': return Number(val) >= Number(advVal);
+        case 'lte': return Number(val) <= Number(advVal);
+        default: return true;
+      }
+    });
+  }
+
+  _searchResults = results;
+  _searchSelectedIdx = -1;
+  searchRenderResults();
+}
+
+function searchRenderResults(){
+  const container = document.getElementById('searchResults');
+  const statsText = document.getElementById('searchStatsText');
+  const countBadge = document.getElementById('searchCount');
+  const actionsBar = document.getElementById('searchActions');
+
+  const total = _searchCache?.elements?.length || 0;
+  const count = _searchResults.length;
+  statsText.textContent = count + ' / ' + total + ' elements';
+  countBadge.textContent = count;
+  countBadge.style.display = count > 0 ? '' : 'none';
+  actionsBar.style.display = count > 0 ? '' : 'none';
+
+  // Render max 500 results
+  const maxShow = Math.min(count, 500);
+  let html = '';
+  for(let i=0; i<maxShow; i++){
+    const e = _searchResults[i];
+    const shortType = e.type.replace('Ifc','');
+    const tagHtml = e.tag ? '<span class="search-item-tag">#'+escapeHtml(e.tag)+'</span>' : '';
+    html += `<div class="search-item" onclick="searchSelect(${i})" data-idx="${i}">
+      <div class="search-item-name">${escapeHtml(e.name || '(unnamed)')}</div>
+      <div class="search-item-meta"><span>${shortType}</span>${tagHtml}<span style="opacity:.5">M${e.modelIdx}</span></div>
+    </div>`;
+  }
+  if(count > maxShow) html += `<div class="search-item" style="text-align:center;color:var(--text-muted);font-size:10px">… and ${count-maxShow} more (narrow your search)</div>`;
+  if(count === 0) html = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:11px">No elements match</div>';
+  container.innerHTML = html;
+}
+
+// Select and focus a search result
+window.searchSelect = async function(idx){
+  if(idx < 0 || idx >= _searchResults.length) return;
+  _searchSelectedIdx = idx;
+  const e = _searchResults[idx];
+
+  // Update selection styling
+  document.querySelectorAll('.search-item').forEach((el,i)=> el.classList.toggle('selected', i===idx));
+
+  // Highlight element in 3D
+  if(!loadedModels[e.modelIdx]) return;
+  const modelID = loadedModels[e.modelIdx].modelID;
+
+  // Show properties
+  try{
+    const props = await ifcLoader.ifcManager.getItemProperties(modelID, e.eid, true);
+    if(props) showProps(props, e.modelIdx);
+  }catch(err){}
+
+  // Highlight
+  try{
+    clearHighlight();
+    if(!window._hlMat) window._hlMat = new THREE.MeshPhongMaterial({color:0x2563eb,transparent:true,opacity:0.6,side:THREE.DoubleSide,depthTest:true,clippingPlanes:clipPlanes});
+    const sub = ifcLoader.ifcManager.createSubset({modelID, ids:[e.eid], material:window._hlMat, scene, removePrevious:true, customID:'userHighlight'});
+    if(sub){sub.position.copy(loadedModels[e.modelIdx].position); sub.updateMatrixWorld(true); window._lastHL={subset:sub,mid:modelID};}
+  }catch(err){}
+
+  // Zoom to element
+  const bbox = getElementBBox(e.modelIdx, e.eid);
+  if(bbox?.center){
+    const size = Math.max(bbox.size.x, bbox.size.y, bbox.size.z);
+    const d = Math.max(size*2.5, 3);
+    camera.position.set(bbox.center.x+d*0.5, bbox.center.y+d*0.4, bbox.center.z+d*0.5);
+    controls.target.copy(bbox.center);
+    controls.update();
+  }
+};
+
+// Bulk actions on search results
+window.searchIsolateAll = function(){
+  if(!_searchResults.length) return;
+  // Hide everything, then show only results
+  forEachModel((model)=>{
+    model.traverse(c=>{if(c.isMesh) c.visible=false});
+  });
+  // Show matched elements via subsets
+  const byModel = new Map();
+  for(const e of _searchResults){
+    if(!byModel.has(e.modelIdx)) byModel.set(e.modelIdx, []);
+    byModel.get(e.modelIdx).push(e.eid);
+  }
+  for(const [mi, eids] of byModel){
+    if(!loadedModels[mi]) continue;
+    try{
+      const mat = new THREE.MeshPhongMaterial({color:0x22c55e,transparent:true,opacity:0.8,side:THREE.DoubleSide,depthTest:true,clippingPlanes:clipPlanes});
+      const sub = ifcLoader.ifcManager.createSubset({modelID:loadedModels[mi].modelID, ids:eids, material:mat, scene, removePrevious:false, customID:'searchIsolate_'+mi});
+      if(sub){sub.position.copy(loadedModels[mi].position); sub.updateMatrixWorld(true);}
+    }catch(e){}
+  }
+  document.getElementById('btnShowAll').style.display='';
+  log(`Search: isolated ${_searchResults.length} elements`);
+};
+
+window.searchHideAll = function(){
+  if(!_searchResults.length) return;
+  const hideSet = new Set(_searchResults.map(e=>e.eid));
+  forEachModel((model)=>{
+    model.traverse(c=>{
+      if(!c.isMesh) return;
+      if(c.geometry?.attributes?.expressID){
+        const arr = c.geometry.attributes.expressID.array;
+        const eids = new Set();
+        for(let i=0; i<arr.length; i++) eids.add(arr[i]);
+        for(const eid of eids){
+          if(hideSet.has(eid)){ c.visible=false; break; }
+        }
+      }
+    });
+  });
+  document.getElementById('btnShowAll').style.display='';
+  log(`Search: hidden ${_searchResults.length} elements`);
+};
+
+window.searchSelectAll = function(){
+  // Select all results — scroll to first
+  if(_searchResults.length > 0) searchSelect(0);
+};
+
+window.searchClear = function(){
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchTypeFilter').value = '';
+  document.getElementById('searchAdvProp').value = '';
+  document.getElementById('searchAdvVal').value = '';
+  document.querySelectorAll('#searchPanel .search-chip').forEach(c=>c.classList.remove('on'));
+  document.getElementById('searchAdv').classList.remove('show');
+  _searchResults = [];
+  _searchSelectedIdx = -1;
+  document.getElementById('searchResults').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:11px">Type to search elements</div>';
+  document.getElementById('searchCount').style.display = 'none';
+  document.getElementById('searchActions').style.display = 'none';
+  document.getElementById('searchStatsText').textContent = (_searchCache?.elements?.length||0) + ' elements indexed';
+};
+
+window.searchToggleChip = function(el, mode){
+  // Toggle chip, ensure mutual exclusivity between missing/has
+  const wasOn = el.classList.contains('on');
+  document.querySelectorAll('#searchPanel .search-chip').forEach(c=>c.classList.remove('on'));
+  if(!wasOn){
+    el.classList.add('on');
+    // Show advanced panel for property name input
+    document.getElementById('searchAdv').classList.add('show');
+    document.getElementById('searchAdvProp').focus();
+    // Set appropriate operator
+    document.getElementById('searchAdvOp').value = mode === 'missing' ? 'empty' : 'exists';
+  }
+  searchRun();
+};
+
+window.searchToggleAdvanced = function(){
+  document.getElementById('searchAdv').classList.toggle('show');
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// ── FIELD MODE — tablet-optimized on-site BIM review ────────────────
+// ══════════════════════════════════════════════════════════════════════
+// Activated via 📱 Field button. Hides desktop UI (header, sidebars),
+// shows full-viewport 3D with bottom toolbar and slide-up property sheet.
+// Touch-optimized: 54px button targets, long-press context menu, swipe
+// sheet, storey pill strip.
+
+let fieldActive = false;
+let _fieldLongPressTimer = null;
+let _fieldToastTimer = null;
+
+window.fieldEnterMode = function(){
+  fieldActive = true;
+  document.body.classList.add('field-mode');
+  // Resize renderer to fill viewport
+  setTimeout(()=>{
+    if(renderer){
+      const vp = document.getElementById('vpCanvas');
+      renderer.setSize(vp.clientWidth, vp.clientHeight);
+      camera.aspect = vp.clientWidth / vp.clientHeight;
+      camera.updateProjectionMatrix();
+    }
+  }, 100);
+  fieldToast('Field Mode — tap elements to inspect');
+  // Setup long-press for context menu on touch devices
+  fieldSetupLongPress();
+  log('Field mode activated');
+};
+
+window.fieldExitMode = function(){
+  fieldActive = false;
+  document.body.classList.remove('field-mode');
+  fieldCloseSheet();
+  document.getElementById('fieldStoreys').classList.remove('show');
+  // Resize renderer back
+  setTimeout(()=>{
+    if(renderer){
+      const vp = document.getElementById('vpCanvas');
+      renderer.setSize(vp.clientWidth, vp.clientHeight);
+      camera.aspect = vp.clientWidth / vp.clientHeight;
+      camera.updateProjectionMatrix();
+    }
+  }, 100);
+  log('Field mode deactivated');
+};
+
+// ── Field toast notification ──
+function fieldToast(msg, duration=2500){
+  const el = document.getElementById('fieldToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_fieldToastTimer);
+  _fieldToastTimer = setTimeout(()=> el.classList.remove('show'), duration);
+}
+
+// ── Field file loader ──
+window.fieldOpenLoader = function(){
+  document.getElementById('fieldLoader').classList.add('show');
+};
+window.fieldCloseLoader = function(){
+  document.getElementById('fieldLoader').classList.remove('show');
+};
+window.fieldLoadFile = async function(ev){
+  const f = ev.target?.files?.[0];
+  if(!f) return;
+  const statusEl = document.getElementById('fieldLoaderStatus');
+  statusEl.textContent = '⏳ Loading ' + f.name + '...';
+  // Load into slot 0 (field mode = single model viewer)
+  files[0] = f;
+  if(!ifcLoader){ if(!await initIFC()){ statusEl.textContent = '✕ Init failed'; return; }}
+  try{
+    await loadIFC(0);
+    statusEl.textContent = '✓ ' + f.name + ' loaded';
+    setTimeout(fieldCloseLoader, 800);
+    fieldBuildStoreys();
+  }catch(e){
+    statusEl.textContent = '✕ ' + (e?.message || 'Load failed');
+  }
+  ev.target.value = '';
+};
+
+// ── Field properties sheet ──
+window.fieldCloseSheet = function(){
+  document.getElementById('fieldSheet').classList.remove('open');
+};
+window.fieldOpenSheet = function(html, title){
+  const sheet = document.getElementById('fieldSheet');
+  document.getElementById('fieldSheetTitle').textContent = title || 'Properties';
+  document.getElementById('fieldSheetBody').innerHTML = html;
+  sheet.classList.add('open');
+};
+
+// Hook into showProps to also update field sheet when in field mode
+const _origShowProps = window.showProps;
+if(typeof showProps === 'function'){
+  const _showPropsOrig = showProps;
+  // We can't reassign a function declaration, so we patch the property panel
+  // rendering to also mirror content into the field sheet.
+  // The field sheet reads from the propArea after showProps runs.
+  const _propObserver = new MutationObserver(()=>{
+    if(!fieldActive) return;
+    const propArea = document.getElementById('propArea');
+    if(!propArea) return;
+    const content = propArea.innerHTML;
+    if(content && !content.includes('prop-empty')){
+      fieldOpenSheet(content, 'Element Properties');
+    }
+  });
+  // Start observing after DOM is ready
+  setTimeout(()=>{
+    const propArea = document.getElementById('propArea');
+    if(propArea) _propObserver.observe(propArea, {childList:true, subtree:true});
+  }, 500);
+}
+
+// ── Field toolbar button handlers ──
+window.fieldToggleSection = function(){
+  toggleSectionBox();
+  const btn = document.getElementById('fieldBtnSection');
+  btn.classList.toggle('on', sectionActive);
+  fieldToast(sectionActive ? 'Section box ON' : 'Section box OFF');
+};
+
+window.fieldToggleMeasure = function(){
+  toggleMeasure();
+  const btn = document.getElementById('fieldBtnMeasure');
+  btn.classList.toggle('on', measureMode);
+  fieldToast(measureMode ? 'Measure mode ON — tap 2 points' : 'Measure OFF');
+};
+
+window.fieldToggleWalk = function(){
+  toggleWalkMode();
+  const btn = document.getElementById('fieldBtnWalk');
+  btn.classList.toggle('on', walkActive);
+  // Show/hide touch controls
+  document.getElementById('walkTouch').classList.toggle('show', walkActive);
+  if(walkActive){
+    fieldToast('Walk mode — drag left joystick to move, drag right to look');
+    walkTouchInit();
+    // On touch devices, skip pointer lock (doesn't work on iPad)
+    if('ontouchstart' in window){
+      try{ document.exitPointerLock?.(); }catch(e){}
+    }
+  } else {
+    fieldToast('Walk mode OFF');
+  }
+};
+
+// ── Touch walk controls: virtual joystick + look zone ──
+let _walkJoyActive = false;
+let _walkJoyCenter = {x:0, y:0};
+let _walkJoyVec = {x:0, y:0}; // -1..1 normalized
+let _walkLookJoyActive = false;
+let _walkLookJoyCenter = {x:0, y:0};
+let _walkLookVec = {x:0, y:0}; // -1..1 normalized for continuous look rotation
+
+function walkTouchInit(){
+  const joy = document.getElementById('walkJoy');
+  const knob = document.getElementById('walkJoyKnob');
+  const lookJoy = document.getElementById('walkLookJoy');
+  const lookKnob = document.getElementById('walkLookKnob');
+
+  // ── Left joystick: Move ──
+  joy.ontouchstart = (e) => {
+    e.preventDefault();
+    _walkJoyActive = true;
+    const rect = joy.getBoundingClientRect();
+    _walkJoyCenter = { x: rect.left + 65, y: rect.top + 65 };
+    walkJoyMove(e.touches[0], knob, _walkJoyCenter, (v) => { _walkJoyVec = v; });
+  };
+  joy.ontouchmove = (e) => {
+    e.preventDefault();
+    if(_walkJoyActive && e.touches[0]) walkJoyMove(e.touches[0], knob, _walkJoyCenter, (v) => { _walkJoyVec = v; });
+  };
+  joy.ontouchend = joy.ontouchcancel = (e) => {
+    e.preventDefault();
+    _walkJoyActive = false;
+    _walkJoyVec = {x:0, y:0};
+    knob.style.transform = 'translate(0px, 0px)';
+  };
+
+  // ── Right joystick: Look ──
+  lookJoy.ontouchstart = (e) => {
+    e.preventDefault();
+    _walkLookJoyActive = true;
+    const rect = lookJoy.getBoundingClientRect();
+    _walkLookJoyCenter = { x: rect.left + 65, y: rect.top + 65 };
+    walkJoyMove(e.touches[0], lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; });
+  };
+  lookJoy.ontouchmove = (e) => {
+    e.preventDefault();
+    if(_walkLookJoyActive && e.touches[0]) walkJoyMove(e.touches[0], lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; });
+  };
+  lookJoy.ontouchend = lookJoy.ontouchcancel = (e) => {
+    e.preventDefault();
+    _walkLookJoyActive = false;
+    _walkLookVec = {x:0, y:0};
+    lookKnob.style.transform = 'translate(0px, 0px)';
+  };
+}
+
+function walkJoyMove(touch, knobEl, center, setVec){
+  const dx = touch.clientX - center.x;
+  const dy = touch.clientY - center.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxR = 44;
+  const clamped = Math.min(dist, maxR);
+  const angle = Math.atan2(dy, dx);
+  const cx = Math.cos(angle) * clamped;
+  const cy = Math.sin(angle) * clamped;
+  knobEl.style.transform = `translate(${cx}px, ${cy}px)`;
+  setVec({ x: cx / maxR, y: cy / maxR });
+}
+
+window.walkTouchUD = function(dir, pressed){
+  if(dir === 'up') walkKeys.e = pressed;
+  if(dir === 'down') walkKeys.q = pressed;
+};
+
+window.fieldScreenshot = function(){
+  captureScreenshot();
+  fieldToast('Screenshot saved');
+};
+
+window.fieldShowAll = function(){
+  if(window.showAllHidden) showAllHidden();
+  fieldToast('All elements visible');
+};
+
+// ── Field storey selector ──
+window.fieldToggleStoreys = function(){
+  const el = document.getElementById('fieldStoreys');
+  const wasShown = el.classList.contains('show');
+  el.classList.toggle('show');
+  const btn = document.getElementById('fieldBtnStoreys');
+  btn.classList.toggle('on', !wasShown);
+  if(!wasShown) fieldBuildStoreys();
+};
+
+function fieldBuildStoreys(){
+  const container = document.getElementById('fieldStoreys');
+  // Collect storeys from all loaded models
+  let allStoreys = [];
+  for(let i=0; i<loadedModels.length; i++){
+    const m = loadedModels[i];
+    if(!m?.spatial?.storeys) continue;
+    for(const s of m.spatial.storeys){
+      allStoreys.push({ name: s.name, elevation: s.elevation });
+    }
+  }
+  // Deduplicate by elevation (±0.1m)
+  const unique = [];
+  for(const s of allStoreys){
+    if(!unique.some(u => Math.abs(u.elevation - s.elevation) < 0.1)){
+      unique.push(s);
+    }
+  }
+  unique.sort((a,b)=>a.elevation - b.elevation);
+
+  if(unique.length === 0){
+    container.innerHTML = '<span class="field-storey-pill" style="opacity:.5">No storeys found</span>';
+    return;
+  }
+
+  container.innerHTML = unique.map((s,i) =>
+    `<button class="field-storey-pill" data-elev="${s.elevation}" onclick="fieldSelectStorey(${i},${s.elevation})">${s.name}</button>`
+  ).join('');
+}
+
+window.fieldSelectStorey = function(idx, elevation){
+  // Update pill selection
+  const pills = document.querySelectorAll('.field-storey-pill');
+  pills.forEach((p,i)=> p.classList.toggle('on', i===idx));
+
+  // Set section box to show only this storey (±1.5m from elevation)
+  if(!sectionActive) toggleSectionBox();
+  const h = 4; // storey height estimate
+  // Section box: set Y (up) range around the storey elevation, offset by model centering
+  const cy = sharedCenterOffset?.y || 0;
+  const yBot = elevation - cy;
+  const yTop = yBot + h;
+  // Update section box planes
+  if(clipPlanes.length >= 6){
+    // Planes 2,3 are Y+ and Y- (top/bottom)
+    clipPlanes[2].constant = yTop;
+    clipPlanes[3].constant = -yBot;
+    // Expand X,Z to full model bounds
+    clipPlanes[0].constant = modelBounds.max.x + 10;
+    clipPlanes[1].constant = -modelBounds.min.x + 10;
+    clipPlanes[4].constant = modelBounds.max.z + 10;
+    clipPlanes[5].constant = -modelBounds.min.z + 10;
+  }
+  // Move camera to look at this storey
+  const cx = (modelBounds.min.x + modelBounds.max.x)/2;
+  const cz = (modelBounds.min.z + modelBounds.max.z)/2;
+  const span = Math.max(modelBounds.max.x - modelBounds.min.x, modelBounds.max.z - modelBounds.min.z);
+  camera.position.set(cx + span*0.4, yBot + h*0.6, cz + span*0.4);
+  controls.target.set(cx, yBot + h*0.3, cz);
+  controls.update();
+
+  fieldToast(`Storey: ${document.querySelectorAll('.field-storey-pill')[idx]?.textContent || ''}`);
+};
+
+// ── Long-press for context menu (touch devices) ──
+function fieldSetupLongPress(){
+  const canvas = renderer?.domElement;
+  if(!canvas) return;
+  let lpTimer = null;
+  let lpPos = {x:0, y:0};
+  let lpMoved = false;
+  
+  // Double-tap detection for zoom-to-element
+  let lastTapTime = 0;
+  let lastTapPos = {x:0, y:0};
+
+  canvas.addEventListener('touchstart', (e)=>{
+    if(!fieldActive) return;
+    if(e.touches.length !== 1) return;
+    const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+    lpPos = {x: tx, y: ty};
+    lpMoved = false;
+    
+    // Double-tap detection (300ms window, 30px tolerance)
+    const now = Date.now();
+    const dt = now - lastTapTime;
+    const dist = Math.sqrt(Math.pow(tx - lastTapPos.x, 2) + Math.pow(ty - lastTapPos.y, 2));
+    if(dt < 300 && dist < 30){
+      // Double-tap → zoom to tapped element
+      e.preventDefault();
+      lastTapTime = 0; // reset to avoid triple-tap
+      fieldDoubleTapZoom(tx, ty);
+      return;
+    }
+    lastTapTime = now;
+    lastTapPos = {x: tx, y: ty};
+    
+    // Long-press timer
+    lpTimer = setTimeout(()=>{
+      if(!lpMoved){
+        const ev = new MouseEvent('contextmenu', {
+          bubbles:true, clientX:lpPos.x, clientY:lpPos.y
+        });
+        canvas.dispatchEvent(ev);
+        e.preventDefault();
+      }
+    }, 600);
+  }, {passive:false});
+
+  canvas.addEventListener('touchmove', (e)=>{
+    if(!fieldActive || !lpTimer) return;
+    const dx = e.touches[0].clientX - lpPos.x;
+    const dy = e.touches[0].clientY - lpPos.y;
+    if(Math.abs(dx) > 10 || Math.abs(dy) > 10){
+      lpMoved = true;
+      clearTimeout(lpTimer);
+      lpTimer = null;
+    }
+  });
+
+  canvas.addEventListener('touchend', ()=>{
+    clearTimeout(lpTimer);
+    lpTimer = null;
+  });
+
+  canvas.addEventListener('touchcancel', ()=>{
+    clearTimeout(lpTimer);
+    lpTimer = null;
+  });
+}
+
+// ── Double-tap zoom: raycast at tap point, zoom to hit element ──
+function fieldDoubleTapZoom(clientX, clientY){
+  if(!renderer || !camera) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mx = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const my = -((clientY - rect.top) / rect.height) * 2 + 1;
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(mx, my), camera);
+  
+  // Collect visible meshes
+  const ms = [];
+  scene.traverse(c => { if(c.isMesh && c.visible) ms.push(c); });
+  const hits = ray.intersectObjects(ms, false);
+  
+  if(hits.length === 0){
+    // No element hit — zoom to clicked point on nearest surface
+    fieldToast('No element at tap point');
+    return;
+  }
+  
+  const hit = hits[0];
+  const point = hit.point;
+  
+  // Try to get element bbox for better framing
+  let targetModelIdx = -1;
+  if(hit.object.userData?.srcModelIdx !== undefined){
+    targetModelIdx = hit.object.userData.srcModelIdx;
+  } else {
+    targetModelIdx = findModelIdx(hit.object);
+  }
+  
+  let foundEid = null;
+  try{
+    const eid = ifcLoader.ifcManager.getExpressId(hit.object.geometry, hit.faceIndex);
+    if(eid > 0) foundEid = eid;
+  }catch(e){}
+  if(!foundEid && hit.object.geometry.attributes.expressID){
+    try{
+      const idx = hit.object.geometry.index
+        ? hit.object.geometry.index.array[hit.faceIndex * 3]
+        : hit.faceIndex * 3;
+      if(idx >= 0 && idx < hit.object.geometry.attributes.expressID.array.length){
+        foundEid = hit.object.geometry.attributes.expressID.array[idx];
+      }
+    }catch(e){}
+  }
+  
+  if(foundEid && targetModelIdx >= 0){
+    const bbox = getElementBBox(targetModelIdx, foundEid);
+    if(bbox?.center){
+      const sz = Math.max(bbox.size.x, bbox.size.y, bbox.size.z);
+      const d = Math.max(sz * 2.5, 3);
+      if(walkActive){
+        camera.position.set(bbox.center.x + sz + 1.5, bbox.center.y + 1.6, bbox.center.z + sz + 1.5);
+        walkYaw = Math.atan2(bbox.center.x - camera.position.x, bbox.center.z - camera.position.z);
+        walkPitch = 0;
+      } else {
+        camera.position.set(bbox.center.x + d*0.45, bbox.center.y + d*0.35, bbox.center.z + d*0.45);
+        controls.target.copy(bbox.center);
+        controls.update();
+      }
+      fieldToast('Zoomed to element');
+      return;
+    }
+  }
+  
+  // Fallback: zoom to hit point
+  const d = 5;
+  if(walkActive){
+    camera.position.set(point.x + 2, point.y + 1.6, point.z + 2);
+    walkYaw = Math.atan2(point.x - camera.position.x, point.z - camera.position.z);
+    walkPitch = 0;
+  } else {
+    camera.position.set(point.x + d*0.5, point.y + d*0.4, point.z + d*0.5);
+    controls.target.copy(point);
+    controls.update();
+  }
+  fieldToast('Zoomed to point');
+}
+
+// ── Auto-detect touch device → suggest field mode ──
+
+// ══════════════════════════════════════════════════════════════════════
+// ── FULL-SCREEN PLAN 2D (Field Mode) ────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// Uses the existing planView infrastructure (2nd Three.js renderer +
+// OrthographicCamera) but renders into a full-viewport container with
+// storey pills and touch pan/zoom.
+
+let fieldPlan2DActive = false;
+let fieldPlan2DRenderer = null;
+let fieldPlan2DCamera = null;
+let fieldPlan2DStoreyIdx = -1;
+let _fp2dAnimId = null;
+
+window.fieldTogglePlan2D = function(){
+  if(fieldPlan2DActive){
+    fieldClosePlan2D();
+  } else {
+    fieldOpenPlan2D();
+  }
+  document.getElementById('fieldBtnPlan2D').classList.toggle('on', fieldPlan2DActive);
+};
+
+window.fieldOpenPlan2D = function(){
+  if(!loadedModels.some(m=>!!m)){
+    fieldToast('Load a model first');
+    return;
+  }
+  fieldPlan2DActive = true;
+  document.getElementById('fieldPlan2D').classList.add('show');
+  
+  // Build storey pills
+  fieldPlan2DBuildStoreys();
+  
+  // Create renderer if needed
+  const container = document.getElementById('fieldPlan2DCanvas');
+  if(!fieldPlan2DRenderer){
+    fieldPlan2DRenderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    fieldPlan2DRenderer.localClippingEnabled = true;
+    fieldPlan2DRenderer.setClearColor(0xf8f9fb, 1);
+    container.appendChild(fieldPlan2DRenderer.domElement);
+    
+    fieldPlan2DCamera = new THREE.OrthographicCamera(-50, 50, 50, -50, 0.1, 5000);
+    fieldPlan2DCamera.position.set(0, 500, 0);
+    // Apply TrueNorth
+    let tnAngle = 0;
+    for(let i=0; i<loadedModels.length; i++){
+      if(loadedModels[i]?.spatial?.trueNorthAngle){
+        tnAngle = loadedModels[i].spatial.trueNorthAngle; break;
+      }
+    }
+    fieldPlan2DCamera.up.set(-Math.sin(tnAngle), 0, -Math.cos(tnAngle));
+    fieldPlan2DCamera.lookAt(0, 0, 0);
+  }
+  
+  // Resize
+  fieldPlan2DResize();
+  
+  // Setup touch pan/zoom
+  fieldPlan2DSetupTouch();
+  
+  // Start render loop
+  fieldPlan2DRender();
+  
+  // Auto-select first storey
+  if(fieldPlan2DStoreyIdx < 0){
+    const storeys = fieldPlan2DGetStoreys();
+    if(storeys.length > 0) fieldPlan2DSelectStorey(0);
+  }
+};
+
+window.fieldClosePlan2D = function(){
+  fieldPlan2DActive = false;
+  document.getElementById('fieldPlan2D').classList.remove('show');
+  document.getElementById('fieldBtnPlan2D').classList.remove('on');
+  if(_fp2dAnimId){ cancelAnimationFrame(_fp2dAnimId); _fp2dAnimId = null; }
+  // Remove storey clip planes
+  clipPlanes.length = 0;
+};
+
+function fieldPlan2DResize(){
+  if(!fieldPlan2DRenderer) return;
+  const container = document.getElementById('fieldPlan2DCanvas');
+  const w = container.clientWidth, h = container.clientHeight;
+  if(w === 0 || h === 0) return;
+  fieldPlan2DRenderer.setSize(w, h);
+  fieldPlan2DRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+}
+
+function fieldPlan2DGetStoreys(){
+  const all = [];
+  for(let i=0; i<loadedModels.length; i++){
+    const m = loadedModels[i];
+    if(!m?.spatial?.storeys) continue;
+    for(const s of m.spatial.storeys){
+      if(!all.some(u => Math.abs(u.elevation - s.elevation) < 0.1)){
+        all.push({ name: s.name, elevation: s.elevation });
+      }
+    }
+  }
+  all.sort((a,b) => a.elevation - b.elevation);
+  return all;
+}
+
+function fieldPlan2DBuildStoreys(){
+  const container = document.getElementById('fieldPlan2DStoreys');
+  const storeys = fieldPlan2DGetStoreys();
+  if(storeys.length === 0){
+    container.innerHTML = '<span style="font-size:11px;color:var(--text-muted)">No storeys</span>';
+    return;
+  }
+  container.innerHTML = storeys.map((s, i) =>
+    `<button class="field-plan2d-pill${i===fieldPlan2DStoreyIdx?' on':''}" onclick="fieldPlan2DSelectStorey(${i})">${s.name}</button>`
+  ).join('');
+}
+
+window.fieldPlan2DSelectStorey = function(idx){
+  const storeys = fieldPlan2DGetStoreys();
+  if(idx < 0 || idx >= storeys.length) return;
+  fieldPlan2DStoreyIdx = idx;
+  const s = storeys[idx];
+  
+  // Update pills
+  document.querySelectorAll('.field-plan2d-pill').forEach((p,i) => p.classList.toggle('on', i===idx));
+  
+  // Setup clipping planes for this storey
+  const cy = sharedCenterOffset?.y || 0;
+  const elevBot = s.elevation - cy;
+  const nextStorey = storeys[idx+1];
+  const elevTop = nextStorey ? (nextStorey.elevation - cy) : (elevBot + 3.5);
+  const cutY = elevBot + (elevTop - elevBot) * 0.4; // cut at 40% height (window/door level)
+  
+  // 2 horizontal clip planes: top and bottom
+  clipPlanes.length = 0;
+  clipPlanes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), cutY + 0.5)); // ceiling
+  clipPlanes.push(new THREE.Plane(new THREE.Vector3(0, 1, 0), -elevBot + 0.1)); // floor
+  
+  // Position camera looking down at this storey
+  if(fieldPlan2DCamera){
+    const cx = (modelBounds.min.x + modelBounds.max.x) / 2;
+    const cz = (modelBounds.min.z + modelBounds.max.z) / 2;
+    fieldPlan2DCamera.position.set(cx, cutY + 200, cz);
+    
+    // Fit bounds
+    const spanX = modelBounds.max.x - modelBounds.min.x;
+    const spanZ = modelBounds.max.z - modelBounds.min.z;
+    const container = document.getElementById('fieldPlan2DCanvas');
+    const aspect = container.clientWidth / (container.clientHeight || 1);
+    const pad = 1.15;
+    let halfW, halfH;
+    if(spanX / aspect > spanZ){
+      halfW = spanX * pad / 2;
+      halfH = halfW / aspect;
+    } else {
+      halfH = spanZ * pad / 2;
+      halfW = halfH * aspect;
+    }
+    fieldPlan2DCamera.left = -halfW;
+    fieldPlan2DCamera.right = halfW;
+    fieldPlan2DCamera.top = halfH;
+    fieldPlan2DCamera.bottom = -halfH;
+    fieldPlan2DCamera.updateProjectionMatrix();
+  }
+  
+  // Update info
+  document.getElementById('fieldPlan2DInfo').textContent = 
+    `${s.name} — Elev: ${s.elevation.toFixed(2)}m — Cut height: ${(s.elevation + (elevTop-elevBot+cy)*0.4).toFixed(2)}m`;
+  
+  fieldToast(`Plan: ${s.name}`);
+};
+
+function fieldPlan2DRender(){
+  if(!fieldPlan2DActive) return;
+  if(fieldPlan2DRenderer && fieldPlan2DCamera){
+    fieldPlan2DRenderer.render(scene, fieldPlan2DCamera);
+  }
+  _fp2dAnimId = requestAnimationFrame(fieldPlan2DRender);
+}
+
+// ── Touch pan/zoom for Plan 2D ──
+function fieldPlan2DSetupTouch(){
+  const container = document.getElementById('fieldPlan2DCanvas');
+  let panActive = false;
+  let panPrev = {x:0, y:0};
+  let pinchDist0 = 0;
+  
+  container.ontouchstart = (e) => {
+    if(e.touches.length === 1){
+      panActive = true;
+      panPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if(e.touches.length === 2){
+      panActive = false;
+      const t0 = e.touches[0], t1 = e.touches[1];
+      pinchDist0 = Math.sqrt(Math.pow(t1.clientX-t0.clientX,2) + Math.pow(t1.clientY-t0.clientY,2));
+    }
+  };
+  
+  container.ontouchmove = (e) => {
+    e.preventDefault();
+    if(!fieldPlan2DCamera) return;
+    
+    if(e.touches.length === 1 && panActive){
+      // Pan
+      const dx = e.touches[0].clientX - panPrev.x;
+      const dy = e.touches[0].clientY - panPrev.y;
+      panPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      
+      const w = fieldPlan2DCamera.right - fieldPlan2DCamera.left;
+      const h = fieldPlan2DCamera.top - fieldPlan2DCamera.bottom;
+      const rect = container.getBoundingClientRect();
+      const panX = -dx / rect.width * w;
+      const panZ = dy / rect.height * h;
+      
+      // Apply pan relative to camera up direction
+      fieldPlan2DCamera.position.x += panX;
+      fieldPlan2DCamera.position.z += panZ;
+    } else if(e.touches.length === 2){
+      // Pinch zoom
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.sqrt(Math.pow(t1.clientX-t0.clientX,2) + Math.pow(t1.clientY-t0.clientY,2));
+      if(pinchDist0 > 0){
+        const scale = pinchDist0 / dist;
+        const cx = (fieldPlan2DCamera.left + fieldPlan2DCamera.right) / 2;
+        const cy = (fieldPlan2DCamera.top + fieldPlan2DCamera.bottom) / 2;
+        const hw = (fieldPlan2DCamera.right - fieldPlan2DCamera.left) / 2 * scale;
+        const hh = (fieldPlan2DCamera.top - fieldPlan2DCamera.bottom) / 2 * scale;
+        // Clamp: don't zoom in too far or out too far
+        if(hw > 0.5 && hw < 5000){
+          fieldPlan2DCamera.left = cx - hw;
+          fieldPlan2DCamera.right = cx + hw;
+          fieldPlan2DCamera.top = cy + hh;
+          fieldPlan2DCamera.bottom = cy - hh;
+          fieldPlan2DCamera.updateProjectionMatrix();
+        }
+        pinchDist0 = dist;
+      }
+    }
+  };
+  
+  container.ontouchend = container.ontouchcancel = () => {
+    panActive = false;
+  };
+  
+  // Tap to select element on plan
+  container.onclick = async (e) => {
+    if(!fieldPlan2DRenderer || !fieldPlan2DCamera) return;
+    const rect = container.getBoundingClientRect();
+    const mx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const my = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(mx, my), fieldPlan2DCamera);
+    const ms = [];
+    scene.traverse(c => { if(c.isMesh && c.visible) ms.push(c); });
+    const hits = ray.intersectObjects(ms, false);
+    if(hits.length === 0) return;
+    
+    const hit = hits[0];
+    let targetModelIdx = hit.object.userData?.srcModelIdx ?? -1;
+    if(targetModelIdx < 0) targetModelIdx = findModelIdx(hit.object);
+    if(targetModelIdx < 0 || !loadedModels[targetModelIdx]) return;
+    
+    let foundEid = null;
+    try{
+      const eid = ifcLoader.ifcManager.getExpressId(hit.object.geometry, hit.faceIndex);
+      if(eid > 0) foundEid = eid;
+    }catch(e2){}
+    if(!foundEid && hit.object.geometry.attributes.expressID){
+      try{
+        const idx2 = hit.object.geometry.index
+          ? hit.object.geometry.index.array[hit.faceIndex*3]
+          : hit.faceIndex*3;
+        if(idx2 >= 0) foundEid = hit.object.geometry.attributes.expressID.array[idx2];
+      }catch(e2){}
+    }
+    if(!foundEid) return;
+    
+    // Show properties in field sheet
+    const modelID = loadedModels[targetModelIdx].modelID;
+    try{
+      const props = await ifcLoader.ifcManager.getItemProperties(modelID, foundEid, true);
+      if(props) showProps(props, targetModelIdx);
+    }catch(e2){}
+    
+    // Highlight
+    try{
+      clearHighlight();
+      if(!window._hlMat) window._hlMat = new THREE.MeshPhongMaterial({color:0x2563eb, transparent:true, opacity:0.6, side:THREE.DoubleSide, depthTest:true, clippingPlanes:clipPlanes});
+      const sub = ifcLoader.ifcManager.createSubset({modelID, ids:[foundEid], material:window._hlMat, scene, removePrevious:true, customID:'userHighlight'});
+      if(sub){ sub.position.copy(loadedModels[targetModelIdx].position); sub.updateMatrixWorld(true); window._lastHL={subset:sub, mid:modelID}; }
+    }catch(e2){}
+    
+    fieldToast('Element selected');
+  };
+}
+
+// ── Auto-detect touch device → suggest field mode ──
+if('ontouchstart' in window && window.innerWidth <= 1200){
+  // On touch tablets, show a hint after first model load
+  const _origLoadIFC = loadIFC;
+  // We'll check after first successful load
+  let _fieldHinted = false;
+  const _checkFieldHint = ()=>{
+    if(_fieldHinted || fieldActive) return;
+    if(loadedModels.some(m=>!!m)){
+      _fieldHinted = true;
+      setTimeout(()=>{
+        if(!fieldActive && confirm('Touch device detected. Switch to Field Mode for easier on-site viewing?')){
+          fieldEnterMode();
+        }
+      }, 1500);
+    }
+  };
+  // Hook into the controls change to detect post-load
+  setTimeout(()=>{
+    if(controls) controls.addEventListener('change', ()=>{ if(!_fieldHinted) _checkFieldHint(); });
+  }, 2000);
+}
 
 initThree();initSectionDrag();initViewCube();log('Ready');
 </script>
