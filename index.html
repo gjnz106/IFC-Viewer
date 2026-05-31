@@ -2383,8 +2383,9 @@ function initThree(){
       if(pinchDist0 > 0){
         const scale = dist / pinchDist0;
         // Feed into the same zoom velocity system used by mouse wheel
+        // Higher multiplier = more responsive (matching 2D plan feel)
         const zs = window._zoomState;
-        const delta = Math.log(scale) * -0.5; // negative = zoom in when spreading
+        const delta = Math.log(scale) * -2.5;
         zs.accum = delta;
         pinchDist0 = dist;
       }
@@ -2511,6 +2512,25 @@ function initThree(){
     if(!foundEid){console.log('[PICK] no expressID found, faceIndex=',hit.faceIndex,'hasExpressID=',!!hit.object.geometry.attributes.expressID);return}
     
     log('Pick: expressID='+foundEid+' model='+targetModelIdx+(hit.object.userData?.diffSubset?' (diff:'+hit.object.userData.diffSubset+')':''));
+    
+    // ── Field Mode: tap does NOT show properties or highlight ──
+    // User must long-press → context menu → Properties/Zoom for inspection.
+    // Tap only sets the orbit pivot so subsequent pinch/rotate centers on element.
+    if(fieldActive){
+      try{
+        const bb=getElementBBox(targetModelIdx, foundEid);
+        if(bb && bb.center){
+          window._pendingPivot = new THREE.Vector3(bb.center.x, bb.center.y, bb.center.z);
+          if(window._zoomState){
+            window._zoomState.pivot.copy(window._pendingPivot);
+            window._zoomState.pivotValid=true;
+            window._zoomState.accum=0;
+          }
+        }
+      }catch(e){}
+      return; // skip properties, highlight, auto-zoom
+    }
+    
     try{
       const props=await ifcLoader.ifcManager.getItemProperties(modelID,foundEid,true);
       if(props){
@@ -2559,39 +2579,6 @@ function initThree(){
             }
           }
         }catch(pe){log('Pivot err:',pe?.message||pe)}
-        
-        // ── Field Mode: auto-zoom to picked element ──
-        // On tablet, tapping an element should zoom the camera to it
-        // since there's no mouse scroll-to-zoom precision available.
-        if(fieldActive){
-          const fbb = getElementBBox(targetModelIdx, foundEid);
-          if(fbb && fbb.center){
-            const sz = Math.max(fbb.size.x, fbb.size.y, fbb.size.z);
-            const d = Math.max(sz * 2.5, 3);
-            // Smooth zoom: animate camera to frame the element
-            const targetPos = new THREE.Vector3(
-              fbb.center.x + d * 0.45,
-              fbb.center.y + d * 0.35,
-              fbb.center.z + d * 0.45
-            );
-            // If walk mode is active, teleport camera near the element at eye height
-            if(walkActive){
-              camera.position.set(fbb.center.x + sz + 1.5, fbb.center.y + 1.6, fbb.center.z + sz + 1.5);
-              walkYaw = Math.atan2(
-                fbb.center.x - camera.position.x,
-                fbb.center.z - camera.position.z
-              );
-              walkPitch = Math.atan2(
-                fbb.center.y - camera.position.y,
-                Math.sqrt(Math.pow(fbb.center.x - camera.position.x, 2) + Math.pow(fbb.center.z - camera.position.z, 2))
-              );
-            } else {
-              camera.position.copy(targetPos);
-              controls.target.copy(fbb.center);
-              controls.update();
-            }
-          }
-        }
       }
     }catch(pe){log('Props err:',pe.message)}
   });
