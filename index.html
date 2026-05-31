@@ -12925,6 +12925,315 @@ if('ontouchstart' in window && window.innerWidth <= 1200){
   }, 2000);
 }
 
+/* =============================================================================
+   IFC Delta — Lớp Tool cho AI (bản phác tham khảo)
+   -----------------------------------------------------------------------------
+   Mục tiêu: cho Claude trả lời các câu như
+     - "Có bao nhiêu cửa ở basement?"
+     - "Thống kê khối lượng sàn concrete tầng 1"
+   bằng cách GỌI HÀM chạy trên dữ liệu IFC thật (số chính xác),
+   KHÔNG để AI tự đoán.
+
+   Định dạng tool dưới đây dùng chuẩn của Anthropic Tool Use.
+   Nó gần như trùng với MCP (cùng dùng JSON Schema cho input),
+   nên sau này muốn bọc thành MCP server thì gần như copy nguyên.
+
+   File này là JS thuần — bạn có thể dán thẳng vào index.html
+   (giữ ràng buộc single-file), không cần build tool.
+============================================================================= */
+
+
+/* -----------------------------------------------------------------------------
+   1. GIẢ ĐỊNH VỀ DATA INDEX
+   -----------------------------------------------------------------------------
+   Sau khi web-ifc parse model, bạn dựng sẵn một mảng `IFC_INDEX` như dưới.
+   Đây là phần "lớp dữ liệu" đã bàn — phải có TRƯỚC khi gắn AI.
+   Mỗi phần tử là một element đã được trích xuất thuộc tính cần thiết.
+--------------------------------------------------------------------------- */
+
+/* Ví dụ shape của một element trong index:
+const IFC_INDEX = [
+  {
+    expressID: 12345,
+    ifcClass: "IfcDoor",            // loại IFC chuẩn
+    name: "Cửa đi đơn 900x2200",
+    type: "M_Single-Flush",
+    tag: "D-B1-007",
+    storey: "Basement",             // tên tầng (từ IfcBuildingStorey)
+    materials: ["Wood", "Aluminium"],
+    quantities: {                   // từ IfcElementQuantity (Base Quantities)
+      volume: null,                 // m3 — null nếu model không xuất sẵn
+      area: 1.98,                   // m2
+      length: null,
+      count: 1
+    },
+    quantitySource: "model"         // "model" = đọc sẵn | "geometry" = tự tính | "missing"
+  },
+  // ... hàng nghìn element khác
+];
+*/
+
+
+/* -----------------------------------------------------------------------------
+   2. HÀM TIỆN ÍCH — chuẩn hóa chuỗi để so khớp linh hoạt
+   -----------------------------------------------------------------------------
+   IFC thực tế rất lộn xộn: material ghi "Concrete", "Bê tông", "C30/37"...
+   tầng ghi "Basement", "B1", "Tầng hầm"... nên cần so khớp mềm.
+--------------------------------------------------------------------------- */
+
+function normalize(str) {
+  if (!str) return "";
+  return str
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu tiếng Việt: "bê tông" -> "be tong"
+    .trim();
+}
+
+// Từ điển nhận diện "concrete" — bạn mở rộng theo quy ước file công ty
+const CONCRETE_KEYWORDS = ["concrete", "be tong", "btct", "rc", "c20", "c25", "c30", "c35", "c40"];
+
+function isConcrete(materials) {
+  const joined = normalize((materials || []).join(" "));
+  return CONCRETE_KEYWORDS.some(kw => joined.includes(kw));
+}
+
+// So khớp 1 element với bộ lọc chung
+function matchElement(el, { category, storey, material }) {
+  if (category && normalize(el.ifcClass) !== normalize(category)) return false;
+  if (storey && !normalize(el.storey).includes(normalize(storey))) return false;
+  if (material) {
+    if (normalize(material).includes("concrete") || normalize(material).includes("be tong")) {
+      if (!isConcrete(el.materials)) return false;
+    } else {
+      const joined = normalize((el.materials || []).join(" "));
+      if (!joined.includes(normalize(material))) return false;
+    }
+  }
+  return true;
+}
+
+
+/* -----------------------------------------------------------------------------
+   3. ĐỊNH NGHĨA TOOL (chuẩn Anthropic Tool Use ≈ MCP)
+   -----------------------------------------------------------------------------
+   `input_schema` là JSON Schema — Claude đọc phần này để biết
+   gọi hàm nào, truyền tham số gì. Mô tả càng rõ, AI gọi càng đúng.
+--------------------------------------------------------------------------- */
+
+const TOOL_DEFINITIONS = [
+  {
+    name: "countElements",
+    description:
+      "Đếm số lượng element trong model IFC theo bộ lọc. " +
+      "Dùng cho câu hỏi như 'có bao nhiêu cửa ở basement', " +
+      "'số cột tầng 1'. Trả về số đếm chính xác.",
+    input_schema: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          description:
+            "Loại IFC cần đếm, dùng tên class chuẩn. " +
+            "Ví dụ: IfcDoor (cửa đi), IfcWindow (cửa sổ), " +
+            "IfcColumn (cột), IfcSlab (sàn), IfcWall (tường), IfcBeam (dầm)."
+        },
+        storey: {
+          type: "string",
+          description: "Tên tầng cần lọc, ví dụ 'Basement', 'Tầng 1', 'Level 1'. Bỏ trống nếu đếm toàn model."
+        },
+        material: {
+          type: "string",
+          description: "Vật liệu cần lọc, ví dụ 'concrete'. Bỏ trống nếu không lọc theo vật liệu."
+        }
+      },
+      required: ["category"]
+    }
+  },
+  {
+    name: "sumQuantity",
+    description:
+      "Tính tổng khối lượng (volume), diện tích (area) hoặc chiều dài (length) " +
+      "của các element theo bộ lọc. Dùng cho câu như " +
+      "'khối lượng sàn concrete tầng 1'. Trả về tổng chính xác KÈM nguồn dữ liệu " +
+      "và cảnh báo nếu có element thiếu số liệu.",
+    input_schema: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          description: "Loại IFC, ví dụ IfcSlab, IfcColumn, IfcWall."
+        },
+        quantity: {
+          type: "string",
+          enum: ["volume", "area", "length"],
+          description: "Đại lượng cần cộng: volume (m3), area (m2), length (m)."
+        },
+        storey: {
+          type: "string",
+          description: "Tên tầng cần lọc. Bỏ trống nếu tính toàn model."
+        },
+        material: {
+          type: "string",
+          description: "Vật liệu cần lọc, ví dụ 'concrete'. Bỏ trống nếu không lọc."
+        }
+      },
+      required: ["category", "quantity"]
+    }
+  }
+];
+
+
+/* -----------------------------------------------------------------------------
+   4. CODE CHẠY THẬT CỦA TỪNG TOOL
+   -----------------------------------------------------------------------------
+   Đây mới là nơi tính toán. AI KHÔNG đụng vào đây — nó chỉ ra lệnh gọi.
+   Mỗi hàm trả về object kết quả; phần "nguồn dữ liệu" rất quan trọng
+   để AI nói rõ với người dùng thay vì im lặng đưa số có thể sai.
+--------------------------------------------------------------------------- */
+
+function countElements({ category, storey, material }) {
+  const matched = IFC_INDEX.filter(el => matchElement(el, { category, storey, material }));
+  return {
+    count: matched.length,
+    filter: { category, storey: storey || "toàn model", material: material || "không lọc" },
+    sampleTags: matched.slice(0, 5).map(el => el.tag).filter(Boolean) // vài tag mẫu để người dùng kiểm chứng
+  };
+}
+
+function sumQuantity({ category, quantity, storey, material }) {
+  const matched = IFC_INDEX.filter(el => matchElement(el, { category, storey, material }));
+
+  let total = 0;
+  let counted = 0;
+  let missing = 0; // số element không có số liệu -> phải báo cho người dùng
+
+  for (const el of matched) {
+    const val = el.quantities ? el.quantities[quantity] : null;
+    if (val == null || el.quantitySource === "missing") {
+      missing++;
+    } else {
+      total += val;
+      counted++;
+    }
+  }
+
+  const unit = quantity === "volume" ? "m3" : quantity === "area" ? "m2" : "m";
+
+  return {
+    total: Math.round(total * 1000) / 1000, // làm tròn 3 chữ số
+    unit,
+    elementsMatched: matched.length,
+    elementsCounted: counted,
+    elementsMissingData: missing, // AI nên cảnh báo nếu > 0
+    quantitySource: "model (Base Quantities)", // hoặc "geometry" nếu bạn tự tính
+    filter: { category, quantity, storey: storey || "toàn model", material: material || "không lọc" }
+  };
+}
+
+// Bộ điều phối: nhận tên tool + tham số, chạy đúng hàm
+function runTool(name, input) {
+  switch (name) {
+    case "countElements": return countElements(input);
+    case "sumQuantity":   return sumQuantity(input);
+    default:
+      return { error: `Không có tool tên '${name}'` };
+  }
+}
+
+
+/* -----------------------------------------------------------------------------
+   5. VÒNG LẶP GỌI CLAUDE (Tool Use)
+   -----------------------------------------------------------------------------
+   Luồng:
+     a) Gửi câu hỏi + danh sách tool cho Claude
+     b) Nếu Claude muốn gọi tool (stop_reason === "tool_use"):
+          - app chạy tool -> ra kết quả
+          - gửi kết quả lại cho Claude (role: tool_result)
+     c) Claude đọc kết quả, trả lời bằng tiếng Việt
+     d) Lặp lại nếu Claude cần gọi thêm tool
+
+   QUAN TRỌNG: `PROXY_URL` trỏ tới PROXY của bạn, KHÔNG trỏ thẳng
+   api.anthropic.com — để không lộ API key trong browser (đã bàn).
+--------------------------------------------------------------------------- */
+
+const PROXY_URL = "https://your-proxy.workers.dev/messages"; // proxy giấu key
+
+async function askIFC(userQuestion) {
+  // Lịch sử hội thoại — gửi lại đầy đủ mỗi lượt (AI không tự nhớ)
+  let messages = [{ role: "user", content: userQuestion }];
+
+  // Tối đa vài vòng để tránh lặp vô hạn
+  for (let turn = 0; turn < 5; turn++) {
+    const res = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001", // Haiku đủ tốt + rẻ cho truy vấn thường
+        max_tokens: 1024,
+        tools: TOOL_DEFINITIONS,            // <-- khai báo tool ở đây
+        system:
+          "Bạn là trợ lý BIM cho app IFC Delta. Trả lời bằng tiếng Việt, ngắn gọn. " +
+          "Luôn dùng tool để lấy số liệu, không tự suy đoán con số. " +
+          "Nếu kết quả có elementsMissingData > 0, phải nói rõ cho người dùng biết " +
+          "số liệu có thể chưa đầy đủ.",
+        messages
+      })
+    });
+
+    const data = await res.json();
+
+    // Lưu phản hồi của Claude vào lịch sử
+    messages.push({ role: "assistant", content: data.content });
+
+    // Nếu Claude KHÔNG đòi gọi tool nữa -> đây là câu trả lời cuối
+    if (data.stop_reason !== "tool_use") {
+      const text = data.content
+        .filter(b => b.type === "text")
+        .map(b => b.text)
+        .join("\n");
+      return text;
+    }
+
+    // Claude đòi gọi 1 hoặc nhiều tool -> chạy hết rồi trả kết quả về
+    const toolResults = [];
+    for (const block of data.content) {
+      if (block.type === "tool_use") {
+        const result = runTool(block.name, block.input); // <-- CHẠY CODE THẬT
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: JSON.stringify(result)
+        });
+      }
+    }
+    messages.push({ role: "user", content: toolResults });
+  }
+
+  return "Xin lỗi, truy vấn quá phức tạp. Bạn thử chia nhỏ câu hỏi nhé.";
+}
+
+
+/* -----------------------------------------------------------------------------
+   6. KẾT NỐI VỚI UI (ví dụ)
+   -----------------------------------------------------------------------------
+   askIFC("Có bao nhiêu cửa ở basement?")
+     .then(answer => renderChatBubble(answer));
+--------------------------------------------------------------------------- */
+
+
+/* =============================================================================
+   GHI CHÚ: SAU NÀY MUỐN CHUYỂN SANG MCP?
+   -----------------------------------------------------------------------------
+   - TOOL_DEFINITIONS ở trên gần như y hệt cách MCP khai báo tool
+     (cùng dùng name + description + JSON Schema cho input).
+   - Các hàm countElements / sumQuantity là phần "thực thi" — giữ nguyên.
+   - Việc cần làm thêm: bọc chúng trong một MCP server (chạy riêng),
+     expose qua giao thức MCP. Lúc đó Claude Desktop hay công cụ khác
+     cũng gọi được, không chỉ app của bạn.
+   - Vì đã viết sạch từ đầu nên bước chuyển đổi rất nhẹ.
+============================================================================= */
 initThree();initSectionDrag();initViewCube();log('Ready');
 </script>
 </body>
