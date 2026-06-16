@@ -870,46 +870,178 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .walk-ud-label{font-size:8px;font-family:'JetBrains Mono';letter-spacing:.5px;opacity:.6}
 .walk-speed-pill{background:rgba(255,255,255,.1);color:rgba(255,255,255,.5);font-family:'JetBrains Mono';font-size:10px;padding:4px 10px;border-radius:12px;pointer-events:none;white-space:nowrap}
 
-/* ── Auth UI ────────────────────────────────────────────────── */
-/* Full-page overlay shown while auth state is unknown OR user is logged out. */
-/* Uses display:flex by default (covers app on first paint to prevent flash of */
-/* unauthenticated content); JS toggles .hidden once auth state is resolved.  */
-.auth-overlay{position:fixed;inset:0;z-index:9999;background:#ECECEF;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+/* ── Auth UI — Two-panel IDD-style login ─────────────────────── */
+/* Full-viewport side-by-side: left brand panel + right form.    */
+/* Matches T3LAB-IDD login aesthetic. JS toggles .hidden.        */
+.auth-overlay{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;
+  font-family:'Inter',sans-serif;
+}
 .auth-overlay.hidden{display:none}
-.auth-card{width:100%;max-width:380px;background:var(--bg-panel);border:1px solid var(--border);border-radius:20px;padding:32px 28px;box-shadow:0 16px 38px -10px rgba(24,24,27,.22)}
-.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.auth-brand .logo-mark{width:32px;height:32px;background:var(--text);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-weight:700;font-size:18px;color:#fff}
-.auth-brand-name{font-family:'Hanken Grotesk';font-weight:600;font-size:18px;color:var(--text)}
-.auth-brand-name span{font-family:'JetBrains Mono';font-weight:400;font-size:11px;color:var(--text-muted);margin-left:6px;text-transform:uppercase;letter-spacing:1px}
-.auth-desc{font-size:13px;color:var(--text-muted);margin:8px 0 22px;line-height:1.5}
-.auth-form{display:flex;flex-direction:column;gap:12px}
-.auth-field{display:flex;flex-direction:column;gap:5px}
-.auth-label{font-family:'JetBrains Mono';font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted)}
-.auth-input{height:44px;padding:0 15px;border:1px solid var(--border);border-radius:13px;background:var(--bg-card);font-family:'Hanken Grotesk';font-size:14px;font-weight:500;color:var(--text);transition:all var(--t);outline:none}
-.auth-input:focus{border-color:var(--text);background:var(--bg-panel);box-shadow:0 0 0 3px rgba(24,24,27,.08)}
+
+/* ── Left brand panel ───────────────────────────────────────── */
+.auth-brand-panel{
+  width:42%;flex-shrink:0;
+  background:var(--blue);
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:56px 52px;position:relative;overflow:hidden;
+}
+.auth-grid-bg{
+  position:absolute;inset:0;opacity:0.05;pointer-events:none;
+}
+.auth-brand-top{position:relative;z-index:1}
+.auth-brand-bottom{position:relative;z-index:1}
+
+/* Logo block */
+.auth-brand-logo{display:flex;align-items:center;gap:12px;margin-bottom:64px}
+.auth-brand-logo-mark{
+  width:36px;height:36px;border-radius:8px;
+  background:rgba(255,255,255,0.15);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono';font-weight:700;font-size:20px;color:#fff;
+}
+.auth-brand-logo-name{
+  font-size:22px;font-weight:800;color:#fff;
+  letter-spacing:0.01em;text-transform:uppercase;
+}
+.auth-brand-logo-sub{
+  font-size:10px;color:rgba(255,255,255,0.45);
+  letter-spacing:0.14em;text-transform:uppercase;
+  margin-top:3px;font-weight:600;
+}
+
+/* Hero copy */
+.auth-brand-hero{margin-top:0}
+.auth-brand-headline{
+  font-size:34px;font-weight:700;color:#fff;
+  line-height:1.2;margin-bottom:18px;letter-spacing:-0.02em;
+}
+.auth-brand-tagline{
+  font-size:14px;color:rgba(255,255,255,0.5);
+  line-height:1.75;max-width:320px;
+}
+
+/* Feature badges at bottom */
+.auth-brand-features{
+  display:flex;gap:28px;padding-top:32px;
+  border-top:1px solid rgba(255,255,255,0.12);
+}
+.auth-brand-feat-val{font-size:15px;font-weight:700;color:#fff}
+.auth-brand-feat-lbl{
+  font-size:10px;color:rgba(255,255,255,0.4);
+  text-transform:uppercase;letter-spacing:0.08em;
+  font-weight:600;margin-top:2px;
+}
+
+/* ── Right form panel ───────────────────────────────────────── */
+.auth-form-panel{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  background:#F4F4F6;padding:40px 32px;overflow-y:auto;
+}
+.auth-form-inner{width:100%;max-width:400px}
+
+/* Headings */
+.auth-heading-block{margin-bottom:36px}
+.auth-heading{
+  font-size:24px;font-weight:700;color:var(--blue);
+  margin-bottom:6px;letter-spacing:-0.01em;
+}
+.auth-heading-sub{font-size:13.5px;color:var(--text-muted)}
+
+/* Form elements */
+.auth-form{display:flex;flex-direction:column;gap:16px}
+.auth-field{display:flex;flex-direction:column;gap:7px}
+.auth-label{
+  display:block;font-size:11.5px;font-weight:600;
+  color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:0.06em;
+}
+.auth-label-row{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:0;
+}
+.auth-input{
+  height:42px;padding:0 14px;
+  border:1px solid var(--border);border-radius:8px;
+  background:#fff;font-family:'Inter';font-size:14px;color:var(--text);
+  transition:all var(--t);outline:none;width:100%;box-sizing:border-box;
+}
+.auth-input:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px var(--blue-bg)}
 .auth-input:disabled{opacity:.6;cursor:not-allowed}
-.auth-submit{height:42px;margin-top:6px;border-radius:13px;border:none;background:var(--text);color:#fff;font-family:'Hanken Grotesk';font-size:14px;font-weight:600;cursor:pointer;transition:all var(--t);display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 2px 8px -2px rgba(24,24,27,.45)}
-.auth-submit:hover:not(:disabled){background:#000}
+.auth-input::placeholder{color:var(--text-muted)}
+
+/* Submit button */
+.auth-submit{
+  width:100%;height:46px;margin-top:4px;border-radius:8px;border:none;
+  background:var(--blue);color:#fff;
+  font-family:'Inter';font-size:14px;font-weight:600;cursor:pointer;
+  transition:all var(--t);display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.auth-submit:hover:not(:disabled){background:#1d4fd1}
 .auth-submit:disabled{background:var(--text-muted);cursor:not-allowed;opacity:.7}
-.auth-link{font-size:13px;color:var(--text-dim);background:none;border:none;cursor:pointer;text-align:left;padding:0;margin-top:4px;font-family:'Hanken Grotesk';transition:opacity var(--t)}
-.auth-link:hover{opacity:.7;text-decoration:underline}
-.auth-msg{padding:9px 12px;border-radius:6px;font-size:13px;line-height:1.4;margin-top:4px;display:none}
+
+/* Inline link (forgot password, sign in, etc.) */
+.auth-inline-link{
+  font-size:12px;color:var(--blue);background:none;border:none;
+  cursor:pointer;font-weight:500;text-decoration:none;
+  font-family:'Inter';padding:0;transition:opacity var(--t);
+}
+.auth-inline-link:hover{opacity:.7;text-decoration:underline}
+
+/* Auth messages */
+.auth-msg{
+  padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.4;
+  margin-bottom:4px;display:none;
+}
 .auth-msg.show{display:block}
-.auth-msg.error{background:var(--red-lt);color:var(--red);border:1px solid rgba(220,38,38,.2)}
-.auth-msg.info{background:var(--blue-lt);color:var(--text-dim);border:1px solid var(--border)}
-.auth-msg.success{background:var(--green-lt);color:var(--green);border:1px solid rgba(15,138,102,.2)}
-.auth-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:auth-spin .7s linear infinite;display:none}
+.auth-msg.error{background:rgba(210,59,59,0.08);border:1px solid rgba(210,59,59,0.28);color:#D23B3B}
+.auth-msg.info{background:var(--blue-lt);color:var(--blue);border:1px solid var(--blue-bg)}
+.auth-msg.success{background:var(--green-lt);color:var(--green);border:1px solid var(--green-bg)}
+
+/* Spinner inside submit */
+.auth-spinner{
+  width:14px;height:14px;
+  border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
+  border-radius:50%;animation:auth-spin .7s linear infinite;display:none;
+}
 .auth-submit.loading .auth-spinner{display:inline-block}
 .auth-submit.loading .auth-submit-label{opacity:.7}
 @keyframes auth-spin{to{transform:rotate(360deg)}}
-.auth-foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);text-align:center;line-height:1.5}
 
-/* Email-verification gate: same overlay, different content */
+/* Footer */
+.auth-foot{
+  text-align:center;margin-top:16px;padding-top:14px;
+  border-top:1px solid var(--border);
+  font-size:12px;color:var(--text-muted);line-height:1.5;
+}
+
+/* Legacy .auth-link kept for JS compat */
+.auth-link{font-size:13px;color:var(--blue);background:none;border:none;cursor:pointer;text-align:left;padding:0;margin-top:4px;font-family:'Inter';transition:opacity var(--t)}
+.auth-link:hover{opacity:.7;text-decoration:underline}
+
+/* Email-verification gate */
 .auth-verify{display:flex;flex-direction:column;gap:14px;text-align:center}
-.auth-verify-icon{width:48px;height:48px;margin:0 auto;background:var(--amber-lt);color:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px}
+.auth-verify-icon{
+  width:48px;height:48px;margin:0 auto;
+  background:var(--amber-lt);color:var(--amber);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+}
 .auth-verify-title{font-size:16px;font-weight:600;color:var(--text)}
 .auth-verify-desc{font-size:13px;color:var(--text-dim);line-height:1.5}
 .auth-verify-actions{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+
+/* ── Responsive: stack panels on narrow screens ──────────── */
+@media(max-width:860px){
+  .auth-overlay{flex-direction:column}
+  .auth-brand-panel{
+    width:100%;padding:32px 28px;
+    flex:0 0 auto;min-height:auto;
+  }
+  .auth-brand-logo{margin-bottom:24px}
+  .auth-brand-headline{font-size:24px}
+  .auth-brand-features{gap:16px;padding-top:20px}
+  .auth-form-panel{padding:32px 24px}
+}
 
 /* User badge in header */
 .user-badge{display:flex;align-items:center;gap:8px;padding:0 10px 0 6px;height:32px;border-radius:5px;border:1px solid var(--border);background:var(--bg-panel);cursor:pointer;transition:all var(--t);font-family:'Hanken Grotesk';font-size:13px;color:var(--text-dim)}
