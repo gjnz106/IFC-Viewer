@@ -929,6 +929,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 @keyframes auth-spin{to{transform:rotate(360deg)}}
 .auth-foot{margin-top:16px;font-size:13px;color:#71717a;text-align:center;line-height:1.5}
 .auth-foot .auth-inline-link{font-size:13px}
+.auth-signup-link{background:linear-gradient(90deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:600;cursor:pointer}
 .auth-demo-box{margin-top:20px;padding:16px 18px;background:#fff;border:1px solid #e4e4e7;border-radius:8px}
 .auth-demo-label{font-family:'Hanken Grotesk';font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#a1a1aa;margin-bottom:10px}
 .auth-demo-row{display:flex;align-items:baseline;gap:6px;padding:3px 0;font-size:12px;font-family:'Hanken Grotesk'}
