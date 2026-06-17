@@ -1,13 +1,17 @@
 {
-  "name": "ifc-viewer",
-  "version": "1.0.0",
-  "description": "IFC Delta — web-based BIM viewer, compare, clash & validate (Three.js + web-ifc)",
+  "name": "ifc-viewer-workspace",
   "private": true,
-  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "build": "node build.mjs",
-    "verify": "node scripts/verify-build.mjs",
-    "serve": "python3 -m http.server 8000"
+    "dev": "concurrently \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\"",
+    "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
+    "frontend": "npm run dev --workspace=frontend",
+    "backend": "npm run dev --workspace=backend"
   },
-  "license": "UNLICENSED"
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
 }
