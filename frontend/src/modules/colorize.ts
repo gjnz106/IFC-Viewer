@@ -753,6 +753,9 @@ window.colorizeLoadScheme=async function(name: string){
   document.getElementById('czViewRules')!.style.display=(appState.colorize.mode==='rules')?'flex':'none';
   const sel=document.getElementById('czProp') as HTMLSelectElement | null;
   if(sel && appState.colorize.mode==='auto')sel.value=appState.colorize.property;
+  // Keep the visible segmented "Color by" pills in sync with the property
+  document.querySelectorAll('#czSeg .cz-seg-btn').forEach(b=>
+    b.classList.toggle('active',(b as HTMLElement).dataset.v===appState.colorize.property));
   if(appState.colorize.mode==='rules')colorizeRenderRules();
   // Hide schemes panel
   document.getElementById('czSchemesPanel')!.style.display='none';

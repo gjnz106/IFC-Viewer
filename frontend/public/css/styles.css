@@ -156,9 +156,12 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .summary-strip.show{display:grid}
 .ss-card{text-align:center;padding:5px 2px;border-radius:5px;background:var(--bg-card);cursor:pointer;transition:background var(--t)}
 .ss-card:hover{background:var(--bg-hover)}
+.ss-top{display:flex;align-items:center;justify-content:center;gap:5px}
+.ss-dot{width:7px;height:7px;border-radius:999px;flex:none}
 .ss-val{font-family:'JetBrains Mono';font-size:18px;font-weight:700}
 .ss-lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-top:1px}
-.ss-card.a .ss-val{color:var(--green)}.ss-card.r .ss-val{color:var(--red)}.ss-card.m .ss-val{color:var(--amber)}.ss-card.u .ss-val{color:var(--indigo)}
+.ss-card.a .ss-val{color:var(--green)}.ss-card.r .ss-val{color:var(--red)}.ss-card.m .ss-val{color:var(--accent)}.ss-card.u .ss-val{color:var(--indigo)}
+.ss-card.a .ss-dot{background:var(--green)}.ss-card.r .ss-dot{background:var(--red)}.ss-card.m .ss-dot{background:var(--accent)}.ss-card.u .ss-dot{background:var(--text-muted)}
 
 /* Search + Filter */
 .search-wrap{padding:5px 8px;border-bottom:1px solid var(--border);flex-shrink:0;display:none}
@@ -330,6 +333,11 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .cz-label{font-family:'JetBrains Mono';font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted)}
 .cz-select{width:100%;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:5px;background:var(--bg);font-family:'Hanken Grotesk';font-size:13px;color:var(--text);cursor:pointer;outline:none;transition:all var(--t)}
 .cz-select:focus{border-color:var(--blue);background:var(--bg-panel);box-shadow:0 0 0 3px var(--blue-bg)}
+/* Segmented "Color by" control — mockup-style pills */
+.cz-seg{display:flex;gap:2px;padding:3px;background:#E6E6EA;border-radius:9px}
+.cz-seg-btn{flex:1;height:28px;border:none;border-radius:7px;background:transparent;color:var(--text-muted);font-family:'Hanken Grotesk';font-size:12.5px;font-weight:500;cursor:pointer;transition:all var(--t)}
+.cz-seg-btn:hover{color:var(--text-dim)}
+.cz-seg-btn.active{background:var(--bg-panel);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(24,24,27,.12)}
 .cz-list{flex:1;overflow-y:auto;padding:4px 0;min-height:0}
 .cz-list-empty{padding:20px 14px;text-align:center;font-size:12px;color:var(--text-muted);line-height:1.5}
 .cz-row{display:flex;align-items:center;gap:8px;padding:5px 12px;transition:background var(--t);min-height:28px}
@@ -1030,8 +1038,14 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .uc-badge-loaded{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border-radius:999px;background:#0F8A66;color:#fff;font-size:11px;font-weight:600}
 
 /* Export dropdown item */
-.exp-item{width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;text-align:left;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:500;color:#18181B;transition:background .12s}
+.exp-item{width:100%;display:flex;align-items:center;gap:11px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;text-align:left;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:500;color:#18181B;transition:background .12s}
 .exp-item:hover{background:#F7F7F9}
+.exp-ico{flex:none;width:34px;height:34px;border-radius:9px;background:#F4F4F6;display:flex;align-items:center;justify-content:center}
+.exp-ico svg{width:17px;height:17px;fill:none;stroke:#52525B;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.exp-txt{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.exp-title{font-size:13px;font-weight:600;color:#27272A}
+.exp-sub{font-size:11.5px;font-weight:500;color:#9A9AA2;margin-top:1px}
+.exp-ext{flex:none;font-family:'JetBrains Mono';font-size:10px;font-weight:600;letter-spacing:.04em;color:#71717A;background:#F1F1F3;border-radius:6px;padding:2px 6px}
 
 /* Animations */
 @keyframes ifcSpin{to{transform:rotate(360deg)}}

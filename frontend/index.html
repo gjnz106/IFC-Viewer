@@ -187,14 +187,14 @@
     <!-- Export dropdown -->
     <div style="position:relative;flex:none">
       <button onclick="toggleExportMenu()" id="btnExportMenu" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:1px solid #DEDEE2;border-radius:11px;background:#fff;color:#27272A;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 14v4a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 18v-4"/></svg>Export<svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg></button>
-      <div id="exportMenuDrop" style="display:none;position:absolute;top:46px;right:0;width:220px;background:#fff;border:1px solid #ECECEF;border-radius:14px;box-shadow:0 20px 48px -18px rgba(24,24,27,.32);padding:6px;z-index:30">
-        <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2;padding:7px 10px 5px">Compare</div>
-        <button onclick="exportCSV();toggleExportMenu()" class="exp-item">CSV Report</button>
-        <button onclick="exportBCF();toggleExportMenu()" class="exp-item">BCF Issues</button>
-        <div style="height:1px;background:#F2F2F4;margin:4px 0"></div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2;padding:7px 10px 5px">Clash</div>
-        <button onclick="exportClashCSV();toggleExportMenu()" class="exp-item">Clash CSV</button>
-        <button onclick="exportClashBCF();toggleExportMenu()" class="exp-item">Clash BCF</button>
+      <div id="exportMenuDrop" style="display:none;position:absolute;top:46px;right:0;width:264px;background:#fff;border:1px solid #ECECEF;border-radius:14px;box-shadow:0 20px 48px -18px rgba(24,24,27,.32);padding:6px;z-index:30">
+        <button onclick="captureScreenshot();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 16l5-5 4 4 3-3 6 6"/></svg></span><span class="exp-txt"><span class="exp-title">Snapshot image</span><span class="exp-sub">Current viewport</span></span><span class="exp-ext">PNG</span></button>
+        <button onclick="sgExportReport();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5"/></svg></span><span class="exp-txt"><span class="exp-title">SG Check report</span><span class="exp-sub">Full compliance results</span></span><span class="exp-ext">PDF</span></button>
+        <button onclick="exportCSV();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span><span class="exp-txt"><span class="exp-title">Change list</span><span class="exp-sub">Added / modified / removed</span></span><span class="exp-ext">CSV</span></button>
+        <button onclick="exportBCF();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9zM12 2v18M4 6.5l8 4.5 8-4.5"/></svg></span><span class="exp-txt"><span class="exp-title">Issues package</span><span class="exp-sub">BCF for coordination</span></span><span class="exp-ext">BCF</span></button>
+        <div style="height:1px;background:#F2F2F4;margin:5px 8px"></div>
+        <button onclick="exportClashCSV();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span><span class="exp-txt"><span class="exp-title">Clash list</span><span class="exp-sub">Clash detection results</span></span><span class="exp-ext">CSV</span></button>
+        <button onclick="exportClashBCF();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9zM12 2v18M4 6.5l8 4.5 8-4.5"/></svg></span><span class="exp-txt"><span class="exp-title">Clash issues</span><span class="exp-sub">BCF for coordination</span></span><span class="exp-ext">BCF</span></button>
       </div>
       <div id="exportMenuBg" onclick="toggleExportMenu()" style="display:none;position:fixed;inset:0;z-index:29"></div>
     </div>
@@ -306,10 +306,10 @@
 
       <!-- Delta summary strip -->
       <div class="summary-strip" id="sumStrip">
-        <div class="ss-card a" onclick="setFilter('added')"><div class="ss-val" id="sA">0</div><div class="ss-lbl">Added</div></div>
-        <div class="ss-card r" onclick="setFilter('removed')"><div class="ss-val" id="sR">0</div><div class="ss-lbl">Removed</div></div>
-        <div class="ss-card m" onclick="setFilter('modified')"><div class="ss-val" id="sM">0</div><div class="ss-lbl">Modified</div></div>
-        <div class="ss-card u" onclick="setFilter('all')"><div class="ss-val" id="sU">0</div><div class="ss-lbl">Unchanged</div></div>
+        <div class="ss-card a" onclick="setFilter('added')"><div class="ss-top"><span class="ss-dot"></span><div class="ss-val" id="sA">0</div></div><div class="ss-lbl">Added</div></div>
+        <div class="ss-card r" onclick="setFilter('removed')"><div class="ss-top"><span class="ss-dot"></span><div class="ss-val" id="sR">0</div></div><div class="ss-lbl">Removed</div></div>
+        <div class="ss-card m" onclick="setFilter('modified')"><div class="ss-top"><span class="ss-dot"></span><div class="ss-val" id="sM">0</div></div><div class="ss-lbl">Modified</div></div>
+        <div class="ss-card u" onclick="setFilter('all')"><div class="ss-top"><span class="ss-dot"></span><div class="ss-val" id="sU">0</div></div><div class="ss-lbl">Unchanged</div></div>
       </div>
 
       <!-- Filter bar + search -->
@@ -470,8 +470,13 @@
             <div id="czViewAuto">
               <div class="cz-ctrls">
                 <div>
-                  <div class="cz-label" style="margin-bottom:4px">Color by</div>
-                  <select class="cz-select" id="czProp" onchange="applyColorize()">
+                  <div class="cz-label" style="margin-bottom:6px">Color by</div>
+                  <div class="cz-seg" id="czSeg">
+                    <button type="button" class="cz-seg-btn active" data-v="category" onclick="colorizeSetProp('category')">Category</button>
+                    <button type="button" class="cz-seg-btn" data-v="type" onclick="colorizeSetProp('type')">Type</button>
+                    <button type="button" class="cz-seg-btn" data-v="file" onclick="colorizeSetProp('file')">File</button>
+                  </div>
+                  <select class="cz-select" id="czProp" onchange="applyColorize()" style="display:none">
                     <option value="category">Category (Revit)</option>
                     <option value="type">Type / ObjectType</option>
                     <option value="file">File (A vs B)</option>
@@ -758,6 +763,16 @@ window.toggleExportMenu = function() {
   const open = d.style.display !== 'none';
   d.style.display = open ? 'none' : 'block';
   bg.style.display = open ? 'none' : 'block';
+};
+// Colorize "Color by" segmented control — drives the (hidden) #czProp select
+// that colorize.ts reads, then re-applies the colorize pass.
+window.colorizeSetProp = function(v) {
+  const sel = document.getElementById('czProp');
+  if (sel) sel.value = v;
+  document.querySelectorAll('#czSeg .cz-seg-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-v') === v);
+  });
+  if (window.applyColorize) window.applyColorize();
 };
 </script>
 
