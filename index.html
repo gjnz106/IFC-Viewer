@@ -35,7 +35,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Hanken Grotesk','Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
 /* Grid: header row spans full width; below, 5 columns: lcol | resize | viewport | resize | rcol */
-.app{display:grid;grid-template-rows:52px 1fr;grid-template-columns:var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
+.app{display:grid;grid-template-rows:64px 1fr;grid-template-columns:var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
 /* Drag handles: 4px wide, transparent until hover, blue on active drag */
 .col-resize{background:transparent;cursor:col-resize;position:relative;z-index:20;transition:background var(--t)}
 .col-resize:hover,.col-resize.dragging{background:var(--blue)}
@@ -50,7 +50,7 @@ body.resizing,body.resizing *{user-select:none !important;cursor:col-resize !imp
 body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-resize !important}
 
 /* Header */
-.header{grid-column:1/-1;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px;z-index:50;overflow-x:auto;scrollbar-width:none}
+.header{grid-column:1/-1;background:var(--bg-panel);border-bottom:1px solid #E4E4E8;display:flex;align-items:center;padding:0 16px;gap:10px;z-index:50;overflow-x:auto;scrollbar-width:none}
 .header::-webkit-scrollbar{display:none}
 .logo{display:flex;align-items:center;gap:7px}
 .logo-mark{width:24px;height:24px;background:var(--text);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-weight:700;font-size:16px;color:#fff}
@@ -72,7 +72,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 
 /* Left Panel */
 .left-panel{background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.upload-area{padding:8px;display:flex;flex-direction:column;gap:5px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.upload-area{padding:16px 16px 10px;display:flex;flex-direction:column;gap:10px;flex-shrink:0}
 .upload-card{border:1.5px dashed var(--border);border-radius:var(--radius);padding:10px;text-align:center;cursor:pointer;transition:all var(--t);background:var(--bg-card)}
 .upload-card:hover{border-color:var(--blue);background:var(--blue-bg)}
 .upload-card.loaded{border-style:solid;border-color:var(--blue);background:var(--blue-bg)}
@@ -131,13 +131,14 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .od-loading{text-align:center;padding:12px;font-size:11px;color:var(--text-muted)}
 .vis-row{padding:2px 10px 4px;}
 
-/* Tab switcher for Tree/Issues */
-.panel-tabs{display:none;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 8px}
+/* Tab switcher for Tree/Issues — rounded segmented control */
+.panel-tabs{display:none;flex-shrink:0;margin:8px 14px 6px;padding:3px;gap:2px;background:#E6E6EA;border-radius:11px}
 .panel-tabs.show{display:flex}
-.ptab{flex:1;padding:6px 0;text-align:center;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all var(--t);font-family:'Hanken Grotesk'}
+.ptab{flex:1;padding:6px 0;text-align:center;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border:none;border-radius:8px;background:transparent;transition:all var(--t);font-family:'Hanken Grotesk'}
 .ptab:hover{color:var(--text-dim)}
-.ptab.on{color:var(--text);border-bottom-color:var(--text)}
-.ptab .ptab-count{font-family:'JetBrains Mono';font-size:12px;font-weight:700;margin-left:3px;padding:1px 5px;border-radius:8px;background:var(--bg-card)}
+.ptab.on{color:var(--text);background:#fff;font-weight:600;box-shadow:0 1px 3px rgba(24,24,27,.12)}
+.ptab .ptab-count{font-family:'JetBrains Mono';font-size:11px;font-weight:700;margin-left:3px;padding:1px 5px;border-radius:8px;background:rgba(0,0,0,.06)}
+.ptab.on .ptab-count{background:#18181B;color:#fff}
 
 /* Issues list */
 .issues-list{flex:1;overflow-y:auto;padding:4px 0;display:none}
@@ -178,19 +179,19 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .search-input::placeholder{color:var(--text-muted)}
 .filter-bar{padding:5px 8px;display:none;gap:3px;flex-wrap:wrap;border-bottom:1px solid var(--border);flex-shrink:0}
 .filter-bar.show{display:flex}
-.cat-filter{padding:5px 8px;border-bottom:1px solid var(--border);flex-shrink:0;display:none;flex-direction:column;gap:4px;position:relative}
+.cat-filter{padding:10px 14px 6px;flex-shrink:0;display:none;flex-direction:column;gap:8px;position:relative}
 .cat-filter.show{display:flex}
-.cat-filter-title{font-family:'JetBrains Mono';font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted)}
-.cat-select-btn{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-size:13px;cursor:pointer;transition:all var(--t);font-family:'Hanken Grotesk';min-height:28px}
-.cat-select-btn:hover{border-color:var(--blue)}
-.cat-select-btn.open{border-color:var(--blue);background:var(--bg-panel)}
+.cat-filter-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted)}
+.cat-select-btn{display:flex;align-items:center;justify-content:space-between;padding:0 13px;border-radius:11px;border:1px solid var(--border);background:#fff;color:var(--text);font-size:14px;font-weight:500;cursor:pointer;transition:all var(--t);font-family:'Hanken Grotesk';min-height:40px}
+.cat-select-btn:hover{border-color:var(--border-hi)}
+.cat-select-btn.open{border-color:var(--text);background:#fff}
 .cat-select-btn .arrow{font-size:10px;color:var(--text-muted);transition:transform .2s}
 .cat-select-btn.open .arrow{transform:rotate(180deg)}
 .cat-tags{display:flex;flex-wrap:wrap;gap:2px;flex:1}
 .cat-tag{font-size:10px;padding:1px 5px;border-radius:3px;background:var(--blue-lt);color:var(--blue);font-weight:600;font-family:'JetBrains Mono';display:flex;align-items:center;gap:2px}
 .cat-tag .tag-x{cursor:pointer;opacity:.6;font-size:13px}
 .cat-tag .tag-x:hover{opacity:1}
-.cat-dropdown{position:absolute;top:100%;left:8px;right:8px;z-index:100;background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;display:none}
+.cat-dropdown{position:absolute;top:calc(100% - 2px);left:14px;right:14px;z-index:100;background:var(--bg-panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 38px -10px rgba(24,24,27,.26);max-height:240px;overflow-y:auto;display:none}
 .cat-dropdown.open{display:block}
 .cat-dd-search{width:100%;padding:6px 8px;border:none;border-bottom:1px solid var(--border);font-size:13px;font-family:'Hanken Grotesk';outline:none;background:transparent;color:var(--text)}
 .cat-dd-search::placeholder{color:var(--text-muted)}
@@ -275,8 +276,8 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
    to snap main camera to that orthogonal view. Home icon below resets. */
 .view-cube{position:absolute;top:10px;right:10px;width:90px;height:90px;z-index:11;cursor:pointer;user-select:none;pointer-events:auto}
 .view-cube canvas{display:block;width:100%;height:100%;background:transparent}
-.view-cube-home{position:absolute;top:104px;right:38px;width:34px;height:22px;z-index:11;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-muted);background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:all var(--t);backdrop-filter:blur(6px)}
-.view-cube-home:hover{color:var(--text);border-color:var(--text);background:var(--blue-lt)}
+.view-cube-home{position:absolute;top:108px;right:28px;width:38px;height:38px;z-index:11;display:flex;align-items:center;justify-content:center;color:var(--text-dim);background:#fff;border:1px solid #ECECEF;border-radius:12px;cursor:pointer;transition:all var(--t);box-shadow:0 1px 2px rgba(24,24,27,.04),0 10px 24px -16px rgba(24,24,27,.2)}
+.view-cube-home:hover{color:var(--text);border-color:var(--border-hi);background:#FAFAFB}
 
 /* ── 2D Plan Overlay ─────────────────────────────────────────────────
    Floating top-down storey view, BIMcollab-style. The panel hosts a
@@ -1340,7 +1341,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
     <div class="panel-tabs" id="panelTabs">
       <div class="ptab on" onclick="switchTab('tree')">Entity Tree</div>
       <div class="ptab" onclick="switchTab('issues')">Issues <span class="ptab-count" id="issueCount">0</span></div>
-      <div class="ptab" onclick="switchTab('search')">🔍 Search <span class="ptab-count" id="searchCount" style="display:none">0</span></div>
+      <div class="ptab" onclick="switchTab('search')"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg> Search <span class="ptab-count" id="searchCount" style="display:none">0</span></div>
     </div>
     <div class="issue-nav" id="issueNav">
       <span class="issue-nav-info" id="issueNavInfo">0 / 0</span>
@@ -1359,9 +1360,9 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
           <select class="search-type-select" id="searchTypeFilter" onchange="searchRun()">
             <option value="">All types</option>
           </select>
-          <div class="search-chip" onclick="searchToggleChip(this,'missing')" title="Elements missing a specific property">❌ Missing prop</div>
-          <div class="search-chip" onclick="searchToggleChip(this,'has')" title="Elements that have a specific property">✓ Has prop</div>
-          <div class="search-chip" onclick="searchToggleAdvanced()" title="Advanced property filter">⚙ Advanced</div>
+          <div class="search-chip" onclick="searchToggleChip(this,'missing')" title="Elements missing a specific property"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Missing prop</div>
+          <div class="search-chip" onclick="searchToggleChip(this,'has')" title="Elements that have a specific property"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><polyline points="20 6 9 17 4 12"/></svg> Has prop</div>
+          <div class="search-chip" onclick="searchToggleAdvanced()" title="Advanced property filter"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.2 4.2l2.1 2.1m11.4 11.4l2.1 2.1M2 12h3m14 0h3M4.2 19.8l2.1-2.1m11.4-11.4l2.1-2.1"/></svg> Advanced</div>
         </div>
       </div>
       <div class="search-adv" id="searchAdv">
@@ -1390,10 +1391,10 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
       </div>
       <div class="search-results" id="searchResults"></div>
       <div class="search-actions" id="searchActions" style="display:none">
-        <button class="search-act-btn" onclick="searchIsolateAll()" title="Isolate all results in 3D">👁 Isolate all</button>
-        <button class="search-act-btn" onclick="searchHideAll()" title="Hide all results">🚫 Hide all</button>
-        <button class="search-act-btn" onclick="searchSelectAll()" title="Select all for export">☑ Select all</button>
-        <button class="search-act-btn danger" onclick="searchClear()">✕ Clear</button>
+        <button class="search-act-btn" onclick="searchIsolateAll()" title="Isolate all results in 3D"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Isolate all</button>
+        <button class="search-act-btn" onclick="searchHideAll()" title="Hide all results"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Hide all</button>
+        <button class="search-act-btn" onclick="searchSelectAll()" title="Select all for export"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Select all</button>
+        <button class="search-act-btn danger" onclick="searchClear()"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Clear</button>
       </div>
     </div>
     
@@ -1404,20 +1405,20 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
   <div class="viewport-area" id="vpArea">
     <!-- 3D canvas wrapper — Three.js renderer reads this element's size -->
     <div class="viewport-canvas" id="vpCanvas">
-      <div class="empty-vp" id="emptyVP"><div class="ev-icon">🏗️</div><div class="ev-title">IFC 3D Version Compare</div><div class="ev-hint">Upload 2 IFC files and click Compare</div></div>
+      <div class="empty-vp" id="emptyVP"><div class="ev-icon"><svg viewBox="0 0 24 24" style="width:42px;height:42px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;opacity:.3"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div><div class="ev-title">IFC 3D Version Compare</div><div class="ev-hint">Upload 2 IFC files and click Compare</div></div>
       <!-- View cube: click cube face to snap to that orthogonal view. Home below resets. -->
       <div class="view-cube" id="viewCube" title="Click a face to snap to view"></div>
-      <div class="view-cube-home" id="viewCubeHome" title="Reset view" onclick="resetCam()">⌂</div>
+      <div class="view-cube-home" id="viewCubeHome" title="Reset view" onclick="resetCam()"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg></div>
       <!-- 2D Plan Overlay — top-down storey view via 2nd Three.js renderer -->
       <div class="plan-overlay" id="planOverlay">
         <div class="plan-hdr" id="planHdr">
-          <span class="plan-hdr-icon">⊟</span>
+          <span class="plan-hdr-icon"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span>
           <select class="plan-storey-select" id="planStoreySelect" onchange="planSelectStorey(this.value)" title="Select storey to display">
             <option value="">— No storeys —</option>
           </select>
-          <span class="plan-hdr-btn" id="planFollowBtn" onclick="planToggleFollow()" title="Follow 3D camera (cone marker tracks live)">⌖</span>
-          <span class="plan-hdr-btn" id="planFitBtn" onclick="planFit()" title="Fit storey to plan view">⊞</span>
-          <span class="plan-hdr-btn" id="planCloseBtn" onclick="togglePlanOverlay()" title="Close plan overlay">✕</span>
+          <span class="plan-hdr-btn" id="planFollowBtn" onclick="planToggleFollow()" title="Follow 3D camera (cone marker tracks live)"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px"><circle cx="12" cy="12" r="9"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg></span>
+          <span class="plan-hdr-btn" id="planFitBtn" onclick="planFit()" title="Fit storey to plan view"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span>
+          <span class="plan-hdr-btn" id="planCloseBtn" onclick="togglePlanOverlay()" title="Close plan overlay"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
         </div>
         <div class="plan-canvas-wrap" id="planCanvasWrap">
           <canvas id="planCanvas"></canvas>
@@ -1483,9 +1484,9 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
         <div id="czSchemesPanel" class="cz-schemes" style="display:none"></div>
 
         <div class="cz-foot">
-          <button onclick="colorizeSaveScheme()" title="Save current settings as a named scheme">💾 Save</button>
-          <button onclick="colorizeToggleSchemesPanel()" title="Load a saved scheme">📂 Load</button>
-          <button onclick="colorizeResetColors()" title="Re-randomize colors (Auto) or clear all rules (Rules)">↻ Reset</button>
+          <button onclick="colorizeSaveScheme()" title="Save current settings as a named scheme"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save</button>
+          <button onclick="colorizeToggleSchemesPanel()" title="Load a saved scheme"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Load</button>
+          <button onclick="colorizeResetColors()" title="Re-randomize colors (Auto) or clear all rules (Rules)"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Reset</button>
           <button class="primary" onclick="colorizeClear()" title="Turn off coloring and restore materials">Clear</button>
         </div>
         </div><!-- /czBody -->
@@ -1498,7 +1499,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
         <div class="sp-row"><span class="sp-label">Y−</span><input type="range" class="sp-slider" id="slYn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vYn">0%</span></div>
         <div class="sp-row"><span class="sp-label">Z+</span><input type="range" class="sp-slider" id="slZp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZp">100%</span></div>
         <div class="sp-row"><span class="sp-label">Z−</span><input type="range" class="sp-slider" id="slZn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZn">0%</span></div>
-        <button class="btn" style="width:100%;justify-content:center;margin-top:6px" onclick="resetSection()">↻ Reset Section</button>
+        <button class="btn" style="width:100%;justify-content:center;margin-top:6px" onclick="resetSection()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Reset Section</button>
       </div>
       <div class="load-ov" id="loadOv"><div class="spinner"></div><div class="load-txt" id="loadTxt">Loading...</div><div class="load-bar"><div class="load-fill" id="loadFill"></div></div></div>
       <!-- Transparency slider -->
@@ -1510,16 +1511,16 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
       <!-- Measure overlay -->
       <div class="measure-info" id="measureInfo" style="display:none">
         <div style="display:flex;gap:2px;margin-right:6px">
-          <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:12px;padding:2px 8px;border:1px solid var(--blue);border-radius:4px;background:var(--blue-lt);color:var(--blue);cursor:pointer;font-weight:600">📏 Distance</button>
-          <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer">📐 Level</button>
+          <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:12px;padding:3px 9px;border:1px solid var(--text);border-radius:8px;background:var(--blue-lt);color:var(--text);cursor:pointer;font-weight:600">Distance</button>
+          <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:12px;padding:3px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-dim);cursor:pointer">Level</button>
         </div>
         <span style="font-family:JetBrains Mono;font-size:14px;font-weight:600" id="measureText">Click 2 points to measure</span>
-        <button onclick="clearMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer;margin-left:8px">Clear</button>
-        <button onclick="toggleMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--red);border-radius:4px;background:var(--red-bg);color:var(--red);cursor:pointer;margin-left:4px">✕ Exit</button>
+        <button onclick="clearMeasure()" style="font-size:12px;padding:3px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-dim);cursor:pointer;margin-left:8px">Clear</button>
+        <button onclick="toggleMeasure()" style="font-size:12px;padding:3px 9px;border:1px solid var(--red);border-radius:8px;background:var(--red-bg);color:var(--red);cursor:pointer;margin-left:4px">Exit</button>
       </div>
       <!-- Walk mode HUD -->
       <div id="walkHUD" style="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:15;padding:8px 16px;background:rgba(0,0,0,0.7);border-radius:8px;color:#fff;font-family:'JetBrains Mono';font-size:11px;text-align:center;pointer-events:none;backdrop-filter:blur(4px)">
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px">🚶 WALK MODE</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><circle cx="13" cy="4.6" r="2"/><path d="M13 8l-2.5 2 .8 4.2L8 21M13.3 11l2.7 2.4M10.5 10l-2.5 1"/></svg>WALK MODE</div>
         <div><b>WASD</b> Move · <b>QE</b> Up/Down · <b>Mouse</b> Look · <b>Shift</b> Sprint · <b>Scroll</b> Speed · <b>Esc</b> Exit</div>
       </div>
       <!-- Walk crosshair -->
@@ -1697,10 +1698,10 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
           <option value="completion">Completion Gateway</option>
         </select>
         <div class="sg-actions">
-          <button class="sg-btn" id="sgRunBtn" onclick="sgRunValidation()" title="Run all rules against the loaded model">▶ Validate</button>
-          <button class="sg-btn sg-btn-secondary" id="sgLoadJsonBtn" onclick="sgLoadJsonDialog()" title="Load Industry Mapping JSON to extend rule library">📋 Load JSON</button>
-          <button class="sg-btn sg-btn-secondary" id="sgExportPDF" onclick="sgExportReport()" disabled title="Download validation report as PDF">📄 PDF Report</button>
-          <button class="sg-btn sg-btn-secondary" id="sgExportBCF" onclick="sgExportBCF()" disabled title="Export failures as BCF for sharing">📤 BCF</button>
+          <button class="sg-btn" id="sgRunBtn" onclick="sgRunValidation()" title="Run all rules against the loaded model"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor"><path d="M7 4l13 8-13 8z"/></svg> Validate</button>
+          <button class="sg-btn sg-btn-secondary" id="sgLoadJsonBtn" onclick="sgLoadJsonDialog()" title="Load Industry Mapping JSON to extend rule library"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Load JSON</button>
+          <button class="sg-btn sg-btn-secondary" id="sgExportPDF" onclick="sgExportReport()" disabled title="Download validation report as PDF"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF Report</button>
+          <button class="sg-btn sg-btn-secondary" id="sgExportBCF" onclick="sgExportBCF()" disabled title="Export failures as BCF for sharing"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 16v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg> BCF</button>
           <input type="file" id="sgJsonFileInput" accept=".json" style="display:none" onchange="sgHandleJsonFile(event)">
         </div>
       </div>
@@ -1712,7 +1713,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
             <span class="sg-col-hdr-count" id="sgRuleCount">0</span>
           </div>
           <div class="sg-col-body" id="sgRulesList">
-            <div class="sg-empty">Click <b>▶ Validate</b> to run rules</div>
+            <div class="sg-empty">Click <b>Validate</b> to run rules</div>
           </div>
         </div>
         <!-- Column 2: Failing elements for selected rule -->
@@ -1766,19 +1767,19 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 <!-- ══ FIELD MODE UI ELEMENTS ══ -->
 <!-- Bottom toolbar -->
 <div class="field-bar" id="fieldBar">
-  <button class="field-btn" onclick="fieldOpenLoader()"><span class="field-btn-icon">📂</span><span class="field-btn-label">Open</span></button>
+  <button class="field-btn" onclick="fieldOpenLoader()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="field-btn-label">Open</span></button>
   <div class="field-sep"></div>
-  <button class="field-btn" id="fieldBtnSection" onclick="fieldToggleSection()"><span class="field-btn-icon">✂️</span><span class="field-btn-label">Section</span></button>
-  <button class="field-btn" id="fieldBtnMeasure" onclick="fieldToggleMeasure()"><span class="field-btn-icon">📏</span><span class="field-btn-label">Measure</span></button>
-  <button class="field-btn" onclick="fieldScreenshot()"><span class="field-btn-icon">📸</span><span class="field-btn-label">Photo</span></button>
-  <button class="field-btn" id="fieldBtnWalk" onclick="fieldToggleWalk()"><span class="field-btn-icon">🚶</span><span class="field-btn-label">Walk</span></button>
+  <button class="field-btn" id="fieldBtnSection" onclick="fieldToggleSection()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M6 2.5v15a3 3 0 003 3h12"/><path d="M2.5 6h15a3 3 0 013 3v12"/></svg></span><span class="field-btn-label">Section</span></button>
+  <button class="field-btn" id="fieldBtnMeasure" onclick="fieldToggleMeasure()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 14.5L14.5 4l5.5 5.5L9.5 20z"/><path d="M8 8.5l2 2M11.2 5.3l1.6 1.6M5.3 11.2l1.6 1.6"/></svg></span><span class="field-btn-label">Measure</span></button>
+  <button class="field-btn" onclick="fieldScreenshot()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><circle cx="12" cy="13.5" r="3.1"/><path d="M8.5 7l1.2-2.3h4.6L15.5 7"/></svg></span><span class="field-btn-label">Photo</span></button>
+  <button class="field-btn" id="fieldBtnWalk" onclick="fieldToggleWalk()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><circle cx="13" cy="4.6" r="2"/><path d="M13 8l-2.5 2 .8 4.2L8 21M13.3 11l2.7 2.4M10.5 10l-2.5 1"/></svg></span><span class="field-btn-label">Walk</span></button>
   <div class="field-sep"></div>
-  <button class="field-btn" id="fieldBtnStoreys" onclick="fieldToggleStoreys()"><span class="field-btn-icon">🏢</span><span class="field-btn-label">Storeys</span></button>
-  <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon">📐</span><span class="field-btn-label">Plan 2D</span></button>
-  <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon">⊞</span><span class="field-btn-label">Fit</span></button>
-  <button class="field-btn" onclick="fieldShowAll()"><span class="field-btn-icon">👁</span><span class="field-btn-label">Show All</span></button>
+  <button class="field-btn" id="fieldBtnStoreys" onclick="fieldToggleStoreys()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/></svg></span><span class="field-btn-label">Storeys</span></button>
+  <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span><span class="field-btn-label">Plan 2D</span></button>
+  <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M20 9V5.5A1.5 1.5 0 0018.5 4H15M4 15v3.5A1.5 1.5 0 005.5 20H9M20 15v3.5A1.5 1.5 0 0118.5 20H15"/></svg></span><span class="field-btn-label">Fit</span></button>
+  <button class="field-btn" onclick="fieldShowAll()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="field-btn-label">Show All</span></button>
   <div class="field-sep"></div>
-  <button class="field-btn" onclick="fieldExitMode()"><span class="field-btn-icon">🖥</span><span class="field-btn-label">Desktop</span></button>
+  <button class="field-btn" onclick="fieldExitMode()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span><span class="field-btn-label">Desktop</span></button>
 </div>
 
 <!-- Properties slide-up sheet -->
@@ -1798,7 +1799,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
   <div class="field-loader-card">
     <h3>Load IFC Model</h3>
     <label for="fieldFileInput" class="field-loader-drop" id="fieldLoaderDrop">
-      <div class="field-loader-drop-icon">📐</div>
+      <div class="field-loader-drop-icon"><svg viewBox="0 0 24 24" style="width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 16v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg></div>
       <div class="field-loader-drop-text">Tap to select .ifc file</div>
     </label>
     <div class="field-loader-status" id="fieldLoaderStatus"></div>
@@ -1816,7 +1817,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 <!-- Full-screen Plan 2D (Field Mode) -->
 <div class="field-plan2d" id="fieldPlan2D">
   <div class="field-plan2d-hdr">
-    <div class="field-plan2d-title" id="fieldPlan2DTitle">📐 2D Plan View</div>
+    <div class="field-plan2d-title" id="fieldPlan2DTitle">2D Plan View</div>
     <div class="field-plan2d-storey-wrap" id="fieldPlan2DStoreys"></div>
     <button class="field-plan2d-close" onclick="fieldClosePlan2D()">✕ Close</button>
   </div>
@@ -1848,7 +1849,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 <div class="sg-json-overlay" id="sgJsonOverlay">
   <div class="sg-json-dialog">
     <div class="sg-json-dialog-hdr">
-      <h3>📋 IFC-SG Industry Mapping — JSON Rule Loader</h3>
+      <h3>IFC-SG Industry Mapping — JSON Rule Loader</h3>
       <button class="sg-json-dialog-close" onclick="sgCloseJsonDialog()">✕</button>
     </div>
     <div class="sg-json-dialog-body">
@@ -1860,7 +1861,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
       <div class="sg-json-section">
         <h4>Load JSON File</h4>
         <div class="sg-json-drop" id="sgJsonDropZone" onclick="document.getElementById('sgJsonFileInput').click()">
-          <div class="sg-json-drop-text">📂 Click or drag a <b>.json</b> file here</div>
+          <div class="sg-json-drop-text">Click or drag a <b>.json</b> file here</div>
         </div>
       </div>
       <div class="sg-json-section" id="sgJsonPreview" style="display:none">
@@ -1884,18 +1885,18 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 <!-- Context Menu -->
 <div class="ctx-menu" id="ctxMenu">
   <div class="ctx-header" id="ctxTitle">Element</div>
-  <div class="ctx-item" onclick="ctxAction('hide')"><span class="ci-icon">👁‍🗨</span><span class="ci-label">Hide Element</span><span class="ci-hint">H</span></div>
-  <div class="ctx-item" onclick="ctxAction('isolate')"><span class="ci-icon">🎯</span><span class="ci-label">Isolate Element</span><span class="ci-hint">I</span></div>
-  <div class="ctx-item" onclick="ctxAction('hideType')"><span class="ci-icon">📦</span><span class="ci-label">Hide Same Type</span></div>
-  <div class="ctx-item" onclick="ctxAction('isolateType')"><span class="ci-icon">📦</span><span class="ci-label">Isolate Type</span></div>
+  <div class="ctx-item" onclick="ctxAction('hide')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></span><span class="ci-label">Hide Element</span><span class="ci-hint">H</span></div>
+  <div class="ctx-item" onclick="ctxAction('isolate')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="ci-label">Isolate Element</span><span class="ci-hint">I</span></div>
+  <div class="ctx-item" onclick="ctxAction('hideType')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="ci-label">Hide Same Type</span></div>
+  <div class="ctx-item" onclick="ctxAction('isolateType')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="ci-label">Isolate Type</span></div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="ctxAction('sectionFit')"><span class="ci-icon">⬡</span><span class="ci-label">Section Box around Element</span></div>
-  <div class="ctx-item" onclick="ctxAction('sectionPlane')"><span class="ci-icon">◫</span><span class="ci-label">Section Plan parallel to face</span></div>
+  <div class="ctx-item" onclick="ctxAction('sectionFit')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M6 2.5v15a3 3 0 003 3h12"/><path d="M2.5 6h15a3 3 0 013 3v12"/></svg></span><span class="ci-label">Section Box around Element</span></div>
+  <div class="ctx-item" onclick="ctxAction('sectionPlane')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg></span><span class="ci-label">Section Plan parallel to face</span></div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="ctxAction('zoom')"><span class="ci-icon">🔍</span><span class="ci-label">Zoom to Element</span></div>
-  <div class="ctx-item" onclick="ctxAction('props')"><span class="ci-icon">📋</span><span class="ci-label">Properties</span></div>
+  <div class="ctx-item" onclick="ctxAction('zoom')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg></span><span class="ci-label">Zoom to Element</span></div>
+  <div class="ctx-item" onclick="ctxAction('props')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></span><span class="ci-label">Properties</span></div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="ctxAction('showAll')"><span class="ci-icon">👁</span><span class="ci-label">Show All Hidden</span></div>
+  <div class="ctx-item" onclick="ctxAction('showAll')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="ci-label">Show All Hidden</span></div>
 </div>
 
 <script>
@@ -13550,13 +13551,13 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   // ── styles (scoped .aic-) khớp biến màu app ──
   const css = `
   .aic-fab{position:fixed;right:20px;bottom:20px;z-index:9998;width:52px;height:52px;border-radius:50%;
-    background:var(--blue,#2563eb);color:#fff;border:none;cursor:pointer;font-size:22px;
-    box-shadow:0 4px 14px rgba(37,99,235,.4);display:flex;align-items:center;justify-content:center;transition:transform .15s ease}
+    background:#18181B;color:#fff;border:none;cursor:pointer;font-size:22px;
+    box-shadow:0 8px 24px -6px rgba(24,24,27,.5);display:flex;align-items:center;justify-content:center;transition:transform .15s ease}
   .aic-fab:hover{transform:scale(1.06)}
   .aic-panel{position:fixed;right:20px;bottom:20px;z-index:9999;width:380px;max-width:calc(100vw - 40px);
     height:560px;max-height:calc(100vh - 40px);background:var(--bg-panel,#fff);border:1px solid var(--border,#d5d9e2);
     border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;
-    font-family:Inter,system-ui,sans-serif;color:var(--text,#1a1d26)}
+    font-family:'Hanken Grotesk',Inter,system-ui,sans-serif;color:var(--text,#1a1d26)}
   .aic-panel.open{display:flex}
   .aic-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border,#d5d9e2);background:var(--bg-card,#f0f1f4)}
   .aic-head b{font-size:14px;flex:1}
