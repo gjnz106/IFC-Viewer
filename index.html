@@ -504,28 +504,28 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
    is the CORENET X portal itself. */
 .sg-panel{display:none;flex-direction:column;background:var(--bg-panel);border-top:1px solid var(--border);height:var(--bottom-h);min-height:200px;flex-shrink:0;overflow:hidden}
 .sg-panel.show{display:flex}
-.sg-header{padding:8px 12px;background:#fef2f2;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:10px;flex-shrink:0}
-.sg-header-icon{font-size:18px}
-.sg-header-title{font-weight:600;color:#991b1b;font-size:13px}
-.sg-header-sub{color:#9a3412;font-size:11px;margin-left:6px}
-.sg-gateway-select{height:26px;background:#fff;border:1px solid #fecaca;border-radius:4px;color:#7f1d1d;font-family:'Hanken Grotesk';font-size:11px;font-weight:500;padding:0 8px;outline:none;cursor:pointer}
+.sg-header{padding:10px 14px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sg-header-icon{width:30px;height:30px;border-radius:8px;background:#18181B;display:flex;align-items:center;justify-content:center;flex:none}
+.sg-header-title{font-weight:700;color:#18181B;font-size:13.5px}
+.sg-header-sub{color:var(--text-muted);font-size:11.5px;margin-left:2px}
+.sg-gateway-select{height:30px;background:#F4F4F6;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Hanken Grotesk';font-size:12px;font-weight:500;padding:0 10px;outline:none;cursor:pointer}
 .sg-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
-.sg-btn{height:26px;padding:0 12px;background:#dc2626;color:#fff;border:none;border-radius:4px;font-family:'Hanken Grotesk';font-size:11px;font-weight:600;cursor:pointer}
-.sg-btn:hover{background:#b91c1c}
-.sg-btn:disabled{background:#fca5a5;cursor:not-allowed}
-.sg-btn-secondary{background:#fff;color:#991b1b;border:1px solid #fecaca}
-.sg-btn-secondary:hover{background:#fef2f2}
+.sg-btn{height:30px;padding:0 13px;background:#18181B;color:#fff;border:none;border-radius:8px;font-family:'Hanken Grotesk';font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.sg-btn:hover{background:#000}
+.sg-btn:disabled{opacity:.4;cursor:not-allowed}
+.sg-btn-secondary{background:#fff;color:var(--text);border:1px solid var(--border)}
+.sg-btn-secondary:hover{background:#F4F4F6;border-color:var(--border-hi)}
 .sg-body{flex:1;display:grid;grid-template-columns:280px 1fr 280px;gap:1px;background:var(--border);min-height:0;overflow:hidden}
 .sg-col{background:var(--bg-card);display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.sg-col-hdr{padding:6px 10px;background:var(--bg-panel);border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
-.sg-col-hdr-count{margin-left:auto;background:#dc2626;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:600;min-width:18px;text-align:center}
-.sg-col-hdr-count.ok{background:#16a34a}
+.sg-col-hdr{padding:8px 12px;background:var(--bg-panel);border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.sg-col-hdr-count{margin-left:auto;background:#18181B;color:#fff;border-radius:8px;padding:0 7px;font-size:10px;font-weight:600;min-width:18px;text-align:center}
+.sg-col-hdr-count.ok{background:#0F8A66}
 .sg-col-body{flex:1;overflow-y:auto;min-height:0}
 /* Rules list (left column) */
 .sg-rule-group{padding:6px 10px 4px;background:var(--bg-panel);font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
 .sg-rule{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:flex-start;gap:8px;font-size:11px}
 .sg-rule:hover{background:var(--bg-panel)}
-.sg-rule.selected{background:#fef2f2;border-left:3px solid #dc2626;padding-left:7px}
+.sg-rule.selected{background:var(--blue-lt);border-left:3px solid var(--text);padding-left:7px}
 .sg-rule-icon{font-size:13px;line-height:1;flex-shrink:0;margin-top:1px}
 .sg-rule-icon.pass{color:#16a34a}
 .sg-rule-icon.fail{color:#dc2626}
@@ -558,7 +558,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .sg-dash-row .v.pass{color:#16a34a}
 .sg-dash-row .v.fail{color:#dc2626}
 .sg-dash-row .v.warn{color:#d97706}
-.sg-disclaimer{padding:8px 12px;background:#fef3c7;border-top:1px solid #fde68a;font-size:10px;color:#78350f;line-height:1.5}
+.sg-disclaimer{padding:8px 12px;background:var(--bg-card);border-top:1px solid var(--border);font-size:10px;color:var(--text-muted);line-height:1.5}
 /* JSON loader dialog overlay */
 .sg-json-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center}
 .sg-json-overlay.show{display:flex}
@@ -1687,8 +1687,8 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
          ════════════════════════════════════════════════════════════════ -->
     <div class="sg-panel" id="sgPanel">
       <div class="sg-header">
-        <span class="sg-header-icon">🇸🇬</span>
-        <span class="sg-header-title">CORENET X / IFC-SG Pre-Submission Validator</span>
+        <span class="sg-header-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg></span>
+        <span class="sg-header-title">CORENET X / IFC-SG Validator</span>
         <span class="sg-header-sub" id="sgHeaderSub">— <span id="sgRuleSrc">Built-in rules</span></span>
         <select class="sg-gateway-select" id="sgGateway" onchange="sgChangeGateway()" title="Submission Gateway — different rules apply per gateway">
           <option value="design">Design Gateway</option>
