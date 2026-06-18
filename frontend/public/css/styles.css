@@ -992,4 +992,48 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .confirm-btn{height:36px;padding:0 14px;border-radius:10px;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;transition:all var(--t);border:1px solid var(--border);background:var(--bg-panel);color:var(--text-dim)}
 .confirm-btn:hover{background:var(--bg-hover)}
 .confirm-btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+
+/* ── New design system (2025 redesign) ─────────────────────────────── */
+
+/* Header segmented mode buttons */
+.hdr-seg{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:none;border-radius:9px;background:transparent;color:#52525B;font-family:'Hanken Grotesk';font-size:13px;font-weight:500;cursor:pointer;transition:all .15s ease;white-space:nowrap}
+.hdr-seg:hover{background:rgba(255,255,255,.7);color:#18181B}
+.hdr-seg-active,.hdr-seg.active{background:#fff;color:#18181B;box-shadow:0 1px 4px rgba(24,24,27,.12);font-weight:600}
+.hdr-seg:disabled{opacity:.4;cursor:not-allowed}
+
+/* Header tool buttons */
+.hdr-tool{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 11px;border:none;border-radius:10px;background:transparent;color:#52525B;font-family:'Hanken Grotesk';font-size:13px;font-weight:500;cursor:pointer;transition:all .15s ease;white-space:nowrap}
+.hdr-tool:hover{background:#F4F4F6;color:#18181B}
+.hdr-tool.active{background:#EDEDEF;color:#18181B;font-weight:600}
+
+/* Header panel toggle buttons */
+.hdr-panel-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #E4E4E8;border-radius:10px;background:#fff;color:#71717A;cursor:pointer;transition:all .15s ease}
+.hdr-panel-btn:hover{background:#F4F4F6;border-color:#CFCFD5;color:#18181B}
+.hdr-panel-btn-active,.hdr-panel-btn.active{background:#18181B;border-color:#18181B;color:#fff}
+
+/* Upload card — solid */
+.uc-card{position:relative;display:block;border:1px solid #ECECEF;border-radius:16px;padding:14px;cursor:pointer;transition:all .15s ease;background:#fff;box-shadow:0 1px 2px rgba(24,24,27,.03),0 6px 16px -12px rgba(24,24,27,.1);overflow:hidden}
+.uc-card:hover{border-color:#CFCFD5;box-shadow:0 1px 2px rgba(24,24,27,.04),0 10px 24px -12px rgba(24,24,27,.14)}
+.uc-card-dashed{border-style:dashed;border-color:#D4D4DA;background:#FAFAFA}
+.uc-card-dashed:hover{border-color:#18181B;background:#F4F4F6}
+.uc-card.loaded{border-style:solid;border-color:#ECECEF}
+
+/* Upload card internals */
+.uc-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:80px;text-align:center}
+.uc-card.loaded .uc-placeholder{display:none}
+.uc-card.loaded .uc-file{display:block}
+.uc-file{display:none}
+.uc-ver-label{font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2}
+.uc-drop-text{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:#18181B}
+.uc-hint{font-size:11.5px;color:#9A9AA2}
+.uc-fname{font-size:14px;font-weight:600;color:#18181B;line-height:1.35;word-break:break-word}
+.uc-badge-loaded{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border-radius:999px;background:#0F8A66;color:#fff;font-size:11px;font-weight:600}
+
+/* Export dropdown item */
+.exp-item{width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:10px;background:transparent;cursor:pointer;text-align:left;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:500;color:#18181B;transition:background .12s}
+.exp-item:hover{background:#F7F7F9}
+
+/* Animations */
+@keyframes ifcSpin{to{transform:rotate(360deg)}}
+@keyframes ifcBar{0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
 .confirm-btn.danger:hover{background:#b91c1c}

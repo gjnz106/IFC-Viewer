@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IFC Delta — 3D Version Compare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js"></script>
@@ -11,27 +13,18 @@
 </head>
 <body>
 
-<!-- Auth overlay — full-viewport two-panel layout (IDD-style).
-     Left: brand panel with grid pattern + tagline.
-     Right: sign-in / verify / reset forms.
-     Visible by default; JS adds .hidden once user is verified. -->
+<!-- ══════════════════ AUTH OVERLAY ══════════════════ -->
 <div class="auth-overlay" id="authOverlay">
-
-  <!-- Left panel — brand -->
   <div class="auth-brand-panel">
     <div class="auth-grid-bg">
       <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="authGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-width="0.6"/>
-          </pattern>
-        </defs>
+        <defs><pattern id="authGrid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-width="0.6"/></pattern></defs>
         <rect width="100%" height="100%" fill="url(#authGrid)" />
       </svg>
     </div>
     <div class="auth-brand-top">
       <div class="auth-brand-logo">
-        <div class="auth-brand-logo-name">T3LAB.IFC</div>
+        <div class="auth-brand-logo-name">IFC Delta</div>
         <div class="auth-brand-logo-sub">3D Version Compare</div>
       </div>
       <div class="auth-brand-hero">
@@ -47,31 +40,19 @@
       </div>
     </div>
   </div>
-
-  <!-- Right panel — forms -->
   <div class="auth-form-panel">
     <div class="auth-form-inner">
-
-      <!-- LOADING VIEW (default; hidden once Firebase resolves auth state) -->
-      <div id="authViewLoading">
-        <div class="auth-loading-wrap">
-          <div class="typing-dots"><span></span><span></span><span></span></div>
-        </div>
-      </div>
-
-      <!-- LOGIN VIEW (default) -->
+      <div id="authViewLoading"><div class="auth-loading-wrap"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>
       <div id="authViewLogin" style="display:none">
         <div class="auth-heading-block">
           <h2 class="auth-heading">Sign in</h2>
           <p class="auth-heading-sub">Enter your credentials to access the platform.</p>
         </div>
-
         <div class="auth-msg" id="loginMsg"></div>
-
         <form class="auth-form" id="loginForm" autocomplete="on">
           <div class="auth-field">
             <label class="auth-label" for="loginEmail">Email</label>
-            <input class="auth-input" type="email" id="loginEmail" name="email" autocomplete="email" required placeholder="you@t3lab.space">
+            <input class="auth-input" type="email" id="loginEmail" name="email" autocomplete="email" required placeholder="you@example.com">
           </div>
           <div class="auth-field">
             <div class="auth-label-row">
@@ -80,61 +61,42 @@
             </div>
             <input class="auth-input" type="password" id="loginPassword" name="password" autocomplete="current-password" required placeholder="••••••••">
           </div>
-          <button type="submit" class="auth-submit" id="loginSubmit">
-            <span class="auth-spinner"></span>
-            <span class="auth-submit-label">Sign in</span>
-          </button>
+          <button type="submit" class="auth-submit" id="loginSubmit"><span class="auth-spinner"></span><span class="auth-submit-label">Sign in</span></button>
         </form>
         <div class="auth-foot">Don't have an account? <span class="auth-signup-link">Sign up</span></div>
       </div>
-
-      <!-- VERIFY-EMAIL VIEW (shown after login if email not verified) -->
       <div id="authViewVerify" style="display:none">
         <div class="auth-verify">
           <div class="auth-verify-icon">✉</div>
           <div class="auth-verify-title">Verify your email</div>
-          <div class="auth-verify-desc">
-            We sent a verification link to <b id="verifyEmail">—</b>.<br>
-            Click the link in your inbox, then refresh this page.
-          </div>
+          <div class="auth-verify-desc">We sent a verification link to <b id="verifyEmail">—</b>.<br>Click the link in your inbox, then refresh this page.</div>
           <div class="auth-msg" id="verifyMsg"></div>
           <div class="auth-verify-actions">
-            <button type="button" class="auth-submit" id="verifyResend">
-              <span class="auth-spinner"></span>
-              <span class="auth-submit-label">Resend verification email</span>
-            </button>
+            <button type="button" class="auth-submit" id="verifyResend"><span class="auth-spinner"></span><span class="auth-submit-label">Resend verification email</span></button>
             <button type="button" class="auth-inline-link" style="text-align:center;margin-top:8px" onclick="checkVerifiedNow()">I've verified — refresh</button>
-            <button type="button" class="auth-inline-link" style="text-align:center;margin-top:4px;color:var(--text-muted)" onclick="signOutFromVerify()">Use a different account</button>
+            <button type="button" class="auth-inline-link" style="text-align:center;margin-top:4px;color:#9A9AA2" onclick="signOutFromVerify()">Use a different account</button>
           </div>
         </div>
       </div>
-
-      <!-- PASSWORD-RESET VIEW -->
       <div id="authViewReset" style="display:none">
         <div class="auth-heading-block">
           <h2 class="auth-heading">Forgot password?</h2>
-          <p class="auth-heading-sub">Remembered your password? <span class="auth-inline-link" onclick="showLoginView()">Sign in</span></p>
+          <p class="auth-heading-sub">Remembered? <span class="auth-inline-link" onclick="showLoginView()">Sign in</span></p>
         </div>
-
         <div class="auth-msg" id="resetMsg"></div>
-
         <form class="auth-form" id="resetForm">
           <div class="auth-field">
             <label class="auth-label" for="resetEmail">Email Address</label>
-            <input class="auth-input" type="email" id="resetEmail" required placeholder="you@t3lab.space">
+            <input class="auth-input" type="email" id="resetEmail" required placeholder="you@example.com">
           </div>
-          <button type="submit" class="auth-submit" id="resetSubmit">
-            <span class="auth-spinner"></span>
-            <span class="auth-submit-label">Send instructions</span>
-          </button>
+          <button type="submit" class="auth-submit" id="resetSubmit"><span class="auth-spinner"></span><span class="auth-submit-label">Send instructions</span></button>
         </form>
       </div>
-
     </div>
   </div>
 </div>
 
-<!-- User dropdown menu (shown by clicking user badge in header) -->
+<!-- User dropdown menu -->
 <div class="user-menu" id="userMenu">
   <div class="user-menu-header">
     <div class="user-menu-header-name" id="userMenuName">—</div>
@@ -155,547 +117,532 @@
   </div>
 </div>
 
-<div class="app">
-  <header class="header">
-    <div class="logo"><div class="logo-mark">Δ</div><div class="logo-name">IFC Delta<span>3D Compare</span></div></div>
-    <button class="field-toggle" id="fieldModeBtn" onclick="fieldEnterMode()" title="Field Mode — tablet-optimized for on-site review"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Field</button>
-    <div class="h-sep"></div>
-    <button class="btn primary" id="btnCompare" disabled onclick="runCompare()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="5 3 19 12 5 21 5 3"/></svg> Compare</button>
-    <button class="btn" id="btnClash" style="border-color:var(--red);color:var(--red)" onclick="toggleClashMode()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Clash</button>
-    <button class="btn" id="btnRunClash" style="display:none" disabled onclick="runClashDetection()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run Clash</button>
-    <button class="btn" id="btnExitClash" style="display:none;border-color:var(--red);color:var(--red)" onclick="exitClashMode()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Exit Clash</button>
-    <button class="btn" id="btnExitCompare" style="display:none;border-color:var(--red);color:var(--red)" onclick="exitCompare()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Exit Compare</button>
-    <button class="btn" id="btnExport" style="display:none" onclick="exportCSV()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> CSV</button>
-    <button class="btn" id="btnExportBCF" style="display:none;border-color:var(--green);color:var(--green)" onclick="exportBCF()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> BCF</button>
-    <button class="btn" id="btnExportClashCSV" style="display:none" onclick="exportClashCSV()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Clash CSV</button>
-    <button class="btn" id="btnExportClashBCF" style="display:none;border-color:var(--green);color:var(--green)" onclick="exportClashBCF()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Clash BCF</button>
-    <div id="statusBadge" class="status-badge"><span id="statusText"></span></div>
-    <div class="h-right">
-      <button class="btn" id="btnMeasure" onclick="toggleMeasure()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M2 20L20 4"/><path d="M6 16l2-2m2-2l2-2"/></svg> Measure</button>
-      <button class="btn" onclick="captureScreenshot()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Screenshot</button>
-      <button class="btn" id="btnSection" onclick="toggleSectionBox()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg> Section</button>
-      <button class="btn" id="btnColorize" onclick="toggleColorize()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg> Colorize</button>
-      <button class="btn" onclick="zoomFit()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg> Fit</button>
-      <button class="btn" onclick="toggleWire()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Wire</button>
-      <button class="btn" id="btnShowAll" style="display:none" onclick="showAllHidden()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Show All</button>
-      <button class="btn" id="btnWalk" onclick="toggleWalkMode()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg> Walk</button>
-      <button class="btn" id="btnPlan" onclick="togglePlanOverlay()" title="Show 2D plan overlay (top-down view of current storey)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Plan</button>
-      <button class="btn" id="btnSGCheck" style="border-color:#dc2626;color:#dc2626" onclick="toggleSGCheckPanel()" title="CORENET X / IFC-SG pre-submission validation (Singapore)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> SG Check</button>
-      <button class="btn" onclick="resetCam()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Reset</button>
-      <div class="h-sep" style="margin:0 4px"></div>
-      <button class="user-badge" id="userBadge" onclick="toggleUserMenu(event)" style="display:none">
-        <span class="user-avatar" id="userAvatar">·</span>
-        <span class="user-name" id="userName">—</span>
-      </button>
+<!-- ══════════════════ APP ══════════════════ -->
+<div id="app" style="height:100vh;width:100vw;display:flex;flex-direction:column;overflow:hidden;background:#F1F1F3;font-family:'Hanken Grotesk',-apple-system,system-ui,sans-serif;color:#27272A;-webkit-font-smoothing:antialiased">
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <header style="flex:none;height:64px;display:flex;align-items:center;gap:10px;padding:0 16px;background:#fff;border-bottom:1px solid #E4E4E8;z-index:10">
+
+    <!-- Logo -->
+    <div style="display:flex;align-items:center;gap:10px;padding-right:4px;flex:none">
+      <div style="width:36px;height:36px;border-radius:10px;background:#161618;display:flex;align-items:center;justify-content:center;flex:none">
+        <svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#fff;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>
+      </div>
+      <div style="line-height:1.1">
+        <div style="display:flex;align-items:baseline;gap:5px"><span style="font-size:15px;font-weight:800;letter-spacing:-.02em;color:#18181B">IFC Delta</span><span style="font-family:'JetBrains Mono';font-size:10.5px;font-weight:600;color:#9A9AA2">3D</span></div>
+        <div style="font-size:11px;font-weight:500;color:#8A8A90" id="headerModeLbl">Version Compare</div>
+      </div>
     </div>
+
+    <div style="width:1px;height:28px;background:#ECECEF;flex:none"></div>
+
+    <!-- Mode segmented: Field / Compare / Clash -->
+    <div style="display:inline-flex;gap:2px;padding:3px;background:#E6E6EA;border-radius:12px;flex:none">
+      <button id="fieldModeBtn" onclick="fieldEnterMode()" class="hdr-seg" title="Field Mode — tablet-optimized"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>Field</button>
+      <button id="btnCompare" disabled onclick="runCompare()" class="hdr-seg hdr-seg-active" title="Compare two IFC versions"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>Compare</button>
+      <button id="btnClash" onclick="toggleClashMode()" class="hdr-seg" title="Clash detection" style="color:#dc2626"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>Clash</button>
+    </div>
+
+    <div style="width:1px;height:28px;background:#ECECEF;flex:none"></div>
+
+    <!-- Viewport tools -->
+    <div style="display:flex;align-items:center;gap:1px;flex:none">
+      <button id="btnMeasure" onclick="toggleMeasure()" class="hdr-tool" title="Measure distances"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M4 14.5L14.5 4l5.5 5.5L9.5 20z"/><path d="M8 8.5l2 2M11.2 5.3l1.6 1.6M5.3 11.2l1.6 1.6"/></svg>Measure</button>
+      <button onclick="captureScreenshot()" class="hdr-tool" title="Screenshot"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="7" width="18" height="13" rx="2.5"/><circle cx="12" cy="13.5" r="3.1"/><path d="M8.5 7l1.2-2.3h4.6L15.5 7"/></svg>Screenshot</button>
+      <button id="btnSection" onclick="toggleSectionBox()" class="hdr-tool" title="Section box"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M6 2.5v15a3 3 0 0 0 3 3h12"/><path d="M2.5 6h15a3 3 0 0 1 3 3v12"/></svg>Section</button>
+      <button id="btnColorize" onclick="toggleColorize()" class="hdr-tool" title="Colorize elements"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3.5s6 6.4 6 10.4a6 6 0 0 1-12 0c0-4 6-10.4 6-10.4z"/></svg>Colorize</button>
+      <button onclick="zoomFit()" class="hdr-tool" title="Fit to view"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M20 9V5.5A1.5 1.5 0 0 0 18.5 4H15M4 15v3.5A1.5 1.5 0 0 0 5.5 20H9M20 15v3.5A1.5 1.5 0 0 1 18.5 20H15"/></svg>Fit</button>
+      <button onclick="toggleWire()" class="hdr-tool" title="Wireframe"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>Wire</button>
+      <button id="btnWalk" onclick="toggleWalkMode()" class="hdr-tool" title="Walk mode"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><circle cx="13" cy="4.6" r="2"/><path d="M13 8l-2.5 2 .8 4.2L8 21M13.3 11l2.7 2.4M10.5 10l-2.5 1"/></svg>Walk</button>
+      <button id="btnPlan" onclick="togglePlanOverlay()" class="hdr-tool" title="2D plan overlay"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4z"/><path d="M9 4v13M15 6.5v13"/></svg>Plan</button>
+      <button id="btnShowAll" style="display:none" onclick="showAllHidden()" class="hdr-tool" title="Show all hidden"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Show All</button>
+    </div>
+
+    <!-- Hidden legacy export/clash buttons (JS controls visibility) -->
+    <div style="display:none">
+      <button id="btnRunClash" disabled onclick="runClashDetection()">Run Clash</button>
+      <button id="btnExitClash" onclick="exitClashMode()">Exit Clash</button>
+      <button id="btnExitCompare" onclick="exitCompare()">Exit Compare</button>
+      <button id="btnExport" onclick="exportCSV()">CSV</button>
+      <button id="btnExportBCF" onclick="exportBCF()">BCF</button>
+      <button id="btnExportClashCSV" onclick="exportClashCSV()">Clash CSV</button>
+      <button id="btnExportClashBCF" onclick="exportClashBCF()">Clash BCF</button>
+    </div>
+
+    <div id="statusBadge" class="status-badge"><span id="statusText"></span></div>
+
+    <div style="flex:1"></div>
+
+    <!-- Panel toggles -->
+    <div style="display:flex;gap:3px;flex:none">
+      <button onclick="toggleLeftPanel()" id="btnToggleLeft" class="hdr-panel-btn hdr-panel-btn-active" title="Versions panel"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="9" y1="4.5" x2="9" y2="19.5"/><rect x="4.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg></button>
+      <button onclick="toggleRightPanel()" id="btnToggleRight" class="hdr-panel-btn" title="Properties panel"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="15" y1="4.5" x2="15" y2="19.5"/><rect x="16.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg></button>
+    </div>
+
+    <div style="width:1px;height:28px;background:#ECECEF;flex:none"></div>
+
+    <!-- SG Check (dark CTA) -->
+    <button id="btnSGCheck" onclick="toggleSGCheckPanel()" style="display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 15px;border:none;border-radius:11px;background:#18181B;color:#fff;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;flex:none;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>SG Check</button>
+
+    <!-- Export dropdown -->
+    <div style="position:relative;flex:none">
+      <button onclick="toggleExportMenu()" id="btnExportMenu" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:1px solid #DEDEE2;border-radius:11px;background:#fff;color:#27272A;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 14v4a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 18v-4"/></svg>Export<svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div id="exportMenuDrop" style="display:none;position:absolute;top:46px;right:0;width:220px;background:#fff;border:1px solid #ECECEF;border-radius:14px;box-shadow:0 20px 48px -18px rgba(24,24,27,.32);padding:6px;z-index:30">
+        <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2;padding:7px 10px 5px">Compare</div>
+        <button onclick="exportCSV();toggleExportMenu()" class="exp-item">CSV Report</button>
+        <button onclick="exportBCF();toggleExportMenu()" class="exp-item">BCF Issues</button>
+        <div style="height:1px;background:#F2F2F4;margin:4px 0"></div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2;padding:7px 10px 5px">Clash</div>
+        <button onclick="exportClashCSV();toggleExportMenu()" class="exp-item">Clash CSV</button>
+        <button onclick="exportClashBCF();toggleExportMenu()" class="exp-item">Clash BCF</button>
+      </div>
+      <div id="exportMenuBg" onclick="toggleExportMenu()" style="display:none;position:fixed;inset:0;z-index:29"></div>
+    </div>
+
+    <!-- Reset -->
+    <button onclick="resetCam()" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:1px solid #DEDEE2;border-radius:11px;background:#fff;color:#27272A;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;flex:none;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg>Reset</button>
+
+    <!-- User badge -->
+    <button class="user-badge" id="userBadge" onclick="toggleUserMenu(event)" style="display:none">
+      <span class="user-avatar" id="userAvatar">·</span>
+      <span class="user-name" id="userName">—</span>
+    </button>
   </header>
 
-  <div class="left-panel">
-    <div class="upload-area">
-      <label class="upload-card" id="uc0" for="f0">
-        <input type="file" id="f0" accept=".ifc,*/*" onchange="handleFile(0)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
-        <div class="uc-placeholder"><div class="uc-label">Version A — Baseline</div><div class="uc-text"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Drop IFC here</div><div class="uc-hint">click or drag .ifc</div></div>
-        <div class="uc-file"><div class="uc-label">Version A</div><div class="uc-filename" id="fn0"></div><div class="uc-size" id="fs0"></div><div class="uc-status" id="us0"></div></div>
-      </label>
-      <div class="vis-row" id="visRow0" style="display:none">
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:2px 0">
-          <input type="checkbox" checked id="visA" onchange="toggleModelVis(0)" style="accent-color:var(--red);width:13px;height:13px">
-          <span style="width:8px;height:8px;border-radius:2px;background:var(--red);opacity:.7"></span>
-          Version A (Baseline)
-        </label>
-      </div>
-      <label class="upload-card" id="uc1" for="f1">
-        <input type="file" id="f1" accept=".ifc,*/*" onchange="handleFile(1)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
-        <div class="uc-placeholder"><div class="uc-label">Version B — Updated</div><div class="uc-text"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Drop IFC here</div><div class="uc-hint">click or drag .ifc</div></div>
-        <div class="uc-file"><div class="uc-label">Version B</div><div class="uc-filename" id="fn1"></div><div class="uc-size" id="fs1"></div><div class="uc-status" id="us1"></div></div>
-      </label>
-      <div class="vis-row" id="visRow1" style="display:none">
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:2px 0">
-          <input type="checkbox" checked id="visB" onchange="toggleModelVis(1)" style="accent-color:var(--blue);width:13px;height:13px">
-          <span style="width:8px;height:8px;border-radius:2px;background:var(--blue);opacity:.7"></span>
-          Version B (Updated)
-        </label>
-      </div>
-      <!-- Federation files (slots 2+) -->
-      <div class="fed-section" id="fedSection">
-        <div class="fed-slots" id="fedSlots"></div>
-        <button class="fed-add-btn" id="fedAddBtn" onclick="fedAddSlot()" title="Load additional IFC files to view together">+ Add more files</button>
-        <input type="file" id="fedFileInput" accept=".ifc,*/*" style="display:none" onchange="fedHandleFile(event)">
-      </div>
-    </div>
-    <!-- Google Drive Panel -->
-    <div class="od-panel" id="odPanel">
-      <button class="od-toggle" onclick="odToggle()">
-        <span class="od-toggle-icon"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg></span> Google Drive
-        <span class="od-toggle-badge" id="odBadge">offline</span>
-      </button>
-      <div class="od-body" id="odBody">
-        <div id="odContent">
-          <button class="od-login-btn" onclick="gdLogin()" style="">
-            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            Sign in with Google
-          </button>
-          <div class="od-status" id="odStatus">Connect Google Drive to browse IFC files</div>
-        </div>
-      </div>
-    </div>
-    <div class="summary-strip" id="sumStrip">
-      <div class="ss-card a" onclick="setFilter('added')"><div class="ss-val" id="sA">0</div><div class="ss-lbl">Added</div></div>
-      <div class="ss-card r" onclick="setFilter('removed')"><div class="ss-val" id="sR">0</div><div class="ss-lbl">Removed</div></div>
-      <div class="ss-card m" onclick="setFilter('modified')"><div class="ss-val" id="sM">0</div><div class="ss-lbl">Modified</div></div>
-      <div class="ss-card u" onclick="setFilter('all')"><div class="ss-val" id="sU">0</div><div class="ss-lbl">Unchanged</div></div>
-    </div>
-    <div class="search-wrap" id="searchW"><input class="search-input" id="searchIn" placeholder="Search type, name, ID..." oninput="renderTree()"></div>
-    <div class="filter-bar" id="filterB">
-      <button class="fchip on" data-f="all" onclick="setFilter('all')">All</button>
-      <button class="fchip fa" data-f="added" onclick="setFilter('added')">+ Added</button>
-      <button class="fchip fr" data-f="removed" onclick="setFilter('removed')">− Removed</button>
-      <button class="fchip fm" data-f="modified" onclick="setFilter('modified')">~ Modified</button>
-    </div>
-    <div class="cat-filter show" id="catFilter">
-      <div class="cat-filter-title">Category Filter</div>
-      <div class="cat-select-btn" id="catBtn" onclick="toggleCatDropdown()">
-        <div class="cat-tags" id="catTags"><span style="color:var(--text-muted)">All categories</span></div>
-        <span class="arrow">▼</span>
-      </div>
-      <div class="cat-dropdown" id="catDropdown">
-        <input class="cat-dd-search" id="catSearch" placeholder="Search category..." oninput="filterCatDropdown()">
-        <div id="catList"></div>
-        <div class="cat-dd-actions">
-          <button onclick="catSelectAll()">Select All</button>
-          <button onclick="catSelectNone()">Clear</button>
-          <button onclick="catSelectChanged()" class="primary">Only Changed</button>
-        </div>
-      </div>
-    </div>
-    <div class="panel-tabs" id="panelTabs">
-      <div class="ptab on" onclick="switchTab('tree')">Entity Tree</div>
-      <div class="ptab" onclick="switchTab('issues')">Issues <span class="ptab-count" id="issueCount">0</span></div>
-      <div class="ptab" onclick="switchTab('search')"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Search <span class="ptab-count" id="searchCount" style="display:none">0</span></div>
-    </div>
-    <div class="issue-nav" id="issueNav">
-      <span class="issue-nav-info" id="issueNavInfo">0 / 0</span>
-      <div class="issue-nav-btns">
-        <button class="inav" onclick="navIssue(-1)">◀</button>
-        <button class="inav" onclick="navIssue(1)">▶</button>
-      </div>
-    </div>
-    <div class="entity-tree" id="eTree"></div>
-    <div class="issues-list" id="issuesList"></div>
-    <!-- Element Search Panel -->
-    <div class="search-panel" id="searchPanel">
-      <div class="search-bar">
-        <input class="search-input" id="searchInput" placeholder="Search by name, type, tag…" oninput="searchDebounce()" onkeydown="if(event.key==='Enter')searchRun()">
-        <div class="search-filters">
-          <select class="search-type-select" id="searchTypeFilter" onchange="searchRun()">
-            <option value="">All types</option>
-          </select>
-          <div class="search-chip" onclick="searchToggleChip(this,'missing')" title="Elements missing a specific property"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Missing prop</div>
-          <div class="search-chip" onclick="searchToggleChip(this,'has')" title="Elements that have a specific property"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="20 6 9 17 4 12"/></svg> Has prop</div>
-          <div class="search-chip" onclick="searchToggleAdvanced()" title="Advanced property filter"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M2 12h2m16 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Advanced</div>
-        </div>
-      </div>
-      <div class="search-adv" id="searchAdv">
-        <div class="search-adv-row">
-          <span class="search-adv-label">Where</span>
-          <input class="search-adv-val" id="searchAdvProp" placeholder="Property name" style="width:110px" list="searchPropList">
-          <datalist id="searchPropList"></datalist>
-          <select class="search-adv-select" id="searchAdvOp" style="max-width:80px">
-            <option value="exists">exists</option>
-            <option value="empty">is empty</option>
-            <option value="eq">equals</option>
-            <option value="neq">not equals</option>
-            <option value="contains">contains</option>
-            <option value="gt">greater than</option>
-            <option value="lt">less than</option>
-            <option value="gte">≥</option>
-            <option value="lte">≤</option>
-          </select>
-          <input class="search-adv-val" id="searchAdvVal" placeholder="Value">
-          <button class="search-act-btn" onclick="searchRun()" style="padding:3px 10px">Go</button>
-        </div>
-      </div>
-      <div class="search-stats" id="searchStats">
-        <span id="searchStatsText">Load a model to search</span>
-        <span id="searchStatsActions"></span>
-      </div>
-      <div class="search-results" id="searchResults"></div>
-      <div class="search-actions" id="searchActions" style="display:none">
-        <button class="search-act-btn" onclick="searchIsolateAll()" title="Isolate all results in 3D"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Isolate all</button>
-        <button class="search-act-btn" onclick="searchHideAll()" title="Hide all results"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Hide all</button>
-        <button class="search-act-btn" onclick="searchSelectAll()" title="Select all for export"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Select all</button>
-        <button class="search-act-btn danger" onclick="searchClear()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Clear</button>
-      </div>
-    </div>
-    
-  </div>
+  <!-- ═══════════ BODY ═══════════ -->
+  <div style="flex:1;min-height:0;display:flex">
 
-  <!-- Drag handle: resize left sidebar width -->
-  <div class="col-resize" id="lresize" title="Drag to resize sidebar"></div>
-  <div class="viewport-area" id="vpArea">
-    <!-- 3D canvas wrapper — Three.js renderer reads this element's size -->
-    <div class="viewport-canvas" id="vpCanvas">
-      <div class="empty-vp" id="emptyVP"><div class="ev-icon"><svg viewBox="0 0 24 24" style="width:42px;height:42px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;opacity:.3"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div><div class="ev-title">IFC 3D Version Compare</div><div class="ev-hint">Upload 2 IFC files and click Compare</div></div>
-      <!-- View cube: click cube face to snap to that orthogonal view. Home below resets. -->
-      <div class="view-cube" id="viewCube" title="Click a face to snap to view"></div>
-      <div class="view-cube-home" id="viewCubeHome" title="Reset view" onclick="resetCam()"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-      <!-- 2D Plan Overlay — top-down storey view via 2nd Three.js renderer -->
-      <div class="plan-overlay" id="planOverlay">
-        <div class="plan-hdr" id="planHdr">
-          <span class="plan-hdr-icon"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span>
-          <select class="plan-storey-select" id="planStoreySelect" onchange="planSelectStorey(this.value)" title="Select storey to display">
-            <option value="">— No storeys —</option>
-          </select>
-          <span class="plan-hdr-btn" id="planFollowBtn" onclick="planToggleFollow()" title="Follow 3D camera (cone marker tracks live)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg></span>
-          <span class="plan-hdr-btn" id="planFitBtn" onclick="planFit()" title="Fit storey to plan view"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span>
-          <span class="plan-hdr-btn" id="planCloseBtn" onclick="togglePlanOverlay()" title="Close plan overlay"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
-        </div>
-        <div class="plan-canvas-wrap" id="planCanvasWrap">
-          <canvas id="planCanvas"></canvas>
-          <svg class="plan-marker-svg" id="planMarkerSvg" viewBox="0 0 340 240" preserveAspectRatio="none"></svg>
-          <div class="plan-empty" id="planEmpty" style="display:none">Load a model with IfcBuildingStorey to use the plan overlay.</div>
-        </div>
-        <div class="plan-info-bar">
-          <span id="planInfoStorey">—</span>
-          <span id="planInfoCam">cam: —</span>
-        </div>
-        <div class="plan-resize" id="planResize" title="Drag to resize"></div>
-      </div>
-      <div class="vp-overlay" id="vpLegend">
-        <div class="leg"><div class="leg-d" style="background:var(--green)"></div>Added</div>
-        <div class="leg"><div class="leg-d" style="background:var(--red)"></div>Removed</div>
-        <div class="leg"><div class="leg-d" style="background:var(--amber)"></div>Modified</div>
-      </div>
-      <div class="vp-overlay" id="vpClashLegend">
-        <div class="leg"><div class="leg-d" style="background:#ff1744"></div>Hard clash</div>
-        <div class="leg"><div class="leg-d" style="background:#ff9100"></div>Clearance</div>
-      </div>
-      <!-- Colorize panel — 2 modes: Auto (color by property) and Rules (user-defined) -->
-      <div class="colorize-panel" id="colorizePanel">
-        <div class="cz-head">
-          <div class="cz-title" id="czTitle">Colorize</div>
-          <button class="cz-x" onclick="colorizeToggleCollapse()" title="Collapse / expand" id="czCollapseBtn">–</button>
-          <button class="cz-x" onclick="toggleColorize()" title="Close">×</button>
-        </div>
-        <!-- Everything below the header is inside czBody so collapse can hide it -->
-        <div id="czBody" style="display:flex;flex-direction:column;min-height:0;flex:1">
-        <!-- Mode tabs -->
-        <div class="cz-tabs">
-          <button class="cz-tab active" id="czTabAuto" onclick="colorizeSetMode('auto')">Auto</button>
-          <button class="cz-tab" id="czTabRules" onclick="colorizeSetMode('rules')">Rules</button>
-        </div>
+    <!-- ═══ LEFT SIDEBAR ═══ -->
+    <aside id="leftPanel" style="flex:none;width:312px;background:#fff;border-right:1px solid #E4E4E8;display:flex;flex-direction:column;overflow-y:auto">
 
-        <!-- AUTO mode: color by property -->
-        <div id="czViewAuto">
-          <div class="cz-ctrls">
-            <div>
-              <div class="cz-label" style="margin-bottom:4px">Color by</div>
-              <select class="cz-select" id="czProp" onchange="applyColorize()">
-                <option value="category">Category (Revit)</option>
-                <option value="type">Type / ObjectType</option>
-                <option value="file">File (A vs B)</option>
-              </select>
+      <div style="padding:16px 16px 8px">
+
+        <!-- Upload card A -->
+        <label class="uc-card" id="uc0" for="f0">
+          <input type="file" id="f0" accept=".ifc,*/*" onchange="handleFile(0)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+          <div class="uc-placeholder">
+            <div class="uc-ver-label">Version A — Baseline</div>
+            <div class="uc-drop-text"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 16v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"/></svg>Drop IFC here</div>
+            <div class="uc-hint">click or drag .ifc</div>
+          </div>
+          <div class="uc-file">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2">Version A</span>
+              <span class="uc-badge-loaded" id="us0">Loading…</span>
             </div>
+            <div class="uc-fname" id="fn0"></div>
+            <div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2;margin-top:4px" id="fs0"></div>
           </div>
-          <div class="cz-list" id="czList">
-            <div class="cz-list-empty">Load IFC files and pick a property above.</div>
-          </div>
-        </div>
+        </label>
 
-        <!-- RULES mode: user-defined rules with AND conditions, OR between rules -->
-        <div id="czViewRules" style="display:none;flex:1;min-height:0;flex-direction:column">
-          <div class="cz-rules" id="czRules">
-            <div class="cz-list-empty">No rules yet.<br>Click <b>+ Add rule</b> to create one.<br><span style="font-size:11px">First matching rule wins.</span></div>
-          </div>
-          <button class="cz-rule-add" onclick="colorizeAddRule()">+ Add rule</button>
-        </div>
-
-        <!-- Saved schemes dropdown (shown when user clicks "Load") -->
-        <div id="czSchemesPanel" class="cz-schemes" style="display:none"></div>
-
-        <div class="cz-foot">
-          <button onclick="colorizeSaveScheme()" title="Save current settings as a named scheme"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save</button>
-          <button onclick="colorizeToggleSchemesPanel()" title="Load a saved scheme"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Load</button>
-          <button onclick="colorizeResetColors()" title="Re-randomize colors (Auto) or clear all rules (Rules)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Reset</button>
-          <button class="primary" onclick="colorizeClear()" title="Turn off coloring and restore materials">Clear</button>
-        </div>
-        </div><!-- /czBody -->
-      </div>
-      <div class="section-panel" id="sectionPanel">
-        <div class="sp-title">Section Box</div>
-        <div class="sp-row"><span class="sp-label">X+</span><input type="range" class="sp-slider" id="slXp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vXp">100%</span></div>
-        <div class="sp-row"><span class="sp-label">X−</span><input type="range" class="sp-slider" id="slXn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vXn">0%</span></div>
-        <div class="sp-row"><span class="sp-label">Y+</span><input type="range" class="sp-slider" id="slYp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vYp">100%</span></div>
-        <div class="sp-row"><span class="sp-label">Y−</span><input type="range" class="sp-slider" id="slYn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vYn">0%</span></div>
-        <div class="sp-row"><span class="sp-label">Z+</span><input type="range" class="sp-slider" id="slZp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZp">100%</span></div>
-        <div class="sp-row"><span class="sp-label">Z−</span><input type="range" class="sp-slider" id="slZn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZn">0%</span></div>
-        <button class="btn" style="width:100%;justify-content:center;margin-top:6px" onclick="resetSection()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Reset Section</button>
-      </div>
-      <div class="load-ov" id="loadOv"><div class="spinner"></div><div class="load-txt" id="loadTxt">Loading...</div><div class="load-bar"><div class="load-fill" id="loadFill"></div></div></div>
-      <!-- Transparency slider -->
-      <div class="tp-panel" id="tpPanel">
-        <span style="font-size:12px;color:var(--text-muted);font-family:JetBrains Mono">Opacity</span>
-        <input type="range" id="slOpacity" min="5" max="100" value="100" style="width:120px;height:4px" oninput="setGlobalOpacity(this.value)">
-        <span id="opVal" style="font-size:12px;font-family:JetBrains Mono;color:var(--text-dim);min-width:28px">100%</span>
-      </div>
-      <!-- Measure overlay -->
-      <div class="measure-info" id="measureInfo" style="display:none">
-        <div style="display:flex;gap:2px;margin-right:6px">
-          <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:12px;padding:2px 8px;border:1px solid var(--blue);border-radius:4px;background:var(--blue-lt);color:var(--blue);cursor:pointer;font-weight:600"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M2 20L20 4"/><path d="M6 16l2-2m2-2l2-2"/></svg> Distance</button>
-          <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M3 12h18M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg> Level</button>
-        </div>
-        <span style="font-family:JetBrains Mono;font-size:14px;font-weight:600" id="measureText">Click 2 points to measure</span>
-        <button onclick="clearMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);color:var(--text-dim);cursor:pointer;margin-left:8px">Clear</button>
-        <button onclick="toggleMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--red);border-radius:4px;background:var(--red-bg);color:var(--red);cursor:pointer;margin-left:4px"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Exit</button>
-      </div>
-      <!-- Walk mode HUD -->
-      <div id="walkHUD" style="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:15;padding:8px 16px;background:rgba(0,0,0,0.7);border-radius:8px;color:#fff;font-family:'JetBrains Mono';font-size:11px;text-align:center;pointer-events:none;backdrop-filter:blur(4px)">
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg> WALK MODE</div>
-        <div><b>WASD</b> Move · <b>QE</b> Up/Down · <b>Mouse</b> Look · <b>Shift</b> Sprint · <b>Scroll</b> Speed · <b>Esc</b> Exit</div>
-      </div>
-      <!-- Walk crosshair -->
-      <div id="walkCross" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:14;width:20px;height:20px;pointer-events:none">
-        <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,0.6)"></div>
-        <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.6)"></div>
-      </div>
-    </div>
-    <!-- Resize handle for bottom clash panel -->
-    <div class="row-resize" id="bresize" style="display:none" title="Drag to resize clash panel"></div>
-    <!-- Clash Detection Panel — BIMcollab "Edit conflict rule" style ──────
-         Layout: rule name → Source set table → Target set table → Type +
-         Tolerances + Description. Each set is a list of rows where each row
-         is one filter clause (Element Type + optional Property/Operator/Value
-         + Action: Add / Remove). Multiple rows are OR'd together (BIMcollab
-         convention). Property filter is per-row, not per-set. -->
-    <div class="clash-panel" id="clashPanel">
-      <div class="clash-header">
-        <!-- Rule name + presets -->
-        <div class="clash-rule-name-row">
-          <label>Rule Name</label>
-          <input type="text" id="clashRuleName" class="clash-rule-name" value="Source set vs Target set" placeholder="Rule name">
-        </div>
-        <div class="clash-presets">
-          <span class="clash-presets-lbl">Quick:</span>
-          <button class="clash-preset-btn" onclick="applyClashPreset('struct-mep')" title="Structural elements vs MEP">Structure ↔ MEP</button>
-          <button class="clash-preset-btn" onclick="applyClashPreset('arch-mep')" title="Architectural vs MEP">Architecture ↔ MEP</button>
-          <button class="clash-preset-btn" onclick="applyClashPreset('struct-arch')" title="Structural vs Architectural">Structure ↔ Architecture</button>
-          <button class="clash-preset-btn" onclick="applyClashPreset('all-all')" title="All categories">All ↔ All</button>
-          <button class="clash-preset-btn clash-preset-swap" onclick="swapClashSets()" title="Swap Source ↔ Target sets"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg> Swap</button>
-        </div>
-
-        <!-- Source + Target side-by-side (2-column grid for bottom panel) -->
-        <div class="clash-bottom-grid">
-        <!-- Source set ──────────────────────────────────────────────── -->
-        <div class="clash-set-section">
-          <div class="clash-set-title-row">
-            <span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set
-              <span class="clash-file-tag" id="clashFileA">—</span></span>
-            <div class="clash-set-actions">
-              <button class="clash-row-act" onclick="addClashRow('A')" title="Add row">+</button>
-              <button class="clash-row-act" onclick="removeLastClashRow('A')" title="Remove last row">−</button>
-            </div>
-          </div>
-          <table class="clash-rule-table">
-            <thead>
-              <tr>
-                <th style="width:25%">Element Type</th>
-                <th style="width:22%">Property</th>
-                <th style="width:16%">Operator</th>
-                <th style="width:22%">Value</th>
-                <th style="width:15%">Action</th>
-              </tr>
-            </thead>
-            <tbody id="clashRulesA"></tbody>
-          </table>
-          <label class="clash-include-parts">
-            <input type="checkbox" id="clashIncludePartsA" checked> Include parts
+        <!-- Vis toggle A -->
+        <div class="vis-row" id="visRow0" style="display:none">
+          <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#52525B;cursor:pointer;padding:4px 2px">
+            <input type="checkbox" checked id="visA" onchange="toggleModelVis(0)" style="accent-color:#18181B;width:14px;height:14px">
+            <span style="width:8px;height:8px;border-radius:2px;background:#ef4444;opacity:.8"></span>
+            Version A (Baseline)
           </label>
         </div>
 
-        <!-- Target set ──────────────────────────────────────────────── -->
-        <div class="clash-set-section">
-          <div class="clash-set-title-row">
-            <span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set
-              <span class="clash-file-tag" id="clashFileB">—</span></span>
-            <div class="clash-set-actions">
-              <button class="clash-row-act" onclick="addClashRow('B')" title="Add row">+</button>
-              <button class="clash-row-act" onclick="removeLastClashRow('B')" title="Remove last row">−</button>
-            </div>
+        <!-- Baseline label row -->
+        <div style="height:1px;background:#ECECEF;margin:10px 0"></div>
+
+        <!-- Upload card B -->
+        <label class="uc-card uc-card-dashed" id="uc1" for="f1">
+          <input type="file" id="f1" accept=".ifc,*/*" onchange="handleFile(1)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+          <div class="uc-placeholder">
+            <div class="uc-ver-label" style="color:#9A9AA2">Version B — Updated</div>
+            <div class="uc-drop-text"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 16v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"/></svg>Drop IFC here</div>
+            <div class="uc-hint">click or drag .ifc</div>
           </div>
-          <table class="clash-rule-table">
-            <thead>
-              <tr>
-                <th style="width:25%">Element Type</th>
-                <th style="width:22%">Property</th>
-                <th style="width:16%">Operator</th>
-                <th style="width:22%">Value</th>
-                <th style="width:15%">Action</th>
-              </tr>
-            </thead>
-            <tbody id="clashRulesB"></tbody>
-          </table>
-          <label class="clash-include-parts">
-            <input type="checkbox" id="clashIncludePartsB" checked> Include parts
+          <div class="uc-file">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2">Version B</span>
+              <span class="uc-badge-loaded" id="us1">Loading…</span>
+            </div>
+            <div class="uc-fname" id="fn1"></div>
+            <div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2;margin-top:4px" id="fs1"></div>
+          </div>
+        </label>
+
+        <!-- Vis toggle B -->
+        <div class="vis-row" id="visRow1" style="display:none">
+          <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#52525B;cursor:pointer;padding:4px 2px">
+            <input type="checkbox" checked id="visB" onchange="toggleModelVis(1)" style="accent-color:#18181B;width:14px;height:14px">
+            <span style="width:8px;height:8px;border-radius:2px;background:#3b82f6;opacity:.8"></span>
+            Version B (Updated)
           </label>
         </div>
 
-        </div><!-- /clash-bottom-grid -->
+        <!-- Federation files -->
+        <div class="fed-section" id="fedSection">
+          <div class="fed-slots" id="fedSlots"></div>
+          <button class="fed-add-btn" id="fedAddBtn" onclick="fedAddSlot()">+ Add more files</button>
+          <input type="file" id="fedFileInput" accept=".ifc,*/*" style="display:none" onchange="fedHandleFile(event)">
+        </div>
+      </div>
 
-        <!-- Bottom config: Type + Tolerances ──────────────────────── -->
-        <div class="clash-config-grid">
-          <div class="clash-config-block">
-            <div class="clash-config-title">Type</div>
-            <label class="clash-cb"><input type="checkbox" id="clashTypeClash" checked> Clash</label>
-            <label class="clash-cb"><input type="checkbox" id="clashTypeDuplicate"> Duplicate</label>
-            <label class="clash-cb"><input type="checkbox" id="clashTypeDistance"> Distance</label>
-          </div>
-          <div class="clash-config-block">
-            <div class="clash-config-title">Tolerances</div>
-            <div class="clash-tol-row">
-              <label class="clash-cb">
-                <input type="checkbox" id="clashTolBoxSize"> Clash box size
-              </label>
-              <input type="number" id="clashTolBoxSizeVal" class="clash-input-tiny" value="0" min="0" step="1">
-              <span class="clash-unit">mm</span>
-            </div>
-            <div class="clash-tol-row clash-tol-sub">
-              <label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolShortest"> Shortest side</label>
-              <label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolLongest" checked> Longest side</label>
-            </div>
-            <div class="clash-tol-row">
-              <label class="clash-cb">
-                <input type="checkbox" id="clashTolBoxVol"> Clash box volume
-              </label>
-              <input type="number" id="clashTolBoxVolVal" class="clash-input-tiny" value="0" min="0" step="0.001">
-              <span class="clash-unit">m³</span>
-            </div>
-            <div class="clash-tol-row">
-              <label class="clash-tol-lbl">Minimum distance</label>
-              <input type="number" id="clashTolMinDist" class="clash-input-tiny" value="0" min="0" step="1">
-              <span class="clash-unit">mm</span>
-            </div>
-          </div>
-          <div class="clash-config-block">
-            <div class="clash-config-title">Include results from a single:</div>
-            <label class="clash-cb"><input type="checkbox" id="clashSingleModel" checked> Model</label>
-            <label class="clash-cb"><input type="checkbox" id="clashSingleSystem"> System</label>
-            <label class="clash-cb"><input type="checkbox" id="clashSingleComponent"> Component</label>
-          </div>
-        </div>
+      <div style="height:1px;background:#ECECEF;margin:0 16px"></div>
 
-        <!-- Description -->
-        <div class="clash-desc-block">
-          <div class="clash-config-title">Description</div>
-          <textarea id="clashDescription" class="clash-desc" rows="2" placeholder="Optional rule description (saved with BCF export)"></textarea>
+      <!-- Google Drive -->
+      <div class="od-panel" id="odPanel">
+        <button class="od-toggle" onclick="odToggle()">
+          <span class="od-toggle-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg></span>
+          Google Drive
+          <span class="od-toggle-badge" id="odBadge">offline</span>
+        </button>
+        <div class="od-body" id="odBody">
+          <div id="odContent">
+            <button class="od-login-btn" onclick="gdLogin()">
+              <svg viewBox="0 0 24 24" width="15" height="15"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Sign in with Google
+            </button>
+            <div class="od-status" id="odStatus">Connect Google Drive to browse IFC files</div>
+          </div>
         </div>
       </div>
-      <div class="clash-stats" id="clashStats" style="display:none">
-        <div class="cs-card"><div class="cs-val" id="clashTotal">0</div><div class="cs-lbl">Total</div></div>
-        <div class="cs-card"><div class="cs-val" id="clashHard" style="color:var(--red)">0</div><div class="cs-lbl">Hard</div></div>
-        <div class="cs-card"><div class="cs-val" id="clashNear" style="color:var(--amber)">0</div><div class="cs-lbl">Clearance</div></div>
-      </div>
-      <div class="clash-group-bar" id="clashGroupBar" style="display:none">
-        <label>Group by</label>
-        <select id="clashGroupBy" class="clash-select" onchange="regroupClashes()">
-          <option value="none">No grouping</option>
-          <option value="categoryA">Source Category</option>
-          <option value="categoryB">Target Category</option>
-          <option value="level">Story Level</option>
-        </select>
-      </div>
-      <div class="clash-list" id="clashList">
-        <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">
-          Configure Source &amp; Target sets, then click <b>▶ Run Clash</b>
-        </div>
-      </div>
-    </div>
 
-    <!-- ════════════════════════════════════════════════════════════════
-         CORENET X / IFC-SG VALIDATION PANEL
-         Bottom-docked, three columns: rules list | failing elements |
-         compliance dashboard. Shares the same bottom-h CSS var as the
-         clash panel so the layout reflows the same way.
-         ════════════════════════════════════════════════════════════════ -->
-    <div class="sg-panel" id="sgPanel">
-      <div class="sg-header">
-        <span class="sg-header-icon"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#dc2626;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
-        <span class="sg-header-title">CORENET X / IFC-SG Pre-Submission Validator</span>
-        <span class="sg-header-sub" id="sgHeaderSub">— <span id="sgRuleSrc">Built-in rules</span></span>
-        <select class="sg-gateway-select" id="sgGateway" onchange="sgChangeGateway()" title="Submission Gateway — different rules apply per gateway">
-          <option value="design">Design Gateway</option>
-          <option value="piling">Piling Gateway</option>
-          <option value="construction">Construction Gateway</option>
-          <option value="completion">Completion Gateway</option>
-        </select>
-        <div class="sg-actions">
-          <button class="sg-btn" id="sgRunBtn" onclick="sgRunValidation()" title="Run all rules against the loaded model"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="5 3 19 12 5 21 5 3"/></svg> Validate</button>
-          <button class="sg-btn sg-btn-secondary" id="sgLoadJsonBtn" onclick="sgLoadJsonDialog()" title="Load Industry Mapping JSON to extend rule library"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Load JSON</button>
-          <button class="sg-btn sg-btn-secondary" id="sgExportPDF" onclick="sgExportReport()" disabled title="Download validation report as PDF"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF Report</button>
-          <button class="sg-btn sg-btn-secondary" id="sgExportBCF" onclick="sgExportBCF()" disabled title="Export failures as BCF for sharing"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg> BCF</button>
-          <input type="file" id="sgJsonFileInput" accept=".json" style="display:none" onchange="sgHandleJsonFile(event)">
+      <div style="height:1px;background:#ECECEF;margin:0 16px"></div>
+
+      <!-- Delta summary strip -->
+      <div class="summary-strip" id="sumStrip">
+        <div class="ss-card a" onclick="setFilter('added')"><div class="ss-val" id="sA">0</div><div class="ss-lbl">Added</div></div>
+        <div class="ss-card r" onclick="setFilter('removed')"><div class="ss-val" id="sR">0</div><div class="ss-lbl">Removed</div></div>
+        <div class="ss-card m" onclick="setFilter('modified')"><div class="ss-val" id="sM">0</div><div class="ss-lbl">Modified</div></div>
+        <div class="ss-card u" onclick="setFilter('all')"><div class="ss-val" id="sU">0</div><div class="ss-lbl">Unchanged</div></div>
+      </div>
+
+      <!-- Filter bar + search -->
+      <div style="padding:6px 14px 4px">
+        <div class="search-wrap" id="searchW"><input class="search-input" id="searchIn" placeholder="Search type, name, ID..." oninput="renderTree()"></div>
+        <div class="filter-bar" id="filterB">
+          <button class="fchip on" data-f="all" onclick="setFilter('all')">All</button>
+          <button class="fchip fa" data-f="added" onclick="setFilter('added')">+ Added</button>
+          <button class="fchip fr" data-f="removed" onclick="setFilter('removed')">− Removed</button>
+          <button class="fchip fm" data-f="modified" onclick="setFilter('modified')">~ Modified</button>
         </div>
       </div>
-      <div class="sg-body">
-        <!-- Column 1: Rules library -->
-        <div class="sg-col">
-          <div class="sg-col-hdr">
-            Validation Rules
-            <span class="sg-col-hdr-count" id="sgRuleCount">0</span>
+
+      <!-- Category filter -->
+      <div class="cat-filter show" id="catFilter">
+        <div style="padding:6px 14px 4px">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2;margin-bottom:7px">Category Filter</div>
+          <div class="cat-select-btn" id="catBtn" onclick="toggleCatDropdown()">
+            <div class="cat-tags" id="catTags"><span style="color:#9A9AA2">All categories</span></div>
+            <span class="arrow">▼</span>
           </div>
-          <div class="sg-col-body" id="sgRulesList">
-            <div class="sg-empty">Click <b>▶ Validate</b> to run rules</div>
-          </div>
-        </div>
-        <!-- Column 2: Failing elements for selected rule -->
-        <div class="sg-col">
-          <div class="sg-col-hdr">
-            <span id="sgFailColTitle">Failing Elements</span>
-            <span class="sg-col-hdr-count" id="sgFailCount">0</span>
-          </div>
-          <div class="sg-col-body" id="sgFailList">
-            <div class="sg-empty">Select a rule on the left to see failing elements</div>
-          </div>
-        </div>
-        <!-- Column 3: Compliance dashboard -->
-        <div class="sg-col">
-          <div class="sg-col-hdr">Compliance Dashboard</div>
-          <div class="sg-col-body" id="sgDashboard">
-            <div class="sg-dash-section">
-              <div class="sg-dash-pct" id="sgPctValue">—</div>
-              <div class="sg-dash-pct-lbl">Overall compliance</div>
-            </div>
-            <div class="sg-dash-section">
-              <div class="sg-dash-row"><span class="k">Rules checked</span><span class="v" id="sgStatRules">0</span></div>
-              <div class="sg-dash-row"><span class="k">Rules passing</span><span class="v pass" id="sgStatPass">0</span></div>
-              <div class="sg-dash-row"><span class="k">Rules failing</span><span class="v fail" id="sgStatFail">0</span></div>
-              <div class="sg-dash-row"><span class="k">Rules with warnings</span><span class="v warn" id="sgStatWarn">0</span></div>
-            </div>
-            <div class="sg-dash-section">
-              <div class="sg-dash-row"><span class="k">Elements scanned</span><span class="v" id="sgStatElements">0</span></div>
-              <div class="sg-dash-row"><span class="k">Elements with issues</span><span class="v fail" id="sgStatBadEl">0</span></div>
-              <div class="sg-dash-row"><span class="k">Total findings</span><span class="v fail" id="sgStatFindings">0</span></div>
-            </div>
-            <div class="sg-disclaimer">
-              <b>Disclaimer:</b> This is a <b>pre-submission helper</b> covering a subset of IFC+SG rules. The official validator is the CORENET X portal. Always cross-check with the latest BCA Industry Mapping Excel before submitting.
+          <div class="cat-dropdown" id="catDropdown">
+            <input class="cat-dd-search" id="catSearch" placeholder="Search category..." oninput="filterCatDropdown()">
+            <div id="catList"></div>
+            <div class="cat-dd-actions">
+              <button onclick="catSelectAll()">Select All</button>
+              <button onclick="catSelectNone()">Clear</button>
+              <button onclick="catSelectChanged()" class="primary">Only Changed</button>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-  <!-- Drag handle: resize right Properties panel width -->
-  <div class="col-resize" id="rresize" title="Drag to resize Properties panel"></div>
 
-  <div class="right-panel">
-    <div class="ph">Properties</div>
-    <div class="prop-area" id="propArea"><div style="padding:30px 14px;text-align:center;color:var(--text-muted);font-size:14px">Click element in 3D to inspect</div></div>
-  </div>
-</div>
+      <!-- Tabs -->
+      <div style="padding:8px 14px 6px">
+        <div style="display:inline-flex;gap:2px;padding:3px;background:#E6E6EA;border-radius:11px;width:100%">
+          <button class="ptab on" onclick="switchTab('tree')" style="flex:1">Entity Tree</button>
+          <button class="ptab" onclick="switchTab('issues')" style="flex:1">Issues <span class="ptab-count" id="issueCount">0</span></button>
+          <button class="ptab" onclick="switchTab('search')" style="flex:1"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg> Search <span class="ptab-count" id="searchCount" style="display:none">0</span></button>
+        </div>
+      </div>
 
-<!-- ── SG JSON Loader Dialog ── -->
+      <!-- Issue nav -->
+      <div class="issue-nav" id="issueNav">
+        <span class="issue-nav-info" id="issueNavInfo">0 / 0</span>
+        <div class="issue-nav-btns">
+          <button class="inav" onclick="navIssue(-1)">◀</button>
+          <button class="inav" onclick="navIssue(1)">▶</button>
+        </div>
+      </div>
 
-<!-- ══ FIELD MODE UI ELEMENTS ══ -->
-<!-- Bottom toolbar -->
+      <!-- Tab content -->
+      <div class="entity-tree" id="eTree"></div>
+      <div class="issues-list" id="issuesList"></div>
+
+      <!-- Search Panel -->
+      <div class="search-panel" id="searchPanel">
+        <div class="search-bar">
+          <input class="search-input" id="searchInput" placeholder="Search by name, type, tag…" oninput="searchDebounce()" onkeydown="if(event.key==='Enter')searchRun()">
+          <div class="search-filters">
+            <select class="search-type-select" id="searchTypeFilter" onchange="searchRun()"><option value="">All types</option></select>
+            <div class="search-chip" onclick="searchToggleChip(this,'missing')" title="Missing prop"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Missing prop</div>
+            <div class="search-chip" onclick="searchToggleChip(this,'has')" title="Has prop"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="20 6 9 17 4 12"/></svg> Has prop</div>
+            <div class="search-chip" onclick="searchToggleAdvanced()" title="Advanced"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M2 12h2m16 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Advanced</div>
+          </div>
+        </div>
+        <div class="search-adv" id="searchAdv">
+          <div class="search-adv-row">
+            <span class="search-adv-label">Where</span>
+            <input class="search-adv-val" id="searchAdvProp" placeholder="Property name" style="width:110px" list="searchPropList">
+            <datalist id="searchPropList"></datalist>
+            <select class="search-adv-select" id="searchAdvOp" style="max-width:80px">
+              <option value="exists">exists</option><option value="empty">is empty</option><option value="eq">equals</option><option value="neq">not equals</option><option value="contains">contains</option><option value="gt">greater than</option><option value="lt">less than</option><option value="gte">≥</option><option value="lte">≤</option>
+            </select>
+            <input class="search-adv-val" id="searchAdvVal" placeholder="Value">
+            <button class="search-act-btn" onclick="searchRun()" style="padding:3px 10px">Go</button>
+          </div>
+        </div>
+        <div class="search-stats" id="searchStats"><span id="searchStatsText">Load a model to search</span><span id="searchStatsActions"></span></div>
+        <div class="search-results" id="searchResults"></div>
+        <div class="search-actions" id="searchActions" style="display:none">
+          <button class="search-act-btn" onclick="searchIsolateAll()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Isolate all</button>
+          <button class="search-act-btn" onclick="searchHideAll()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Hide all</button>
+          <button class="search-act-btn" onclick="searchSelectAll()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Select all</button>
+          <button class="search-act-btn danger" onclick="searchClear()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Clear</button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ═══ VIEWPORT CENTER ═══ -->
+    <main style="flex:1;min-width:0;position:relative;background:radial-gradient(120% 90% at 50% 35%, #F6F6F8 0%, #ECECEF 70%, #E6E6EA 100%);overflow:hidden;display:flex;flex-direction:column">
+
+      <!-- Floor grid -->
+      <div style="position:absolute;inset:0;background-image:linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(75% 70% at 50% 60%,#000 0%,transparent 80%);-webkit-mask-image:radial-gradient(75% 70% at 50% 60%,#000 0%,transparent 80%);opacity:.7;pointer-events:none"></div>
+
+      <!-- 3D Canvas -->
+      <div class="viewport-canvas" id="vpCanvas" style="flex:1;position:relative">
+        <div class="empty-vp" id="emptyVP">
+          <div class="ev-icon"><svg viewBox="0 0 24 24" style="width:42px;height:42px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;opacity:.3"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+          <div class="ev-title">IFC 3D Version Compare</div>
+          <div class="ev-hint">Upload 2 IFC files and click Compare</div>
+        </div>
+
+        <!-- ViewCube -->
+        <div class="view-cube" id="viewCube" title="Click a face to snap to view"></div>
+        <div class="view-cube-home" id="viewCubeHome" title="Reset view" onclick="resetCam()"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg></div>
+
+        <!-- HUD top-center -->
+        <div id="vpHUD" style="display:none;position:absolute;top:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px 14px;background:#fff;border:1px solid #ECECEF;border-radius:12px;box-shadow:0 10px 28px -16px rgba(24,24,27,.24);z-index:6;pointer-events:none">
+          <span style="width:8px;height:8px;border-radius:999px;background:#18181B;flex:none" id="vpHUDDot"></span>
+          <span style="font-size:12.5px;font-weight:700;color:#18181B" id="vpHUDTitle">3D View</span>
+          <span style="width:1px;height:14px;background:#ECECEF"></span>
+          <span style="font-size:12px;font-weight:500;color:#71717A" id="vpHUDMeta">—</span>
+        </div>
+
+        <!-- Compare / Clash legend overlay -->
+        <div class="vp-overlay" id="vpLegend">
+          <div class="leg"><div class="leg-d" style="background:#22c55e"></div>Added</div>
+          <div class="leg"><div class="leg-d" style="background:#ef4444"></div>Removed</div>
+          <div class="leg"><div class="leg-d" style="background:#f59e0b"></div>Modified</div>
+        </div>
+        <div class="vp-overlay" id="vpClashLegend">
+          <div class="leg"><div class="leg-d" style="background:#ff1744"></div>Hard clash</div>
+          <div class="leg"><div class="leg-d" style="background:#ff9100"></div>Clearance</div>
+        </div>
+
+        <!-- Plan overlay -->
+        <div class="plan-overlay" id="planOverlay">
+          <div class="plan-hdr" id="planHdr">
+            <span class="plan-hdr-icon"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span>
+            <select class="plan-storey-select" id="planStoreySelect" onchange="planSelectStorey(this.value)"><option value="">— No storeys —</option></select>
+            <span class="plan-hdr-btn" id="planFollowBtn" onclick="planToggleFollow()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg></span>
+            <span class="plan-hdr-btn" id="planFitBtn" onclick="planFit()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span>
+            <span class="plan-hdr-btn" id="planCloseBtn" onclick="togglePlanOverlay()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+          </div>
+          <div class="plan-canvas-wrap" id="planCanvasWrap">
+            <canvas id="planCanvas"></canvas>
+            <svg class="plan-marker-svg" id="planMarkerSvg" viewBox="0 0 340 240" preserveAspectRatio="none"></svg>
+            <div class="plan-empty" id="planEmpty" style="display:none">Load a model with IfcBuildingStorey to use the plan overlay.</div>
+          </div>
+          <div class="plan-info-bar"><span id="planInfoStorey">—</span><span id="planInfoCam">cam: —</span></div>
+          <div class="plan-resize" id="planResize" title="Drag to resize"></div>
+        </div>
+
+        <!-- Colorize panel (bottom-left) -->
+        <div class="colorize-panel" id="colorizePanel">
+          <div class="cz-head">
+            <div class="cz-title" id="czTitle">Colorize</div>
+            <button class="cz-x" onclick="colorizeToggleCollapse()" id="czCollapseBtn">–</button>
+            <button class="cz-x" onclick="toggleColorize()">×</button>
+          </div>
+          <div id="czBody" style="display:flex;flex-direction:column;min-height:0;flex:1">
+            <div class="cz-tabs">
+              <button class="cz-tab active" id="czTabAuto" onclick="colorizeSetMode('auto')">Auto</button>
+              <button class="cz-tab" id="czTabRules" onclick="colorizeSetMode('rules')">Rules</button>
+            </div>
+            <div id="czViewAuto">
+              <div class="cz-ctrls">
+                <div>
+                  <div class="cz-label" style="margin-bottom:4px">Color by</div>
+                  <select class="cz-select" id="czProp" onchange="applyColorize()">
+                    <option value="category">Category (Revit)</option>
+                    <option value="type">Type / ObjectType</option>
+                    <option value="file">File (A vs B)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="cz-list" id="czList"><div class="cz-list-empty">Load IFC files and pick a property above.</div></div>
+            </div>
+            <div id="czViewRules" style="display:none;flex:1;min-height:0;flex-direction:column">
+              <div class="cz-rules" id="czRules"><div class="cz-list-empty">No rules yet.<br>Click <b>+ Add rule</b> to create one.<br><span style="font-size:11px">First matching rule wins.</span></div></div>
+              <button class="cz-rule-add" onclick="colorizeAddRule()">+ Add rule</button>
+            </div>
+            <div id="czSchemesPanel" class="cz-schemes" style="display:none"></div>
+            <div class="cz-foot">
+              <button onclick="colorizeSaveScheme()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save</button>
+              <button onclick="colorizeToggleSchemesPanel()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Load</button>
+              <button onclick="colorizeResetColors()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Reset</button>
+              <button class="primary" onclick="colorizeClear()">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section panel -->
+        <div class="section-panel" id="sectionPanel">
+          <div class="sp-title">Section Box</div>
+          <div class="sp-row"><span class="sp-label">X+</span><input type="range" class="sp-slider" id="slXp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vXp">100%</span></div>
+          <div class="sp-row"><span class="sp-label">X−</span><input type="range" class="sp-slider" id="slXn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vXn">0%</span></div>
+          <div class="sp-row"><span class="sp-label">Y+</span><input type="range" class="sp-slider" id="slYp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vYp">100%</span></div>
+          <div class="sp-row"><span class="sp-label">Y−</span><input type="range" class="sp-slider" id="slYn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vYn">0%</span></div>
+          <div class="sp-row"><span class="sp-label">Z+</span><input type="range" class="sp-slider" id="slZp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZp">100%</span></div>
+          <div class="sp-row"><span class="sp-label">Z−</span><input type="range" class="sp-slider" id="slZn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZn">0%</span></div>
+          <button class="btn" style="width:100%;justify-content:center;margin-top:6px" onclick="resetSection()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Reset Section</button>
+        </div>
+
+        <!-- Load overlay -->
+        <div class="load-ov" id="loadOv"><div class="spinner"></div><div class="load-txt" id="loadTxt">Loading...</div><div class="load-bar"><div class="load-fill" id="loadFill"></div></div></div>
+
+        <!-- Transparency panel -->
+        <div class="tp-panel" id="tpPanel">
+          <span style="font-size:12px;color:#9A9AA2;font-family:'JetBrains Mono'">Opacity</span>
+          <input type="range" id="slOpacity" min="5" max="100" value="100" style="width:120px;height:4px" oninput="setGlobalOpacity(this.value)">
+          <span id="opVal" style="font-size:12px;font-family:'JetBrains Mono';color:#52525B;min-width:28px">100%</span>
+        </div>
+
+        <!-- Measure overlay -->
+        <div class="measure-info" id="measureInfo" style="display:none">
+          <div style="display:flex;gap:2px;margin-right:6px">
+            <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:12px;padding:2px 8px;border:1px solid #3b82f6;border-radius:6px;background:#eff6ff;color:#3b82f6;cursor:pointer;font-weight:600"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M2 20L20 4"/><path d="M6 16l2-2m2-2l2-2"/></svg> Distance</button>
+            <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:12px;padding:2px 8px;border:1px solid #E4E4E8;border-radius:6px;background:#fff;color:#52525B;cursor:pointer"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M3 12h18M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg> Level</button>
+          </div>
+          <span style="font-family:'JetBrains Mono';font-size:13px;font-weight:600" id="measureText">Click 2 points to measure</span>
+          <button onclick="clearMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid #E4E4E8;border-radius:6px;background:#fff;color:#52525B;cursor:pointer;margin-left:8px">Clear</button>
+          <button onclick="toggleMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid #ef4444;border-radius:6px;background:#fef2f2;color:#ef4444;cursor:pointer;margin-left:4px"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Exit</button>
+        </div>
+
+        <!-- Walk HUD -->
+        <div id="walkHUD" style="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:15;padding:8px 16px;background:rgba(24,24,27,.8);border-radius:10px;color:#fff;font-family:'JetBrains Mono';font-size:11px;text-align:center;pointer-events:none;backdrop-filter:blur(4px)">
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg> WALK MODE</div>
+          <div><b>WASD</b> Move · <b>QE</b> Up/Down · <b>Mouse</b> Look · <b>Shift</b> Sprint · <b>Scroll</b> Speed · <b>Esc</b> Exit</div>
+        </div>
+
+        <!-- Walk crosshair -->
+        <div id="walkCross" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:14;width:20px;height:20px;pointer-events:none">
+          <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,.6)"></div>
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.6)"></div>
+        </div>
+
+      </div><!-- /vpCanvas -->
+
+      <!-- Clash panel resize handle -->
+      <div class="row-resize" id="bresize" style="display:none"></div>
+
+      <!-- ─── CLASH PANEL ─── -->
+      <div class="clash-panel" id="clashPanel">
+        <div class="clash-header">
+          <div class="clash-rule-name-row"><label>Rule Name</label><input type="text" id="clashRuleName" class="clash-rule-name" value="Source set vs Target set" placeholder="Rule name"></div>
+          <div class="clash-presets">
+            <span class="clash-presets-lbl">Quick:</span>
+            <button class="clash-preset-btn" onclick="applyClashPreset('struct-mep')">Structure ↔ MEP</button>
+            <button class="clash-preset-btn" onclick="applyClashPreset('arch-mep')">Architecture ↔ MEP</button>
+            <button class="clash-preset-btn" onclick="applyClashPreset('struct-arch')">Structure ↔ Architecture</button>
+            <button class="clash-preset-btn" onclick="applyClashPreset('all-all')">All ↔ All</button>
+            <button class="clash-preset-btn clash-preset-swap" onclick="swapClashSets()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg> Swap</button>
+          </div>
+          <div class="clash-bottom-grid">
+            <div class="clash-set-section">
+              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set <span class="clash-file-tag" id="clashFileA">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('A')">+</button><button class="clash-row-act" onclick="removeLastClashRow('A')">−</button></div></div>
+              <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesA"></tbody></table>
+              <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsA" checked> Include parts</label>
+            </div>
+            <div class="clash-set-section">
+              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set <span class="clash-file-tag" id="clashFileB">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('B')">+</button><button class="clash-row-act" onclick="removeLastClashRow('B')">−</button></div></div>
+              <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesB"></tbody></table>
+              <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsB" checked> Include parts</label>
+            </div>
+          </div>
+          <div class="clash-config-grid">
+            <div class="clash-config-block"><div class="clash-config-title">Type</div><label class="clash-cb"><input type="checkbox" id="clashTypeClash" checked> Clash</label><label class="clash-cb"><input type="checkbox" id="clashTypeDuplicate"> Duplicate</label><label class="clash-cb"><input type="checkbox" id="clashTypeDistance"> Distance</label></div>
+            <div class="clash-config-block"><div class="clash-config-title">Tolerances</div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxSize"> Clash box size</label><input type="number" id="clashTolBoxSizeVal" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div><div class="clash-tol-row clash-tol-sub"><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolShortest"> Shortest side</label><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolLongest" checked> Longest side</label></div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxVol"> Clash box volume</label><input type="number" id="clashTolBoxVolVal" class="clash-input-tiny" value="0" min="0" step="0.001"><span class="clash-unit">m³</span></div><div class="clash-tol-row"><label class="clash-tol-lbl">Minimum distance</label><input type="number" id="clashTolMinDist" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div></div>
+            <div class="clash-config-block"><div class="clash-config-title">Include results from a single:</div><label class="clash-cb"><input type="checkbox" id="clashSingleModel" checked> Model</label><label class="clash-cb"><input type="checkbox" id="clashSingleSystem"> System</label><label class="clash-cb"><input type="checkbox" id="clashSingleComponent"> Component</label></div>
+          </div>
+          <div class="clash-desc-block"><div class="clash-config-title">Description</div><textarea id="clashDescription" class="clash-desc" rows="2" placeholder="Optional rule description"></textarea></div>
+        </div>
+        <div class="clash-stats" id="clashStats" style="display:none">
+          <div class="cs-card"><div class="cs-val" id="clashTotal">0</div><div class="cs-lbl">Total</div></div>
+          <div class="cs-card"><div class="cs-val" id="clashHard" style="color:#ef4444">0</div><div class="cs-lbl">Hard</div></div>
+          <div class="cs-card"><div class="cs-val" id="clashNear" style="color:#f59e0b">0</div><div class="cs-lbl">Clearance</div></div>
+        </div>
+        <div class="clash-group-bar" id="clashGroupBar" style="display:none">
+          <label>Group by</label>
+          <select id="clashGroupBy" class="clash-select" onchange="regroupClashes()">
+            <option value="none">No grouping</option><option value="categoryA">Source Category</option><option value="categoryB">Target Category</option><option value="level">Story Level</option>
+          </select>
+        </div>
+        <div class="clash-list" id="clashList"><div style="padding:20px;text-align:center;color:#9A9AA2;font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div></div>
+      </div>
+
+      <!-- ─── SG PANEL ─── -->
+      <div class="sg-panel" id="sgPanel">
+        <div class="sg-header">
+          <span class="sg-header-icon"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:#dc2626;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+          <span class="sg-header-title">CORENET X / IFC-SG Pre-Submission Validator</span>
+          <span class="sg-header-sub" id="sgHeaderSub">— <span id="sgRuleSrc">Built-in rules</span></span>
+          <select class="sg-gateway-select" id="sgGateway" onchange="sgChangeGateway()"><option value="design">Design Gateway</option><option value="piling">Piling Gateway</option><option value="construction">Construction Gateway</option><option value="completion">Completion Gateway</option></select>
+          <div class="sg-actions">
+            <button class="sg-btn" id="sgRunBtn" onclick="sgRunValidation()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="5 3 19 12 5 21 5 3"/></svg> Validate</button>
+            <button class="sg-btn sg-btn-secondary" id="sgLoadJsonBtn" onclick="sgLoadJsonDialog()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Load JSON</button>
+            <button class="sg-btn sg-btn-secondary" id="sgExportPDF" onclick="sgExportReport()" disabled><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF Report</button>
+            <button class="sg-btn sg-btn-secondary" id="sgExportBCF" onclick="sgExportBCF()" disabled><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg> BCF</button>
+            <input type="file" id="sgJsonFileInput" accept=".json" style="display:none" onchange="sgHandleJsonFile(event)">
+          </div>
+        </div>
+        <div class="sg-body">
+          <div class="sg-col"><div class="sg-col-hdr">Validation Rules<span class="sg-col-hdr-count" id="sgRuleCount">0</span></div><div class="sg-col-body" id="sgRulesList"><div class="sg-empty">Click <b>▶ Validate</b> to run rules</div></div></div>
+          <div class="sg-col"><div class="sg-col-hdr"><span id="sgFailColTitle">Failing Elements</span><span class="sg-col-hdr-count" id="sgFailCount">0</span></div><div class="sg-col-body" id="sgFailList"><div class="sg-empty">Select a rule on the left to see failing elements</div></div></div>
+          <div class="sg-col">
+            <div class="sg-col-hdr">Compliance Dashboard</div>
+            <div class="sg-col-body" id="sgDashboard">
+              <div class="sg-dash-section"><div class="sg-dash-pct" id="sgPctValue">—</div><div class="sg-dash-pct-lbl">Overall compliance</div></div>
+              <div class="sg-dash-section">
+                <div class="sg-dash-row"><span class="k">Rules checked</span><span class="v" id="sgStatRules">0</span></div>
+                <div class="sg-dash-row"><span class="k">Rules passing</span><span class="v pass" id="sgStatPass">0</span></div>
+                <div class="sg-dash-row"><span class="k">Rules failing</span><span class="v fail" id="sgStatFail">0</span></div>
+                <div class="sg-dash-row"><span class="k">Rules with warnings</span><span class="v warn" id="sgStatWarn">0</span></div>
+              </div>
+              <div class="sg-dash-section">
+                <div class="sg-dash-row"><span class="k">Elements scanned</span><span class="v" id="sgStatElements">0</span></div>
+                <div class="sg-dash-row"><span class="k">Elements with issues</span><span class="v fail" id="sgStatBadEl">0</span></div>
+                <div class="sg-dash-row"><span class="k">Total findings</span><span class="v fail" id="sgStatFindings">0</span></div>
+              </div>
+              <div class="sg-disclaimer"><b>Disclaimer:</b> This is a <b>pre-submission helper</b> covering a subset of IFC+SG rules. Always cross-check with the latest BCA Industry Mapping Excel before submitting.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ═══ RIGHT PANEL (Properties) ═══ -->
+    <aside id="rightPanel" style="display:none;flex:none;width:320px;background:#fff;border-left:1px solid #E4E4E8;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:none;padding:16px 18px 12px;border-bottom:1px solid #ECECEF">
+        <div style="font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#9A9AA2;margin-bottom:8px">Properties</div>
+      </div>
+      <div class="prop-area" id="propArea"><div style="padding:30px 14px;text-align:center;color:#9A9AA2;font-size:13px">Click element in 3D to inspect</div></div>
+    </aside>
+
+  </div><!-- /body -->
+
+</div><!-- /app -->
+
+<!-- ══ FIELD MODE ══ -->
 <div class="field-bar" id="fieldBar">
   <button class="field-btn" onclick="fieldOpenLoader()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="field-btn-label">Open</span></button>
   <div class="field-sep"></div>
@@ -712,19 +659,12 @@
   <button class="field-btn" onclick="fieldExitMode()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="field-btn-label">Desktop</span></button>
 </div>
 
-<!-- Properties slide-up sheet -->
 <div class="field-sheet" id="fieldSheet">
   <div class="field-sheet-handle"></div>
-  <div class="field-sheet-hdr">
-    <div class="field-sheet-title" id="fieldSheetTitle">Properties</div>
-    <button class="field-sheet-close" onclick="fieldCloseSheet()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-  </div>
-  <div class="field-sheet-body" id="fieldSheetBody">
-    <div class="prop-empty">Tap an element to inspect</div>
-  </div>
+  <div class="field-sheet-hdr"><div class="field-sheet-title" id="fieldSheetTitle">Properties</div><button class="field-sheet-close" onclick="fieldCloseSheet()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="field-sheet-body" id="fieldSheetBody"><div class="prop-empty">Tap an element to inspect</div></div>
 </div>
 
-<!-- File loader overlay -->
 <div class="field-loader" id="fieldLoader">
   <div class="field-loader-card">
     <h3>Load IFC Model</h3>
@@ -738,109 +678,89 @@
   </div>
 </div>
 
-<!-- Storey pills strip -->
 <div class="field-storeys" id="fieldStoreys"></div>
-
-<!-- Info toast -->
 <div class="field-toast" id="fieldToast"></div>
 
-<!-- Full-screen Plan 2D (Field Mode) -->
 <div class="field-plan2d" id="fieldPlan2D">
   <div class="field-plan2d-hdr">
-    <div class="field-plan2d-title" id="fieldPlan2DTitle"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> 2D Plan View</div>
+    <div class="field-plan2d-title" id="fieldPlan2DTitle"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> 2D Plan View</div>
     <div class="field-plan2d-storey-wrap" id="fieldPlan2DStoreys"></div>
-    <button class="field-plan2d-close" onclick="fieldClosePlan2D()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Close</button>
+    <button class="field-plan2d-close" onclick="fieldClosePlan2D()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Close</button>
   </div>
   <div class="field-plan2d-canvas" id="fieldPlan2DCanvas"></div>
   <div class="field-plan2d-info" id="fieldPlan2DInfo">Tap a storey to view plan</div>
 </div>
 
-<!-- Touch walk controls (visible only in Field Mode + walk active) -->
 <div class="walk-touch" id="walkTouch">
-  <!-- Left: Move joystick -->
-  <div class="walk-joy walk-joy-left" id="walkJoy">
-    <div class="walk-joy-bg"></div>
-    <div class="walk-joy-knob" id="walkJoyKnob"></div>
-    <div class="walk-joy-label">MOVE</div>
-  </div>
-  <!-- Center: Up/Down buttons -->
+  <div class="walk-joy walk-joy-left" id="walkJoy"><div class="walk-joy-bg"></div><div class="walk-joy-knob" id="walkJoyKnob"></div><div class="walk-joy-label">MOVE</div></div>
   <div class="walk-center-btns">
-    <button class="walk-ud-btn" ontouchstart="walkTouchUD('up',true)" ontouchend="walkTouchUD('up',false)"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="18 15 12 9 6 15"/></svg><span class="walk-ud-label">Up</span></button>
+    <button class="walk-ud-btn" ontouchstart="walkTouchUD('up',true)" ontouchend="walkTouchUD('up',false)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="18 15 12 9 6 15"/></svg><span class="walk-ud-label">Up</span></button>
     <div class="walk-speed-pill" id="walkSpeedPill">1.0×</div>
-    <button class="walk-ud-btn" ontouchstart="walkTouchUD('down',true)" ontouchend="walkTouchUD('down',false)"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="6 9 12 15 18 9"/></svg><span class="walk-ud-label">Down</span></button>
+    <button class="walk-ud-btn" ontouchstart="walkTouchUD('down',true)" ontouchend="walkTouchUD('down',false)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="6 9 12 15 18 9"/></svg><span class="walk-ud-label">Down</span></button>
   </div>
-  <!-- Right: Look joystick -->
-  <div class="walk-joy walk-joy-right" id="walkLookJoy">
-    <div class="walk-joy-bg"></div>
-    <div class="walk-joy-knob" id="walkLookKnob"></div>
-    <div class="walk-joy-label">LOOK</div>
-  </div>
+  <div class="walk-joy walk-joy-right" id="walkLookJoy"><div class="walk-joy-bg"></div><div class="walk-joy-knob" id="walkLookKnob"></div><div class="walk-joy-label">LOOK</div></div>
 </div>
+
+<!-- SG JSON Dialog -->
 <div class="sg-json-overlay" id="sgJsonOverlay">
   <div class="sg-json-dialog">
     <div class="sg-json-dialog-hdr">
-      <h3><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> IFC-SG Industry Mapping — JSON Rule Loader</h3>
-      <button class="sg-json-dialog-close" onclick="sgCloseJsonDialog()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <h3><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> IFC-SG Industry Mapping — JSON Rule Loader</h3>
+      <button class="sg-json-dialog-close" onclick="sgCloseJsonDialog()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="sg-json-dialog-body">
-      <div class="sg-json-section">
-        <h4>About</h4>
-        <p>Load rules from a JSON file matching the BCA Industry Mapping Excel structure. Each entry maps an <b>IFC Entity</b> + <b>Property Set</b> + <b>Property Name</b> to generate a "parameter exists" check. The JSON extends or replaces the built-in rule library.</p>
-        <p style="font-size:11px;color:var(--text-muted)">Convert the official <a href="https://info.corenet.gov.sg/ifc-sg/templates--apps-and-more/ifc-sg-excel-mapping-file" target="_blank" style="color:#dc2626">Industry Mapping Excel</a> to JSON, or use the built-in defaults.</p>
-      </div>
-      <div class="sg-json-section">
-        <h4>Load JSON File</h4>
-        <div class="sg-json-drop" id="sgJsonDropZone" onclick="document.getElementById('sgJsonFileInput').click()">
-          <div class="sg-json-drop-text"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Click or drag a <b>.json</b> file here</div>
-        </div>
-      </div>
-      <div class="sg-json-section" id="sgJsonPreview" style="display:none">
-        <h4>Loaded Rules</h4>
-        <div class="sg-json-stats" id="sgJsonStats"></div>
-      </div>
-      <div class="sg-json-section">
-        <h4>Or use built-in defaults</h4>
-        <p style="font-size:11px;color:var(--text-muted)">Embedded library of ~200 rules based on publicly documented BCA / URA / NEA / LTA / PUB / SCDF requirements from the IFC-SG Resource Toolkit.</p>
-        <button class="sg-json-sample-btn" onclick="sgLoadBuiltinRules()" id="sgBuiltinBtn"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Load Built-in Extended Rules (~200)</button>
-        <button class="sg-json-sample-btn" style="margin-left:6px" onclick="sgExportSampleJson()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Download Sample JSON</button>
-      </div>
+      <div class="sg-json-section"><h4>About</h4><p>Load rules from a JSON file matching the BCA Industry Mapping Excel structure.</p></div>
+      <div class="sg-json-section"><h4>Load JSON File</h4><div class="sg-json-drop" id="sgJsonDropZone" onclick="document.getElementById('sgJsonFileInput').click()"><div class="sg-json-drop-text"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Click or drag a <b>.json</b> file here</div></div></div>
+      <div class="sg-json-section" id="sgJsonPreview" style="display:none"><h4>Loaded Rules</h4><div class="sg-json-stats" id="sgJsonStats"></div></div>
+      <div class="sg-json-section"><h4>Or use built-in defaults</h4><button class="sg-json-sample-btn" onclick="sgLoadBuiltinRules()" id="sgBuiltinBtn"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Load Built-in Extended Rules (~200)</button><button class="sg-json-sample-btn" style="margin-left:6px" onclick="sgExportSampleJson()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Download Sample JSON</button></div>
     </div>
-    <div class="sg-json-actions">
-      <button class="sg-json-sample-btn" onclick="sgResetToBuiltin()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Reset to Phase 1 rules only</button>
-      <button class="sg-btn" onclick="sgCloseJsonDialog()" id="sgJsonDoneBtn">Done</button>
-    </div>
+    <div class="sg-json-actions"><button class="sg-json-sample-btn" onclick="sgResetToBuiltin()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Reset to Phase 1 rules only</button><button class="sg-btn" onclick="sgCloseJsonDialog()" id="sgJsonDoneBtn">Done</button></div>
   </div>
 </div>
 
 <!-- Context Menu -->
 <div class="ctx-menu" id="ctxMenu">
   <div class="ctx-header" id="ctxTitle">Element</div>
-  <div class="ctx-item" onclick="ctxAction('hide')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="ci-label">Hide Element</span><span class="ci-hint">H</span></div>
-  <div class="ctx-item" onclick="ctxAction('isolate')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><span class="ci-label">Isolate Element</span><span class="ci-hint">I</span></div>
-  <div class="ctx-item" onclick="ctxAction('hideType')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="ci-label">Hide Same Type</span></div>
-  <div class="ctx-item" onclick="ctxAction('isolateType')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="ci-label">Isolate Type</span></div>
+  <div class="ctx-item" onclick="ctxAction('hide')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="ci-label">Hide Element</span><span class="ci-hint">H</span></div>
+  <div class="ctx-item" onclick="ctxAction('isolate')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><span class="ci-label">Isolate Element</span><span class="ci-hint">I</span></div>
+  <div class="ctx-item" onclick="ctxAction('hideType')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="ci-label">Hide Same Type</span></div>
+  <div class="ctx-item" onclick="ctxAction('isolateType')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="ci-label">Isolate Type</span></div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="ctxAction('sectionFit')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="ci-label">Section Box around Element</span></div>
-  <div class="ctx-item" onclick="ctxAction('sectionPlane')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span><span class="ci-label">Section Plan parallel to face</span></div>
+  <div class="ctx-item" onclick="ctxAction('sectionFit')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></span><span class="ci-label">Section Box around Element</span></div>
+  <div class="ctx-item" onclick="ctxAction('sectionPlane')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span><span class="ci-label">Section Plan parallel to face</span></div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="ctxAction('zoom')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg></span><span class="ci-label">Zoom to Element</span></div>
-  <div class="ctx-item" onclick="ctxAction('props')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span><span class="ci-label">Properties</span></div>
+  <div class="ctx-item" onclick="ctxAction('zoom')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg></span><span class="ci-label">Zoom to Element</span></div>
+  <div class="ctx-item" onclick="ctxAction('props')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span><span class="ci-label">Properties</span></div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="ctxAction('showAll')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="ci-label">Show All Hidden</span></div>
+  <div class="ctx-item" onclick="ctxAction('showAll')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="ci-label">Show All Hidden</span></div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════════
-     FIREBASE AUTH MODULE
-     Loads Firebase v12 modular SDK from gstatic CDN. Runs BEFORE the main
-     IFC viewer script so we can gate access. The auth overlay is visible by
-     default in HTML; this module hides it once the user is signed in AND
-     email-verified, otherwise it shows the appropriate auth view.
+<script>
+// Panel toggles
+window.toggleLeftPanel = function() {
+  const p = document.getElementById('leftPanel');
+  const btn = document.getElementById('btnToggleLeft');
+  const open = p.style.display !== 'none';
+  p.style.display = open ? 'none' : 'flex';
+  btn.classList.toggle('hdr-panel-btn-active', !open);
+};
+window.toggleRightPanel = function() {
+  const p = document.getElementById('rightPanel');
+  const btn = document.getElementById('btnToggleRight');
+  const open = p.style.display !== 'none';
+  p.style.display = open ? 'none' : 'flex';
+  p.style.flexDirection = open ? '' : 'column';
+  btn.classList.toggle('hdr-panel-btn-active', !open);
+};
+window.toggleExportMenu = function() {
+  const d = document.getElementById('exportMenuDrop');
+  const bg = document.getElementById('exportMenuBg');
+  const open = d.style.display !== 'none';
+  d.style.display = open ? 'none' : 'block';
+  bg.style.display = open ? 'none' : 'block';
+};
+</script>
 
-     ⚠️  REPLACE the firebaseConfig object below with values from your
-     Firebase Console (Project Settings → General → Your apps → Web app).
-     The apiKey is safe to expose publicly — security comes from
-     Authentication rules + Firestore Security Rules, not from hiding the key.
-     ════════════════════════════════════════════════════════════════════════ -->
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
