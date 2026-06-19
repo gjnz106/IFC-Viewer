@@ -1,4 +1,4 @@
 {
   "outputDirectory": ".",
-  "buildCommand": "node build.mjs"
+  "buildCommand": "npm run build:standalone"
 }
