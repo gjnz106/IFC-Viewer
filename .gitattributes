@@ -1,0 +1,6 @@
+# Generated build artifacts — emitted from the TypeScript sources by
+# `npm run build:standalone` (build.ts) from src/app/*.ts and js/auth.ts.
+# They are committed because GitHub Pages serves them directly, but they are
+# not hand-edited source: exclude them from language stats and diffs.
+js/app.js linguist-generated=true
+js/auth.js linguist-generated=true
