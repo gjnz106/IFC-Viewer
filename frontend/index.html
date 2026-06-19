@@ -176,7 +176,7 @@
     <!-- Panel toggles -->
     <div style="display:flex;gap:3px;flex:none">
       <button onclick="toggleLeftPanel()" id="btnToggleLeft" class="hdr-panel-btn hdr-panel-btn-active" title="Versions panel"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="9" y1="4.5" x2="9" y2="19.5"/><rect x="4.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg></button>
-      <button onclick="toggleRightPanel()" id="btnToggleRight" class="hdr-panel-btn" title="Properties panel"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="15" y1="4.5" x2="15" y2="19.5"/><rect x="16.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg></button>
+      <button onclick="toggleRightPanel()" id="btnToggleRight" class="hdr-panel-btn hdr-panel-btn-active" title="Properties panel"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="15" y1="4.5" x2="15" y2="19.5"/><rect x="16.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg></button>
     </div>
 
     <div style="width:1px;height:28px;background:#ECECEF;flex:none"></div>
@@ -636,7 +636,7 @@
     </main>
 
     <!-- ═══ RIGHT PANEL (Properties) ═══ -->
-    <aside id="rightPanel" style="display:none;flex:none;width:320px;background:#fff;border-left:1px solid #E4E4E8;display:flex;flex-direction:column;overflow:hidden">
+    <aside id="rightPanel" style="flex:none;width:320px;background:#fff;border-left:1px solid #E4E4E8;display:flex;flex-direction:column;overflow:hidden">
       <div style="flex:none;padding:16px 18px 12px;border-bottom:1px solid #ECECEF">
         <div style="font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#9A9AA2;margin-bottom:8px">Properties</div>
       </div>
@@ -741,21 +741,24 @@
 </div>
 
 <script>
-// Panel toggles
+// Panel toggles — the button's active (dark) state always mirrors whether
+// its panel is visible. Uses computed display so it can't desync from the
+// initial inline styles.
+function setPanel(panelId, btnId, open) {
+  const p = document.getElementById(panelId);
+  const btn = document.getElementById(btnId);
+  if (!p || !btn) return;
+  p.style.display = open ? 'flex' : 'none';
+  if (open) p.style.flexDirection = 'column';
+  btn.classList.toggle('hdr-panel-btn-active', open);
+}
 window.toggleLeftPanel = function() {
   const p = document.getElementById('leftPanel');
-  const btn = document.getElementById('btnToggleLeft');
-  const open = p.style.display !== 'none';
-  p.style.display = open ? 'none' : 'flex';
-  btn.classList.toggle('hdr-panel-btn-active', !open);
+  setPanel('leftPanel', 'btnToggleLeft', getComputedStyle(p).display === 'none');
 };
 window.toggleRightPanel = function() {
   const p = document.getElementById('rightPanel');
-  const btn = document.getElementById('btnToggleRight');
-  const open = p.style.display !== 'none';
-  p.style.display = open ? 'none' : 'flex';
-  p.style.flexDirection = open ? '' : 'column';
-  btn.classList.toggle('hdr-panel-btn-active', !open);
+  setPanel('rightPanel', 'btnToggleRight', getComputedStyle(p).display === 'none');
 };
 window.toggleExportMenu = function() {
   const d = document.getElementById('exportMenuDrop');

@@ -42,6 +42,45 @@ window.toggleWalkMode = function (): void {
   }
 };
 
+// ── Bridge for Field Mode (iPad) touch controls ──────────────────────
+// Field Mode lives in its own module scope, so it drives the walk camera
+// through these window hooks instead of shared module-level variables
+// (walkYaw / walkPitch / walkKeys are private to this module).
+
+// Press/release a movement key from the touch up/down buttons.
+(window as any).walkSetKey = function (k: string, pressed: boolean): void {
+  if (k in walkKeys) walkKeys[k] = pressed;
+};
+
+// Place the walk camera explicitly (used by tap-to-go and framing).
+(window as any).walkSetPose = function (px: number, py: number, pz: number, yaw: number, pitch: number): void {
+  appState.camera.position.set(px, py, pz);
+  walkYaw = yaw;
+  walkPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
+};
+
+// Frame the whole loaded model at standing eye height so it is visible the
+// moment walk mode starts — otherwise the camera keeps the previous orbit
+// pose, which on a tablet often leaves the model off-screen.
+(window as any).walkFrameModel = function (): void {
+  const box = new THREE.Box3();
+  let has = false;
+  for (const m of appState.loadedModels) {
+    if (m) { try { box.expandByObject(m as any); has = true; } catch (e) { /* skip */ } }
+  }
+  if (!has || box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const span = Math.max(size.x, size.z) || 5;
+  // Eye height ~1.6 m above the model floor (clamped for tiny models).
+  const eyeY = box.min.y + Math.min(1.6, Math.max(size.y * 0.5, 0.1));
+  const dist = span * 0.6 + 2;
+  const px = center.x + dist, pz = center.z + dist;
+  appState.camera.position.set(px, eyeY, pz);
+  walkYaw = Math.atan2(center.x - px, center.z - pz);
+  walkPitch = 0;
+};
+
 // Keyboard
 document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (!appState.walkActive) return;
@@ -129,8 +168,12 @@ function walkLoop(): void {
   // Look rotation from touch look joystick (Field Mode)
   const _walkLookVec: any = (window as any)._walkLookVec;
   if (_walkLookVec && (Math.abs(_walkLookVec.x) > 0.08 || Math.abs(_walkLookVec.y) > 0.08)) {
-    walkYaw -= _walkLookVec.x * 0.03;   // horizontal look speed
-    walkPitch -= _walkLookVec.y * 0.02;  // vertical look speed (slower)
+    // Eased (quadratic) response: small stick deflections rotate gently and
+    // only near full deflection do we approach max speed. This stops the view
+    // from whipping around when the stick is nudged. Base rates reduced too.
+    const ease = (v: number) => Math.sign(v) * v * v;
+    walkYaw -= ease(_walkLookVec.x) * 0.022;   // horizontal look speed (reduced + eased)
+    walkPitch -= ease(_walkLookVec.y) * 0.015;  // vertical look speed (reduced + eased)
     walkPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, walkPitch));
   }
 

@@ -23,10 +23,8 @@ declare const findModelIdx: (obj: any) => number;
 declare const initIFC: () => Promise<boolean>;
 declare const loadIFC: (slot: number) => Promise<void>;
 
-// Walk mode globals from walk module
-declare let walkKeys: { e: boolean; q: boolean; [key: string]: boolean };
-declare let walkYaw: number;
-declare let walkPitch: number;
+// Walk camera is driven via window bridge hooks exposed by the walk module
+// (walkSetKey / walkSetPose / walkFrameModel) — see walk.ts.
 declare let measureMode: boolean;
 
 let fieldActive = false;
@@ -156,6 +154,8 @@ window.fieldToggleWalk = function(){
   if(appState.walkActive){
     fieldToast('Walk mode — drag left joystick to move, drag right to look');
     (window as any).walkTouchInit?.();
+    // Reposition to standing eye height facing the model so it's visible.
+    (window as any).walkFrameModel?.();
     // On touch devices, skip pointer lock (doesn't work on iPad)
     if('ontouchstart' in window){
       try{ document.exitPointerLock?.(); }catch(e){}
@@ -179,22 +179,27 @@ function walkTouchInit(){
   const lookJoy = document.getElementById('walkLookJoy')!;
   const lookKnob = document.getElementById('walkLookKnob')!;
 
+  // walk.ts reads the live joystick vectors off window, so keep them mirrored.
+  (window as any)._walkJoyVec = {x:0, y:0};
+  (window as any)._walkLookVec = {x:0, y:0};
+
   // ── Left joystick: Move ──
   joy.ontouchstart = (e) => {
     e.preventDefault();
     _walkJoyActive = true;
     const rect = joy.getBoundingClientRect();
     _walkJoyCenter = { x: rect.left + 65, y: rect.top + 65 };
-    walkJoyMove(e.touches[0], knob, _walkJoyCenter, (v) => { _walkJoyVec = v; });
+    walkJoyMove(e.touches[0], knob, _walkJoyCenter, (v) => { _walkJoyVec = v; (window as any)._walkJoyVec = v; });
   };
   joy.ontouchmove = (e) => {
     e.preventDefault();
-    if(_walkJoyActive && e.touches[0]) walkJoyMove(e.touches[0], knob, _walkJoyCenter, (v) => { _walkJoyVec = v; });
+    if(_walkJoyActive && e.touches[0]) walkJoyMove(e.touches[0], knob, _walkJoyCenter, (v) => { _walkJoyVec = v; (window as any)._walkJoyVec = v; });
   };
   joy.ontouchend = joy.ontouchcancel = (e) => {
     e.preventDefault();
     _walkJoyActive = false;
     _walkJoyVec = {x:0, y:0};
+    (window as any)._walkJoyVec = _walkJoyVec;
     knob.style.transform = 'translate(0px, 0px)';
   };
 
@@ -204,16 +209,17 @@ function walkTouchInit(){
     _walkLookJoyActive = true;
     const rect = lookJoy.getBoundingClientRect();
     _walkLookJoyCenter = { x: rect.left + 65, y: rect.top + 65 };
-    walkJoyMove(e.touches[0], lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; });
+    walkJoyMove(e.touches[0], lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; (window as any)._walkLookVec = v; });
   };
   lookJoy.ontouchmove = (e) => {
     e.preventDefault();
-    if(_walkLookJoyActive && e.touches[0]) walkJoyMove(e.touches[0], lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; });
+    if(_walkLookJoyActive && e.touches[0]) walkJoyMove(e.touches[0], lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; (window as any)._walkLookVec = v; });
   };
   lookJoy.ontouchend = lookJoy.ontouchcancel = (e) => {
     e.preventDefault();
     _walkLookJoyActive = false;
     _walkLookVec = {x:0, y:0};
+    (window as any)._walkLookVec = _walkLookVec;
     lookKnob.style.transform = 'translate(0px, 0px)';
   };
 }
@@ -232,8 +238,8 @@ function walkJoyMove(touch: Touch, knobEl: HTMLElement, center: {x:number; y:num
 }
 
 window.walkTouchUD = function(dir: string, pressed: boolean){
-  if(dir === 'up') walkKeys.e = pressed;
-  if(dir === 'down') walkKeys.q = pressed;
+  if(dir === 'up') (window as any).walkSetKey?.('e', pressed);
+  if(dir === 'down') (window as any).walkSetKey?.('q', pressed);
 };
 
 window.fieldScreenshot = function(){
@@ -439,9 +445,8 @@ function fieldDoubleTapZoom(clientX: number, clientY: number){
       const sz = Math.max(bbox.size.x, bbox.size.y, bbox.size.z);
       const d = Math.max(sz * 2.5, 3);
       if(appState.walkActive){
-        appState.camera.position.set(bbox.center.x + sz + 1.5, bbox.center.y + 1.6, bbox.center.z + sz + 1.5);
-        walkYaw = Math.atan2(bbox.center.x - appState.camera.position.x, bbox.center.z - appState.camera.position.z);
-        walkPitch = 0;
+        const wx = bbox.center.x + sz + 1.5, wy = bbox.center.y + 1.6, wz = bbox.center.z + sz + 1.5;
+        (window as any).walkSetPose?.(wx, wy, wz, Math.atan2(bbox.center.x - wx, bbox.center.z - wz), 0);
       } else {
         appState.camera.position.set(bbox.center.x + d*0.45, bbox.center.y + d*0.35, bbox.center.z + d*0.45);
         appState.controls!.target.copy(bbox.center);
@@ -455,9 +460,8 @@ function fieldDoubleTapZoom(clientX: number, clientY: number){
   // Fallback: zoom to hit point
   const d = 5;
   if(appState.walkActive){
-    appState.camera.position.set(point.x + 2, point.y + 1.6, point.z + 2);
-    walkYaw = Math.atan2(point.x - appState.camera.position.x, point.z - appState.camera.position.z);
-    walkPitch = 0;
+    const wx = point.x + 2, wy = point.y + 1.6, wz = point.z + 2;
+    (window as any).walkSetPose?.(wx, wy, wz, Math.atan2(point.x - wx, point.z - wz), 0);
   } else {
     appState.camera.position.set(point.x + d*0.5, point.y + d*0.4, point.z + d*0.5);
     appState.controls!.target.copy(point);
