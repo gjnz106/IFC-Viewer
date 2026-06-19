@@ -23,6 +23,7 @@ import './modules/drive.js';
 import './modules/search.js';
 import './modules/fieldmode.js';
 import './modules/ai.js';
+import './modules/ui-shell.js';
 
 // ── Initialize the viewer ─────────────────────────────────────────────────
 initThree();

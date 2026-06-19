@@ -9,9 +9,16 @@
     "dev": "concurrently \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\"",
     "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
     "frontend": "npm run dev --workspace=frontend",
-    "backend": "npm run dev --workspace=backend"
+    "backend": "npm run dev --workspace=backend",
+    "build:standalone": "tsx build.ts",
+    "verify:standalone": "tsx scripts/verify-build.ts",
+    "typecheck:standalone": "tsx scripts/typecheck-standalone.ts"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@types/node": "^20.14.0",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.21.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
   }
 }

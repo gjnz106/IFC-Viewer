@@ -6,3 +6,4 @@ backend/dist/
 backend/.env
 *.local
 .DS_Store
+.standalone-bundle.ts

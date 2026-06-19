@@ -270,6 +270,12 @@ declare global {
     // Colorize
     toggleColorize?: () => Promise<void>;
     _colorizeInvalidate?: (modelIdx: number) => void;
+    colorizeSetProp?: (v: string) => void;
+
+    // UI shell (header / panel toggles)
+    toggleLeftPanel?: () => void;
+    toggleRightPanel?: () => void;
+    toggleExportMenu?: () => void;
 
     // Section
     toggleSectionBox?: () => void;

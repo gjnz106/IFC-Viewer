@@ -1,7 +1,6 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { IFCLoader } from 'web-ifc-three';
-import { IFCSPACE, IFCOPENINGELEMENT, IFCWALL, IFCWALLSTANDARDCASE, IFCSLAB, IFCCOLUMN, IFCBEAM, IFCDOOR, IFCWINDOW, IFCROOF, IFCSTAIR, IFCRAILING, IFCPLATE, IFCMEMBER, IFCCURTAINWALL, IFCFOOTING, IFCBUILDINGELEMENTPROXY, IFCFURNISHINGELEMENT, IFCFLOWSEGMENT, IFCFLOWTERMINAL, IFCFLOWFITTING, IFCSITE, IFCBUILDING, IFCBUILDINGSTOREY, IFCPROJECT, IFCSTAIRFLIGHT } from 'web-ifc';
+// NOTE: the CDN imports (three, web-ifc, …) are injected at the top of the
+// concatenated bundle by build.ts. Keeping them out of the source here lets
+// every src/app/*.ts file stay in shared script scope (see globals.d.ts).
 
 let scene, camera, renderer, controls, ifcLoader;
 let files=[null,null], loadedModels=[null,null], compareResult=null, activeFilter='all';

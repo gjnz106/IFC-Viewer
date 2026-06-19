@@ -610,7 +610,7 @@ function setupPlanInteraction(){
         if(!window._hlMat){
           window._hlMat = new THREE.MeshPhongMaterial({
             color:0x2563eb, transparent:true, opacity:0.6,
-            side:THREE.DoubleSide, depthTest:true, clippingPlanes
+            side:THREE.DoubleSide, depthTest:true, clippingPlanes:clipPlanes
           });
         }
         const mid = loadedModels[modelIdx]?.modelID;

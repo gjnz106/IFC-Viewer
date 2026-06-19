@@ -740,45 +740,8 @@
   <div class="ctx-item" onclick="ctxAction('showAll')"><span class="ci-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="ci-label">Show All Hidden</span></div>
 </div>
 
-<script>
-// Panel toggles — the button's active (dark) state always mirrors whether
-// its panel is visible. Uses computed display so it can't desync from the
-// initial inline styles.
-function setPanel(panelId, btnId, open) {
-  const p = document.getElementById(panelId);
-  const btn = document.getElementById(btnId);
-  if (!p || !btn) return;
-  p.style.display = open ? 'flex' : 'none';
-  if (open) p.style.flexDirection = 'column';
-  btn.classList.toggle('hdr-panel-btn-active', open);
-}
-window.toggleLeftPanel = function() {
-  const p = document.getElementById('leftPanel');
-  setPanel('leftPanel', 'btnToggleLeft', getComputedStyle(p).display === 'none');
-};
-window.toggleRightPanel = function() {
-  const p = document.getElementById('rightPanel');
-  setPanel('rightPanel', 'btnToggleRight', getComputedStyle(p).display === 'none');
-};
-window.toggleExportMenu = function() {
-  const d = document.getElementById('exportMenuDrop');
-  const bg = document.getElementById('exportMenuBg');
-  const open = d.style.display !== 'none';
-  d.style.display = open ? 'none' : 'block';
-  bg.style.display = open ? 'none' : 'block';
-};
-// Colorize "Color by" segmented control — drives the (hidden) #czProp select
-// that colorize.ts reads, then re-applies the colorize pass.
-window.colorizeSetProp = function(v) {
-  const sel = document.getElementById('czProp');
-  if (sel) sel.value = v;
-  document.querySelectorAll('#czSeg .cz-seg-btn').forEach(function(b) {
-    b.classList.toggle('active', b.getAttribute('data-v') === v);
-  });
-  if (window.applyColorize) window.applyColorize();
-};
-</script>
-
+<!-- UI shell handlers (panel toggles, export menu, colorize segmented)
+     live in src/modules/ui-shell.ts, loaded via main.ts below. -->
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
