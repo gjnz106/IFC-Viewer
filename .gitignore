@@ -1,9 +1,12 @@
-node_modules/
-frontend/node_modules/
-backend/node_modules/
-frontend/dist/
-backend/dist/
-backend/.env
-*.local
-.DS_Store
-.standalone-bundle.ts
+# Harness durable layer — each project instance generates its own data.
+harness.db
+harness.db-wal
+harness.db-shm
+
+# Rust build output for harness tooling.
+target/
+dist/
+
+# Downloaded Harness CLI binary for installed project instances.
+scripts/bin/harness-cli
+scripts/bin/harness-cli.exe
