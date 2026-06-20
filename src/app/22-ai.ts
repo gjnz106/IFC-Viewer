@@ -392,9 +392,9 @@ window.sumQuantity   = sumQuantity;
 window.runAITool     = runAITool;
 window.AI_TOOLS      = AI_TOOLS;
 
-console.log('%c═══ AI QUERY TOOLS sẵn sàng ═══','color:#16a34a;font-weight:700');
-console.log('Thử:  await countElements({category:"Columns"})');
-console.log('      await sumQuantity({category:"Floors"}, "volume")');
+if(window.DEBUG)console.log('%c═══ AI QUERY TOOLS sẵn sàng ═══','color:#16a34a;font-weight:700');
+if(window.DEBUG)console.log('Thử:  await countElements({category:"Columns"})');
+if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volume")');
 
 /* ═══════════════════════════════════════════════════════════════════════
    IFC DELTA — AI CHAT UI  (bước 3a: ô chat + vòng lặp tool-use)
@@ -622,8 +622,8 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   sendBtn.onclick = submit;
   inputEl.onkeydown = (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); submit(); } };
 
-  console.log('%c═══ AI CHAT UI sẵn sàng ═══','color:#2563eb;font-weight:700');
-  console.log('Nhấn nút ✦ góc phải-dưới để mở chat. Dán API key trong ⚙ để test.');
+  if(window.DEBUG)console.log('%c═══ AI CHAT UI sẵn sàng ═══','color:#2563eb;font-weight:700');
+  if(window.DEBUG)console.log('Nhấn nút ✦ góc phải-dưới để mở chat. Dán API key trong ⚙ để test.');
 })();
 
 initThree();initSectionDrag();initViewCube();log('Ready');

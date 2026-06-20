@@ -2500,7 +2500,7 @@ function ifcClassToRevitCategory(cls){
   return IFC_TO_REVIT_CAT[cls] || IFC_TO_REVIT_CAT[cls.charAt(0)+cls.slice(1).toLowerCase()] || cls;
 }
 
-function log(...a){console.log('[IFC]',...a)}
+function log(...a){if(window.DEBUG)console.log('[IFC]',...a)}
 
 // ══ Three.js ══
 function initThree(){
@@ -2745,7 +2745,7 @@ function initThree(){
     });
     
     const hits=ray.intersectObjects(ms,false);
-    console.log('[PICK] meshes scanned:',ms.length,'hits:',hits.length);
+    
     if(!hits.length){restoreViewSnap();clearHighlight();document.getElementById('propArea').innerHTML='<div class="prop-empty">Click element in 3D to inspect</div>';return}
     
     // Find first hit that is INSIDE the clipping planes (section box)
@@ -2798,7 +2798,7 @@ function initThree(){
       const fedChk=document.getElementById('fedVis'+targetModelIdx);
       if(fedChk && !fedChk.checked){log('Pick: federation model '+targetModelIdx+' unticked');return}
     }
-    if(targetModelIdx<0||!loadedModels[targetModelIdx]||!ifcLoader){console.log('[PICK] no model match, targetModelIdx=',targetModelIdx);return}
+    if(targetModelIdx<0||!loadedModels[targetModelIdx]||!ifcLoader){return}
     
     const modelID=loadedModels[targetModelIdx].modelID;
     let foundEid=null;
@@ -2822,7 +2822,7 @@ function initThree(){
       }catch(e){}
     }
     
-    if(!foundEid){console.log('[PICK] no expressID found, faceIndex=',hit.faceIndex,'hasExpressID=',!!hit.object.geometry.attributes.expressID);return}
+    if(!foundEid){return}
     
     log('Pick: expressID='+foundEid+' model='+targetModelIdx+(hit.object.userData?.diffSubset?' (diff:'+hit.object.userData.diffSubset+')':''));
     
@@ -4202,16 +4202,16 @@ let hiddenTypes=new Set();
 window.ctxAction=function(action){
   const menu=document.getElementById('ctxMenu');
   menu.classList.remove('show');
-  console.log('[CTX] action='+action, 'ctxTarget=', ctxTarget);
+  
   
   if(action==='showAll'){showAllHidden();return}
-  if(!ctxTarget){console.log('[CTX] no target, abort');return}
+  if(!ctxTarget){return}
   
   const eid=ctxTarget.expressID;
   const mi=ctxTarget.modelIdx;
   const bbox=ctxTarget.bbox;
   const typeName=ctxTarget.typeName;
-  console.log('[CTX] eid='+eid, 'mi='+mi, 'bbox=', bbox, 'type='+typeName);
+  
   
   if(action==='hide'){hideExpressID(eid,mi);return}
   if(action==='isolate'){isolateExpressID(eid,mi);return}
@@ -4224,11 +4224,11 @@ window.ctxAction=function(action){
     ifcLoader.ifcManager.getItemProperties(loadedModels[mi].modelID,eid,true).then(p=>{if(p)showProps(p,mi)});
     return;
   }
-  console.log('[CTX] action not handled or missing data');
+  
 };
 
 function hideExpressID(eid,mi){
-  console.log('[HIDE] eid='+eid+' mi='+mi);
+  
   if(!ifcLoader||!loadedModels[mi])return;
   
   // Add to hidden set with model-aware key
@@ -4240,7 +4240,7 @@ function hideExpressID(eid,mi){
 }
 
 function hideByType(typeName){
-  console.log('[HIDE TYPE]',typeName);
+  
   const catIDs=window._catModelIDs||{};
   const ids=catIDs[typeName];
   if(ids){
@@ -4271,7 +4271,7 @@ function rebuildModelSubset(mi){
   }
   
   const hiddenCount=allIDs.length-showIDs.length;
-  console.log('[REBUILD] model='+mi+' total='+allIDs.length+' hidden='+hiddenCount+' showing='+showIDs.length);
+  
   
   // Remove old vis subsets for this model
   visSubsets=visSubsets.filter(s=>{
@@ -4297,7 +4297,7 @@ function rebuildModelSubset(mi){
       sub.userData.srcModelIdx=mi;
       sub.traverse(c=>{if(c.isMesh){c.userData.srcModelIdx=mi;const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>{m.clippingPlanes=clipPlanes;m.side=THREE.DoubleSide})}});
       visSubsets.push(sub);
-      console.log('[REBUILD] subset created ok');
+      
     }
   }catch(e){console.error('[REBUILD] error:',e)}
 }
@@ -4305,7 +4305,7 @@ function rebuildModelSubset(mi){
 let isolatedIDs=null;
 
 function isolateExpressID(eid,mi){
-  console.log('[ISOLATE] eid='+eid+' mi='+mi);
+  
   isolatedIDs=new Set([eid]);
   for(let i=0;i<2;i++){
     if(!loadedModels[i])continue;
@@ -4315,7 +4315,7 @@ function isolateExpressID(eid,mi){
 }
 
 function isolateByType(typeName,mi){
-  console.log('[ISOLATE TYPE]',typeName);
+  
   const catIDs=window._catModelIDs||{};
   isolatedIDs=new Set();
   const ids=catIDs[typeName];
@@ -4340,7 +4340,7 @@ function getAllExpressIDsForModel(mi){
 let visSubsets=[];
 
 window.showAllHidden=function(){
-  console.log('[SHOW ALL]');
+  
   hiddenExpressIDs.clear();
   hiddenTypes.clear();
   isolatedIDs=null;
@@ -4360,8 +4360,8 @@ window.showAllHidden=function(){
 };
 
 function sectionThroughElement(bbox,axis){
-  console.log('[SECTION] axis='+axis, 'bbox=', bbox);
-  if(!bbox){console.log('[SECTION] no bbox');return}
+  
+  if(!bbox){return}
   const b=modelBounds;
   const c=bbox.center;
   const s=bbox.size;
@@ -4445,13 +4445,13 @@ function sectionAroundElement(bbox){
 // ── Section Plan parallel to clicked face (Dalux-style) ──
 // Only creates ONE clipping plane at the face position. All other directions stay fully open.
 function sectionPlanParallelToFace(){
-  if(!ctxTarget){console.log('[SECTION PLANE] no target');return}
+  if(!ctxTarget){return}
   
   const normal=ctxTarget.faceNormal;
   const point=ctxTarget.hitPoint;
   
-  if(!normal||!point){console.log('[SECTION PLANE] no normal/point');return}
-  console.log('[SECTION PLANE] normal=',normal.toArray().map(v=>v.toFixed(2)),'point=',point.toArray().map(v=>v.toFixed(2)));
+  if(!normal||!point){return}
+  
   
   const b=modelBounds;
   const sx=b.max.x-b.min.x,sy=b.max.y-b.min.y,sz=b.max.z-b.min.z;
@@ -4500,8 +4500,8 @@ function sectionPlanParallelToFace(){
 }
 
 function zoomToElement(bbox){
-  console.log('[ZOOM] bbox=', bbox);
-  if(!bbox||!bbox.center){console.log('[ZOOM] no bbox/center');return}
+  
+  if(!bbox||!bbox.center){return}
   const c=bbox.center,s=bbox.size;
   const dist=Math.max(s.x,s.y,s.z)*2+5;
   camera.position.set(c.x+dist*0.5,c.y+dist*0.4,c.z+dist*0.5);
@@ -13589,9 +13589,9 @@ window.sumQuantity   = sumQuantity;
 window.runAITool     = runAITool;
 window.AI_TOOLS      = AI_TOOLS;
 
-console.log('%c═══ AI QUERY TOOLS sẵn sàng ═══','color:#16a34a;font-weight:700');
-console.log('Thử:  await countElements({category:"Columns"})');
-console.log('      await sumQuantity({category:"Floors"}, "volume")');
+if(window.DEBUG)console.log('%c═══ AI QUERY TOOLS sẵn sàng ═══','color:#16a34a;font-weight:700');
+if(window.DEBUG)console.log('Thử:  await countElements({category:"Columns"})');
+if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volume")');
 
 /* ═══════════════════════════════════════════════════════════════════════
    IFC DELTA — AI CHAT UI  (bước 3a: ô chat + vòng lặp tool-use)
@@ -13819,8 +13819,8 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   sendBtn.onclick = submit;
   inputEl.onkeydown = (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); submit(); } };
 
-  console.log('%c═══ AI CHAT UI sẵn sàng ═══','color:#2563eb;font-weight:700');
-  console.log('Nhấn nút ✦ góc phải-dưới để mở chat. Dán API key trong ⚙ để test.');
+  if(window.DEBUG)console.log('%c═══ AI CHAT UI sẵn sàng ═══','color:#2563eb;font-weight:700');
+  if(window.DEBUG)console.log('Nhấn nút ✦ góc phải-dưới để mở chat. Dán API key trong ⚙ để test.');
 })();
 
 initThree();initSectionDrag();initViewCube();log('Ready');

@@ -223,16 +223,16 @@ let hiddenTypes=new Set();
 window.ctxAction=function(action){
   const menu=document.getElementById('ctxMenu');
   menu.classList.remove('show');
-  console.log('[CTX] action='+action, 'ctxTarget=', ctxTarget);
+  
   
   if(action==='showAll'){showAllHidden();return}
-  if(!ctxTarget){console.log('[CTX] no target, abort');return}
+  if(!ctxTarget){return}
   
   const eid=ctxTarget.expressID;
   const mi=ctxTarget.modelIdx;
   const bbox=ctxTarget.bbox;
   const typeName=ctxTarget.typeName;
-  console.log('[CTX] eid='+eid, 'mi='+mi, 'bbox=', bbox, 'type='+typeName);
+  
   
   if(action==='hide'){hideExpressID(eid,mi);return}
   if(action==='isolate'){isolateExpressID(eid,mi);return}
@@ -245,11 +245,11 @@ window.ctxAction=function(action){
     ifcLoader.ifcManager.getItemProperties(loadedModels[mi].modelID,eid,true).then(p=>{if(p)showProps(p,mi)});
     return;
   }
-  console.log('[CTX] action not handled or missing data');
+  
 };
 
 function hideExpressID(eid,mi){
-  console.log('[HIDE] eid='+eid+' mi='+mi);
+  
   if(!ifcLoader||!loadedModels[mi])return;
   
   // Add to hidden set with model-aware key
@@ -261,7 +261,7 @@ function hideExpressID(eid,mi){
 }
 
 function hideByType(typeName){
-  console.log('[HIDE TYPE]',typeName);
+  
   const catIDs=window._catModelIDs||{};
   const ids=catIDs[typeName];
   if(ids){
@@ -292,7 +292,7 @@ function rebuildModelSubset(mi){
   }
   
   const hiddenCount=allIDs.length-showIDs.length;
-  console.log('[REBUILD] model='+mi+' total='+allIDs.length+' hidden='+hiddenCount+' showing='+showIDs.length);
+  
   
   // Remove old vis subsets for this model
   visSubsets=visSubsets.filter(s=>{
@@ -318,7 +318,7 @@ function rebuildModelSubset(mi){
       sub.userData.srcModelIdx=mi;
       sub.traverse(c=>{if(c.isMesh){c.userData.srcModelIdx=mi;const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>{m.clippingPlanes=clipPlanes;m.side=THREE.DoubleSide})}});
       visSubsets.push(sub);
-      console.log('[REBUILD] subset created ok');
+      
     }
   }catch(e){console.error('[REBUILD] error:',e)}
 }
@@ -326,7 +326,7 @@ function rebuildModelSubset(mi){
 let isolatedIDs=null;
 
 function isolateExpressID(eid,mi){
-  console.log('[ISOLATE] eid='+eid+' mi='+mi);
+  
   isolatedIDs=new Set([eid]);
   for(let i=0;i<2;i++){
     if(!loadedModels[i])continue;
@@ -336,7 +336,7 @@ function isolateExpressID(eid,mi){
 }
 
 function isolateByType(typeName,mi){
-  console.log('[ISOLATE TYPE]',typeName);
+  
   const catIDs=window._catModelIDs||{};
   isolatedIDs=new Set();
   const ids=catIDs[typeName];
@@ -361,7 +361,7 @@ function getAllExpressIDsForModel(mi){
 let visSubsets=[];
 
 window.showAllHidden=function(){
-  console.log('[SHOW ALL]');
+  
   hiddenExpressIDs.clear();
   hiddenTypes.clear();
   isolatedIDs=null;
@@ -381,8 +381,8 @@ window.showAllHidden=function(){
 };
 
 function sectionThroughElement(bbox,axis){
-  console.log('[SECTION] axis='+axis, 'bbox=', bbox);
-  if(!bbox){console.log('[SECTION] no bbox');return}
+  
+  if(!bbox){return}
   const b=modelBounds;
   const c=bbox.center;
   const s=bbox.size;

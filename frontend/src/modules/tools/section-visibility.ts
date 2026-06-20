@@ -3,13 +3,13 @@ import { appState } from '../../state/index.js';
 // ── Section Plan parallel to clicked face (Dalux-style) ──
 // Only creates ONE clipping plane at the face position. All other directions stay fully open.
 function sectionPlanParallelToFace(){
-  if(!appState.ctxTarget){console.log('[SECTION PLANE] no target');return}
+  if(!appState.ctxTarget){return}
 
   const normal=appState.ctxTarget.faceNormal;
   const point=appState.ctxTarget.hitPoint;
 
-  if(!normal||!point){console.log('[SECTION PLANE] no normal/point');return}
-  console.log('[SECTION PLANE] normal=',normal.toArray().map((v: number)=>v.toFixed(2)),'point=',point.toArray().map((v: number)=>v.toFixed(2)));
+  if(!normal||!point){return}
+  
 
   const b=appState.modelBounds;
   const sx=b.max.x-b.min.x,sy=b.max.y-b.min.y,sz=b.max.z-b.min.z;
@@ -58,8 +58,8 @@ function sectionPlanParallelToFace(){
 }
 
 function zoomToElement(bbox: any){
-  console.log('[ZOOM] bbox=', bbox);
-  if(!bbox||!bbox.center){console.log('[ZOOM] no bbox/center');return}
+  
+  if(!bbox||!bbox.center){return}
   const c=bbox.center,s=bbox.size;
   const dist=Math.max(s.x,s.y,s.z)*2+5;
   appState.camera.position.set(c.x+dist*0.5,c.y+dist*0.4,c.z+dist*0.5);

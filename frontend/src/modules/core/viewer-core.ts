@@ -373,7 +373,7 @@ export function initThree(): void {
     });
 
     const hits=ray.intersectObjects(ms,false);
-    console.log('[PICK] meshes scanned:',ms.length,'hits:',hits.length);
+    
     if(!hits.length){restoreViewSnap();(window as any).clearHighlight();document.getElementById('propArea')!.innerHTML='<div class="prop-empty">Click element in 3D to inspect</div>';return}
 
     // Find first hit that is INSIDE the clipping planes (section box)
@@ -426,7 +426,7 @@ export function initThree(): void {
       const fedChk=document.getElementById('fedVis'+targetModelIdx) as HTMLInputElement;
       if(fedChk && !fedChk.checked){log('Pick: federation model '+targetModelIdx+' unticked');return}
     }
-    if(targetModelIdx<0||!appState.loadedModels[targetModelIdx]||!appState.ifcLoader){console.log('[PICK] no model match, targetModelIdx=',targetModelIdx);return}
+    if(targetModelIdx<0||!appState.loadedModels[targetModelIdx]||!appState.ifcLoader){return}
 
     const modelID=(appState.loadedModels[targetModelIdx] as any).modelID;
     let foundEid: number|null=null;
@@ -451,7 +451,7 @@ export function initThree(): void {
       }catch(e){}
     }
 
-    if(!foundEid){console.log('[PICK] no expressID found, faceIndex=',hit.faceIndex,'hasExpressID=',!!(hit.object as THREE.Mesh).geometry.attributes.expressID);return}
+    if(!foundEid){return}
 
     log('Pick: expressID='+foundEid+' model='+targetModelIdx+(hit.object.userData?.diffSubset?' (diff:'+hit.object.userData.diffSubset+')':''));
 

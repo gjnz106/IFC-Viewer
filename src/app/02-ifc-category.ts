@@ -123,7 +123,7 @@ function ifcClassToRevitCategory(cls){
   return IFC_TO_REVIT_CAT[cls] || IFC_TO_REVIT_CAT[cls.charAt(0)+cls.slice(1).toLowerCase()] || cls;
 }
 
-function log(...a){console.log('[IFC]',...a)}
+function log(...a){if(window.DEBUG)console.log('[IFC]',...a)}
 
 // ══ Three.js ══
 function initThree(){

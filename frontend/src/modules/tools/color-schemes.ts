@@ -59,16 +59,16 @@ export function getElementBBox(modelIdx: number, expressID: number): {size:{x:nu
 window.ctxAction=function(action: string){
   const menu=document.getElementById('ctxMenu')!;
   menu.classList.remove('show');
-  console.log('[CTX] action='+action, 'ctxTarget=', appState.ctxTarget);
+  
 
   if(action==='showAll'){showAllHidden();return}
-  if(!appState.ctxTarget){console.log('[CTX] no target, abort');return}
+  if(!appState.ctxTarget){return}
 
   const eid=appState.ctxTarget.expressID;
   const mi=appState.ctxTarget.modelIdx;
   const bbox=appState.ctxTarget.bbox;
   const typeName=appState.ctxTarget.typeName;
-  console.log('[CTX] eid='+eid, 'mi='+mi, 'bbox=', bbox, 'type='+typeName);
+  
 
   if(action==='hide'){hideExpressID(eid,mi);return}
   if(action==='isolate'){isolateExpressID(eid,mi);return}
@@ -81,11 +81,11 @@ window.ctxAction=function(action: string){
     appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[mi] as any).modelID,eid,true).then((p: any)=>{if(p)(window as any).showProps(p,mi)});
     return;
   }
-  console.log('[CTX] action not handled or missing data');
+  
 };
 
 function hideExpressID(eid: number, mi: number): void {
-  console.log('[HIDE] eid='+eid+' mi='+mi);
+  
   if(!appState.ifcLoader||!appState.loadedModels[mi])return;
 
   // Add to hidden set with model-aware key
@@ -97,7 +97,7 @@ function hideExpressID(eid: number, mi: number): void {
 }
 
 function hideByType(typeName: string): void {
-  console.log('[HIDE TYPE]',typeName);
+  
   const catIDs=(window as any)._catModelIDs||{};
   const ids=catIDs[typeName];
   if(ids){
@@ -128,7 +128,7 @@ export function rebuildModelSubset(mi: number): void {
   }
 
   const hiddenCount=allIDs.length-showIDs.length;
-  console.log('[REBUILD] model='+mi+' total='+allIDs.length+' hidden='+hiddenCount+' showing='+showIDs.length);
+  
 
   // Remove old vis subsets for this model
   visSubsets=visSubsets.filter(s=>{
@@ -154,13 +154,13 @@ export function rebuildModelSubset(mi: number): void {
       sub.userData.srcModelIdx=mi;
       sub.traverse((c: any)=>{if(c.isMesh){c.userData.srcModelIdx=mi;const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach((m: any)=>{m.clippingPlanes=appState.clipPlanes;m.side=THREE.DoubleSide})}});
       visSubsets.push(sub);
-      console.log('[REBUILD] subset created ok');
+      
     }
   }catch(e){console.error('[REBUILD] error:',e)}
 }
 
 function isolateExpressID(eid: number, mi: number): void {
-  console.log('[ISOLATE] eid='+eid+' mi='+mi);
+  
   isolatedIDs=new Set([eid]);
   for(let i=0;i<2;i++){
     if(!appState.loadedModels[i])continue;
@@ -170,7 +170,7 @@ function isolateExpressID(eid: number, mi: number): void {
 }
 
 function isolateByType(typeName: string, mi: number): void {
-  console.log('[ISOLATE TYPE]',typeName);
+  
   const catIDs=(window as any)._catModelIDs||{};
   isolatedIDs=new Set<number>();
   const ids=catIDs[typeName];
@@ -193,7 +193,7 @@ function getAllExpressIDsForModel(mi: number): number[] {
 }
 
 export function showAllHidden(): void {
-  console.log('[SHOW ALL]');
+  
   hiddenExpressIDs.clear();
   hiddenTypes.clear();
   isolatedIDs=null;
@@ -214,8 +214,8 @@ export function showAllHidden(): void {
 window.showAllHidden=showAllHidden;
 
 function sectionThroughElement(bbox: {center:{x:number;y:number;z:number};size:{x:number;y:number;z:number}}, axis: string): void {
-  console.log('[SECTION] axis='+axis, 'bbox=', bbox);
-  if(!bbox){console.log('[SECTION] no bbox');return}
+  
+  if(!bbox){return}
   const b=appState.modelBounds;
   const c=bbox.center;
   const s=bbox.size;

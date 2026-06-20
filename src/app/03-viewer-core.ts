@@ -190,7 +190,7 @@
     });
     
     const hits=ray.intersectObjects(ms,false);
-    console.log('[PICK] meshes scanned:',ms.length,'hits:',hits.length);
+    
     if(!hits.length){restoreViewSnap();clearHighlight();document.getElementById('propArea').innerHTML='<div class="prop-empty">Click element in 3D to inspect</div>';return}
     
     // Find first hit that is INSIDE the clipping planes (section box)
@@ -243,7 +243,7 @@
       const fedChk=document.getElementById('fedVis'+targetModelIdx);
       if(fedChk && !fedChk.checked){log('Pick: federation model '+targetModelIdx+' unticked');return}
     }
-    if(targetModelIdx<0||!loadedModels[targetModelIdx]||!ifcLoader){console.log('[PICK] no model match, targetModelIdx=',targetModelIdx);return}
+    if(targetModelIdx<0||!loadedModels[targetModelIdx]||!ifcLoader){return}
     
     const modelID=loadedModels[targetModelIdx].modelID;
     let foundEid=null;
@@ -267,7 +267,7 @@
       }catch(e){}
     }
     
-    if(!foundEid){console.log('[PICK] no expressID found, faceIndex=',hit.faceIndex,'hasExpressID=',!!hit.object.geometry.attributes.expressID);return}
+    if(!foundEid){return}
     
     log('Pick: expressID='+foundEid+' model='+targetModelIdx+(hit.object.userData?.diffSubset?' (diff:'+hit.object.userData.diffSubset+')':''));
     
