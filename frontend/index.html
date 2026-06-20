@@ -74,7 +74,7 @@
           <div class="auth-verify-actions">
             <button type="button" class="auth-submit" id="verifyResend"><span class="auth-spinner"></span><span class="auth-submit-label">Resend verification email</span></button>
             <button type="button" class="auth-inline-link" style="text-align:center;margin-top:8px" onclick="checkVerifiedNow()">I've verified — refresh</button>
-            <button type="button" class="auth-inline-link" style="text-align:center;margin-top:4px;color:#9A9AA2" onclick="signOutFromVerify()">Use a different account</button>
+            <button type="button" class="auth-inline-link" style="text-align:center;margin-top:4px;color:#8B8680" onclick="signOutFromVerify()">Use a different account</button>
           </div>
         </div>
       </div>
@@ -118,32 +118,32 @@
 </div>
 
 <!-- ══════════════════ APP ══════════════════ -->
-<div id="app" style="height:100vh;width:100vw;display:flex;flex-direction:column;overflow:hidden;background:#F1F1F3;font-family:'Hanken Grotesk',-apple-system,system-ui,sans-serif;color:#27272A;-webkit-font-smoothing:antialiased">
+<div id="app" style="height:100vh;width:100vw;display:flex;flex-direction:column;overflow:hidden;background:#F8F7F5;font-family:'Hanken Grotesk',-apple-system,system-ui,sans-serif;color:#4A4541;-webkit-font-smoothing:antialiased">
 
   <!-- ═══════════ HEADER ═══════════ -->
-  <header style="flex:none;height:64px;display:flex;align-items:center;gap:10px;padding:0 16px;background:#fff;border-bottom:1px solid #E4E4E8;z-index:10">
+  <header style="flex:none;height:64px;display:flex;align-items:center;gap:10px;padding:0 16px;background:#fff;border-bottom:1px solid #E8E6E1;z-index:10">
 
     <!-- Logo -->
     <div style="display:flex;align-items:center;gap:10px;padding-right:4px;flex:none">
-      <div style="width:36px;height:36px;border-radius:10px;background:#161618;display:flex;align-items:center;justify-content:center;flex:none">
+      <div style="width:36px;height:36px;border-radius:10px;background:#2C2420;display:flex;align-items:center;justify-content:center;flex:none">
         <svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#fff;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>
       </div>
       <div style="line-height:1.1">
-        <div style="display:flex;align-items:baseline;gap:5px"><span style="font-size:15px;font-weight:800;letter-spacing:-.02em;color:#18181B">IFC Delta</span><span style="font-family:'JetBrains Mono';font-size:10.5px;font-weight:600;color:#9A9AA2">3D</span></div>
-        <div style="font-size:11px;font-weight:500;color:#8A8A90" id="headerModeLbl">Version Compare</div>
+        <div style="display:flex;align-items:baseline;gap:5px"><span style="font-size:15px;font-weight:800;letter-spacing:-.02em;color:#2C2420">IFC Delta</span><span style="font-family:'JetBrains Mono';font-size:10.5px;font-weight:600;color:#8B8680">3D</span></div>
+        <div style="font-size:11px;font-weight:500;color:#8B8680" id="headerModeLbl">Version Compare</div>
       </div>
     </div>
 
-    <div style="width:1px;height:28px;background:#ECECEF;flex:none"></div>
+    <div style="width:1px;height:28px;background:#E8E6E1;flex:none"></div>
 
     <!-- Mode segmented: Field / Compare / Clash -->
-    <div style="display:inline-flex;gap:2px;padding:3px;background:#E6E6EA;border-radius:12px;flex:none">
+    <div style="display:inline-flex;gap:2px;padding:3px;background:#E8E6E1;border-radius:12px;flex:none">
       <button id="fieldModeBtn" onclick="fieldEnterMode()" class="hdr-seg" title="Field Mode — tablet-optimized"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>Field</button>
       <button id="btnCompare" disabled onclick="runCompare()" class="hdr-seg hdr-seg-active" title="Compare two IFC versions"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>Compare</button>
-      <button id="btnClash" onclick="toggleClashMode()" class="hdr-seg" title="Clash detection" style="color:#dc2626"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>Clash</button>
+      <button id="btnClash" onclick="toggleClashMode()" class="hdr-seg" title="Clash detection" style="color:#D05050"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>Clash</button>
     </div>
 
-    <div style="width:1px;height:28px;background:#ECECEF;flex:none"></div>
+    <div style="width:1px;height:28px;background:#E8E6E1;flex:none"></div>
 
     <!-- Viewport tools -->
     <div style="display:flex;align-items:center;gap:1px;flex:none">
@@ -179,20 +179,20 @@
       <button onclick="toggleRightPanel()" id="btnToggleRight" class="hdr-panel-btn" title="Properties panel"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="15" y1="4.5" x2="15" y2="19.5"/><rect x="16.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg></button>
     </div>
 
-    <div style="width:1px;height:28px;background:#ECECEF;flex:none"></div>
+    <div style="width:1px;height:28px;background:#E8E6E1;flex:none"></div>
 
     <!-- SG Check (dark CTA) -->
-    <button id="btnSGCheck" onclick="toggleSGCheckPanel()" style="display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 15px;border:none;border-radius:11px;background:#18181B;color:#fff;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;flex:none;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>SG Check</button>
+    <button id="btnSGCheck" onclick="toggleSGCheckPanel()" style="display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 15px;border:none;border-radius:11px;background:#2C2420;color:#fff;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;flex:none;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>SG Check</button>
 
     <!-- Export dropdown -->
     <div style="position:relative;flex:none">
-      <button onclick="toggleExportMenu()" id="btnExportMenu" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:1px solid #DEDEE2;border-radius:11px;background:#fff;color:#27272A;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 14v4a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 18v-4"/></svg>Export<svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg></button>
-      <div id="exportMenuDrop" style="display:none;position:absolute;top:46px;right:0;width:264px;background:#fff;border:1px solid #ECECEF;border-radius:14px;box-shadow:0 20px 48px -18px rgba(24,24,27,.32);padding:6px;z-index:30">
+      <button onclick="toggleExportMenu()" id="btnExportMenu" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:1px solid #D0CCC8;border-radius:11px;background:#fff;color:#4A4541;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 14v4a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 18v-4"/></svg>Export<svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div id="exportMenuDrop" style="display:none;position:absolute;top:46px;right:0;width:264px;background:#fff;border:1px solid #E8E6E1;border-radius:14px;box-shadow:0 20px 48px -18px rgba(44,36,32,.32);padding:6px;z-index:30">
         <button onclick="captureScreenshot();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 16l5-5 4 4 3-3 6 6"/></svg></span><span class="exp-txt"><span class="exp-title">Snapshot image</span><span class="exp-sub">Current viewport</span></span><span class="exp-ext">PNG</span></button>
         <button onclick="sgExportReport();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5"/></svg></span><span class="exp-txt"><span class="exp-title">SG Check report</span><span class="exp-sub">Full compliance results</span></span><span class="exp-ext">PDF</span></button>
         <button onclick="exportCSV();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span><span class="exp-txt"><span class="exp-title">Change list</span><span class="exp-sub">Added / modified / removed</span></span><span class="exp-ext">CSV</span></button>
         <button onclick="exportBCF();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9zM12 2v18M4 6.5l8 4.5 8-4.5"/></svg></span><span class="exp-txt"><span class="exp-title">Issues package</span><span class="exp-sub">BCF for coordination</span></span><span class="exp-ext">BCF</span></button>
-        <div style="height:1px;background:#F2F2F4;margin:5px 8px"></div>
+        <div style="height:1px;background:#F0EEEB;margin:5px 8px"></div>
         <button onclick="exportClashCSV();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span><span class="exp-txt"><span class="exp-title">Clash list</span><span class="exp-sub">Clash detection results</span></span><span class="exp-ext">CSV</span></button>
         <button onclick="exportClashBCF();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9zM12 2v18M4 6.5l8 4.5 8-4.5"/></svg></span><span class="exp-txt"><span class="exp-title">Clash issues</span><span class="exp-sub">BCF for coordination</span></span><span class="exp-ext">BCF</span></button>
       </div>
@@ -200,7 +200,7 @@
     </div>
 
     <!-- Reset -->
-    <button onclick="resetCam()" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:1px solid #DEDEE2;border-radius:11px;background:#fff;color:#27272A;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;flex:none;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg>Reset</button>
+    <button onclick="resetCam()" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:1px solid #D0CCC8;border-radius:11px;background:#fff;color:#4A4541;font-family:'Hanken Grotesk';font-size:13px;font-weight:600;cursor:pointer;flex:none;white-space:nowrap"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg>Reset</button>
 
     <!-- User badge -->
     <button class="user-badge" id="userBadge" onclick="toggleUserMenu(event)" style="display:none">
@@ -213,7 +213,7 @@
   <div style="flex:1;min-height:0;display:flex">
 
     <!-- ═══ LEFT SIDEBAR ═══ -->
-    <aside id="leftPanel" style="flex:none;width:312px;background:#fff;border-right:1px solid #E4E4E8;display:flex;flex-direction:column;overflow-y:auto">
+    <aside id="leftPanel" style="flex:none;width:312px;background:#fff;border-right:1px solid #E8E6E1;display:flex;flex-direction:column;overflow-y:auto">
 
       <div style="padding:16px 16px 8px">
 
@@ -227,48 +227,48 @@
           </div>
           <div class="uc-file">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-              <span style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2">Version A</span>
+              <span style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8B8680">Version A</span>
               <span class="uc-badge-loaded" id="us0">Loading…</span>
             </div>
             <div class="uc-fname" id="fn0"></div>
-            <div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2;margin-top:4px" id="fs0"></div>
+            <div style="font-family:'JetBrains Mono';font-size:11px;color:#8B8680;margin-top:4px" id="fs0"></div>
           </div>
         </label>
 
         <!-- Vis toggle A -->
         <div class="vis-row" id="visRow0" style="display:none">
-          <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#52525B;cursor:pointer;padding:4px 2px">
-            <input type="checkbox" checked id="visA" onchange="toggleModelVis(0)" style="accent-color:#18181B;width:14px;height:14px">
+          <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#5A5652;cursor:pointer;padding:4px 2px">
+            <input type="checkbox" checked id="visA" onchange="toggleModelVis(0)" style="accent-color:#2C2420;width:14px;height:14px">
             <span style="width:8px;height:8px;border-radius:2px;background:#ef4444;opacity:.8"></span>
             Version A (Baseline)
           </label>
         </div>
 
         <!-- Baseline label row -->
-        <div style="height:1px;background:#ECECEF;margin:10px 0"></div>
+        <div style="height:1px;background:#E8E6E1;margin:10px 0"></div>
 
         <!-- Upload card B -->
         <label class="uc-card uc-card-dashed" id="uc1" for="f1">
           <input type="file" id="f1" accept=".ifc,*/*" onchange="handleFile(1)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
           <div class="uc-placeholder">
-            <div class="uc-ver-label" style="color:#9A9AA2">Version B — Updated</div>
+            <div class="uc-ver-label" style="color:#8B8680">Version B — Updated</div>
             <div class="uc-drop-text"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 16v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"/></svg>Drop IFC here</div>
             <div class="uc-hint">click or drag .ifc</div>
           </div>
           <div class="uc-file">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-              <span style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2">Version B</span>
+              <span style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8B8680">Version B</span>
               <span class="uc-badge-loaded" id="us1">Loading…</span>
             </div>
             <div class="uc-fname" id="fn1"></div>
-            <div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2;margin-top:4px" id="fs1"></div>
+            <div style="font-family:'JetBrains Mono';font-size:11px;color:#8B8680;margin-top:4px" id="fs1"></div>
           </div>
         </label>
 
         <!-- Vis toggle B -->
         <div class="vis-row" id="visRow1" style="display:none">
-          <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#52525B;cursor:pointer;padding:4px 2px">
-            <input type="checkbox" checked id="visB" onchange="toggleModelVis(1)" style="accent-color:#18181B;width:14px;height:14px">
+          <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#5A5652;cursor:pointer;padding:4px 2px">
+            <input type="checkbox" checked id="visB" onchange="toggleModelVis(1)" style="accent-color:#2C2420;width:14px;height:14px">
             <span style="width:8px;height:8px;border-radius:2px;background:#3b82f6;opacity:.8"></span>
             Version B (Updated)
           </label>
@@ -282,7 +282,7 @@
         </div>
       </div>
 
-      <div style="height:1px;background:#ECECEF;margin:0 16px"></div>
+      <div style="height:1px;background:#E8E6E1;margin:0 16px"></div>
 
       <!-- Google Drive -->
       <div class="od-panel" id="odPanel">
@@ -302,7 +302,7 @@
         </div>
       </div>
 
-      <div style="height:1px;background:#ECECEF;margin:0 16px"></div>
+      <div style="height:1px;background:#E8E6E1;margin:0 16px"></div>
 
       <!-- Delta summary strip -->
       <div class="summary-strip" id="sumStrip">
@@ -326,9 +326,9 @@
       <!-- Category filter -->
       <div class="cat-filter show" id="catFilter">
         <div style="padding:6px 14px 4px">
-          <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9A9AA2;margin-bottom:7px">Category Filter</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8B8680;margin-bottom:7px">Category Filter</div>
           <div class="cat-select-btn" id="catBtn" onclick="toggleCatDropdown()">
-            <div class="cat-tags" id="catTags"><span style="color:#9A9AA2">All categories</span></div>
+            <div class="cat-tags" id="catTags"><span style="color:#8B8680">All categories</span></div>
             <span class="arrow">▼</span>
           </div>
           <div class="cat-dropdown" id="catDropdown">
@@ -345,7 +345,7 @@
 
       <!-- Tabs -->
       <div style="padding:8px 14px 6px">
-        <div style="display:inline-flex;gap:2px;padding:3px;background:#E6E6EA;border-radius:11px;width:100%">
+        <div style="display:inline-flex;gap:2px;padding:3px;background:#E8E6E1;border-radius:11px;width:100%">
           <button class="ptab on" onclick="switchTab('tree')" style="flex:1">Entity Tree</button>
           <button class="ptab" onclick="switchTab('issues')" style="flex:1">Issues <span class="ptab-count" id="issueCount">0</span></button>
           <button class="ptab" onclick="switchTab('search')" style="flex:1"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg> Search <span class="ptab-count" id="searchCount" style="display:none">0</span></button>
@@ -401,7 +401,7 @@
     </aside>
 
     <!-- ═══ VIEWPORT CENTER ═══ -->
-    <main style="flex:1;min-width:0;position:relative;background:radial-gradient(120% 90% at 50% 35%, #F6F6F8 0%, #ECECEF 70%, #E6E6EA 100%);overflow:hidden;display:flex;flex-direction:column">
+    <main style="flex:1;min-width:0;position:relative;background:radial-gradient(120% 90% at 50% 35%, #F5F3F0 0%, #EAE7E3 70%, #E2DED9 100%);overflow:hidden;display:flex;flex-direction:column">
 
       <!-- Floor grid -->
       <div style="position:absolute;inset:0;background-image:linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(75% 70% at 50% 60%,#000 0%,transparent 80%);-webkit-mask-image:radial-gradient(75% 70% at 50% 60%,#000 0%,transparent 80%);opacity:.7;pointer-events:none"></div>
@@ -419,11 +419,11 @@
         <div class="view-cube-home" id="viewCubeHome" title="Reset view" onclick="resetCam()"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg></div>
 
         <!-- HUD top-center -->
-        <div id="vpHUD" style="display:none;position:absolute;top:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px 14px;background:#fff;border:1px solid #ECECEF;border-radius:12px;box-shadow:0 10px 28px -16px rgba(24,24,27,.24);z-index:6;pointer-events:none">
-          <span style="width:8px;height:8px;border-radius:999px;background:#18181B;flex:none" id="vpHUDDot"></span>
-          <span style="font-size:12.5px;font-weight:700;color:#18181B" id="vpHUDTitle">3D View</span>
-          <span style="width:1px;height:14px;background:#ECECEF"></span>
-          <span style="font-size:12px;font-weight:500;color:#71717A" id="vpHUDMeta">—</span>
+        <div id="vpHUD" style="display:none;position:absolute;top:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px 14px;background:#fff;border:1px solid #E8E6E1;border-radius:12px;box-shadow:0 10px 28px -16px rgba(44,36,32,.24);z-index:6;pointer-events:none">
+          <span style="width:8px;height:8px;border-radius:999px;background:#2C2420;flex:none" id="vpHUDDot"></span>
+          <span style="font-size:12.5px;font-weight:700;color:#2C2420" id="vpHUDTitle">3D View</span>
+          <span style="width:1px;height:14px;background:#E8E6E1"></span>
+          <span style="font-size:12px;font-weight:500;color:#8B8680" id="vpHUDMeta">—</span>
         </div>
 
         <!-- Compare / Clash legend overlay -->
@@ -516,24 +516,24 @@
 
         <!-- Transparency panel -->
         <div class="tp-panel" id="tpPanel">
-          <span style="font-size:12px;color:#9A9AA2;font-family:'JetBrains Mono'">Opacity</span>
+          <span style="font-size:12px;color:#8B8680;font-family:'JetBrains Mono'">Opacity</span>
           <input type="range" id="slOpacity" min="5" max="100" value="100" style="width:120px;height:4px" oninput="setGlobalOpacity(this.value)">
-          <span id="opVal" style="font-size:12px;font-family:'JetBrains Mono';color:#52525B;min-width:28px">100%</span>
+          <span id="opVal" style="font-size:12px;font-family:'JetBrains Mono';color:#5A5652;min-width:28px">100%</span>
         </div>
 
         <!-- Measure overlay -->
         <div class="measure-info" id="measureInfo" style="display:none">
           <div style="display:flex;gap:2px;margin-right:6px">
             <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:12px;padding:2px 8px;border:1px solid #3b82f6;border-radius:6px;background:#eff6ff;color:#3b82f6;cursor:pointer;font-weight:600"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M2 20L20 4"/><path d="M6 16l2-2m2-2l2-2"/></svg> Distance</button>
-            <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:12px;padding:2px 8px;border:1px solid #E4E4E8;border-radius:6px;background:#fff;color:#52525B;cursor:pointer"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M3 12h18M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg> Level</button>
+            <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:12px;padding:2px 8px;border:1px solid #E8E6E1;border-radius:6px;background:#fff;color:#5A5652;cursor:pointer"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M3 12h18M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg> Level</button>
           </div>
           <span style="font-family:'JetBrains Mono';font-size:13px;font-weight:600" id="measureText">Click 2 points to measure</span>
-          <button onclick="clearMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid #E4E4E8;border-radius:6px;background:#fff;color:#52525B;cursor:pointer;margin-left:8px">Clear</button>
+          <button onclick="clearMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid #E8E6E1;border-radius:6px;background:#fff;color:#5A5652;cursor:pointer;margin-left:8px">Clear</button>
           <button onclick="toggleMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid #ef4444;border-radius:6px;background:#fef2f2;color:#ef4444;cursor:pointer;margin-left:4px"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Exit</button>
         </div>
 
         <!-- Walk HUD -->
-        <div id="walkHUD" style="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:15;padding:8px 16px;background:rgba(24,24,27,.8);border-radius:10px;color:#fff;font-family:'JetBrains Mono';font-size:11px;text-align:center;pointer-events:none;backdrop-filter:blur(4px)">
+        <div id="walkHUD" style="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:15;padding:8px 16px;background:rgba(44,36,32,.8);border-radius:10px;color:#fff;font-family:'JetBrains Mono';font-size:11px;text-align:center;pointer-events:none;backdrop-filter:blur(4px)">
           <div style="font-size:13px;font-weight:700;margin-bottom:4px"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg> WALK MODE</div>
           <div><b>WASD</b> Move · <b>QE</b> Up/Down · <b>Mouse</b> Look · <b>Shift</b> Sprint · <b>Scroll</b> Speed · <b>Esc</b> Exit</div>
         </div>
@@ -591,13 +591,13 @@
             <option value="none">No grouping</option><option value="categoryA">Source Category</option><option value="categoryB">Target Category</option><option value="level">Story Level</option>
           </select>
         </div>
-        <div class="clash-list" id="clashList"><div style="padding:20px;text-align:center;color:#9A9AA2;font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div></div>
+        <div class="clash-list" id="clashList"><div style="padding:20px;text-align:center;color:#8B8680;font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div></div>
       </div>
 
       <!-- ─── SG PANEL ─── -->
       <div class="sg-panel" id="sgPanel">
         <div class="sg-header">
-          <span class="sg-header-icon"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:#dc2626;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+          <span class="sg-header-icon"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:#D05050;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
           <span class="sg-header-title">CORENET X / IFC-SG Pre-Submission Validator</span>
           <span class="sg-header-sub" id="sgHeaderSub">— <span id="sgRuleSrc">Built-in rules</span></span>
           <select class="sg-gateway-select" id="sgGateway" onchange="sgChangeGateway()"><option value="design">Design Gateway</option><option value="piling">Piling Gateway</option><option value="construction">Construction Gateway</option><option value="completion">Completion Gateway</option></select>
@@ -636,11 +636,11 @@
     </main>
 
     <!-- ═══ RIGHT PANEL (Properties) ═══ -->
-    <aside id="rightPanel" style="flex:none;width:320px;background:#fff;border-left:1px solid #E4E4E8;display:none;flex-direction:column;overflow:hidden">
-      <div style="flex:none;padding:16px 18px 12px;border-bottom:1px solid #ECECEF">
-        <div style="font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#9A9AA2;margin-bottom:8px">Properties</div>
+    <aside id="rightPanel" style="flex:none;width:320px;background:#fff;border-left:1px solid #E8E6E1;display:none;flex-direction:column;overflow:hidden">
+      <div style="flex:none;padding:16px 18px 12px;border-bottom:1px solid #E8E6E1">
+        <div style="font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#8B8680;margin-bottom:8px">Properties</div>
       </div>
-      <div class="prop-area" id="propArea"><div style="padding:30px 14px;text-align:center;color:#9A9AA2;font-size:13px">Click element in 3D to inspect</div></div>
+      <div class="prop-area" id="propArea"><div style="padding:30px 14px;text-align:center;color:#8B8680;font-size:13px">Click element in 3D to inspect</div></div>
     </aside>
 
   </div><!-- /body -->

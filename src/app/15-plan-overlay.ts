@@ -370,8 +370,8 @@ function drawPlanCameraMarker(){
     onStorey = (camY >= storey.elevation - 0.5) && (camY <= storey.topElev + 0.5);
   }
   const fanFill   = onStorey ? 'rgba(37,99,235,0.18)' : 'rgba(120,120,120,0.10)';
-  const fanStroke = onStorey ? '#2563eb' : '#9ca3af';
-  const eyeFill   = onStorey ? '#2563eb' : '#6b7280';
+  const fanStroke = onStorey ? '#2563eb' : '#8B8680';
+  const eyeFill   = onStorey ? '#2563eb' : '#8B8680';
 
   const ARROW_LEN = 5;
   const ax = px + Math.cos(svgAngle) * ARROW_LEN;
@@ -422,9 +422,9 @@ function drawPlanCameraMarker(){
   const NORTH_X = cw - 22, NORTH_Y = 22;
   const northArrow = `
     <g transform="translate(${NORTH_X},${NORTH_Y}) rotate(${(-tnDeg).toFixed(1)})">
-      <circle cx="0" cy="0" r="14" fill="white" opacity="0.9" stroke="#374151" stroke-width="0.8"/>
-      <polygon points="0,-9 -4,7 0,4 4,7" fill="#dc2626" stroke="white" stroke-width="0.5"/>
-      <text x="0" y="-2" text-anchor="middle" font-family="Inter" font-size="9" font-weight="700" fill="#dc2626" stroke="white" stroke-width="2.5" paint-order="stroke">N</text>
+      <circle cx="0" cy="0" r="14" fill="white" opacity="0.9" stroke="#4A4541" stroke-width="0.8"/>
+      <polygon points="0,-9 -4,7 0,4 4,7" fill="#D05050" stroke="white" stroke-width="0.5"/>
+      <text x="0" y="-2" text-anchor="middle" font-family="Inter" font-size="9" font-weight="700" fill="#D05050" stroke="white" stroke-width="2.5" paint-order="stroke">N</text>
     </g>`;
 
   // ── Scale bar (bottom-left corner) ──
@@ -442,10 +442,10 @@ function drawPlanCameraMarker(){
   const scaleBar = `
     <g transform="translate(${scaleX},${scaleY})">
       <rect x="0" y="-2" width="${scalePx.toFixed(1)}" height="4" fill="white" opacity="0.85"/>
-      <line x1="0" y1="0" x2="${scalePx.toFixed(1)}" y2="0" stroke="#374151" stroke-width="1.5"/>
-      <line x1="0" y1="-3" x2="0" y2="3" stroke="#374151" stroke-width="1.2"/>
-      <line x1="${scalePx.toFixed(1)}" y1="-3" x2="${scalePx.toFixed(1)}" y2="3" stroke="#374151" stroke-width="1.2"/>
-      <text x="${(scalePx/2).toFixed(1)}" y="-6" text-anchor="middle" font-family="Inter" font-size="10" font-weight="600" fill="#374151" stroke="white" stroke-width="2.5" paint-order="stroke">${nice >= 1 ? nice + ' m' : (nice*1000).toFixed(0) + ' mm'}</text>
+      <line x1="0" y1="0" x2="${scalePx.toFixed(1)}" y2="0" stroke="#4A4541" stroke-width="1.5"/>
+      <line x1="0" y1="-3" x2="0" y2="3" stroke="#4A4541" stroke-width="1.2"/>
+      <line x1="${scalePx.toFixed(1)}" y1="-3" x2="${scalePx.toFixed(1)}" y2="3" stroke="#4A4541" stroke-width="1.2"/>
+      <text x="${(scalePx/2).toFixed(1)}" y="-6" text-anchor="middle" font-family="Inter" font-size="10" font-weight="600" fill="#4A4541" stroke="white" stroke-width="2.5" paint-order="stroke">${nice >= 1 ? nice + ' m' : (nice*1000).toFixed(0) + ' mm'}</text>
     </g>`;
 
   // ── Compose the full SVG ──

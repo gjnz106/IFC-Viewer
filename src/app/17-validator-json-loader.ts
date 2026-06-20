@@ -751,7 +751,7 @@ async function sgRunValidation(){
     sgRenderResults();
   }catch(err){
     log('SG validation error:', err?.message);
-    document.getElementById('sgRulesList').innerHTML = `<div class="sg-empty" style="color:#dc2626">Error: ${err?.message||err}</div>`;
+    document.getElementById('sgRulesList').innerHTML = `<div class="sg-empty" style="color:#D05050">Error: ${err?.message||err}</div>`;
   }finally{
     document.getElementById('sgRunBtn').disabled = false;
     document.getElementById('sgRunBtn').textContent = '▶ Validate';
@@ -796,7 +796,7 @@ function sgRenderResults(){
           <div class="sg-rule-counts">
             <span class="pass-n">${passed.length} pass</span>
             ${failed.length>0?` • <span class="fail-n">${failed.length} fail</span>`:''}
-            ${skipped>0?` • <span style="color:#9ca3af">${skipped} skip</span>`:''}
+            ${skipped>0?` • <span style="color:#8B8680">${skipped} skip</span>`:''}
           </div>
         </div>
       </div>`;
