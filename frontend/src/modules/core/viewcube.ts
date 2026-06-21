@@ -76,7 +76,7 @@ export function initViewCube(): void {
   ring.position.y=-0.82;
   vs.add(ring);
 
-  viewCube={scene:vs,cam:vc,renderer:vr,mesh:cubeMesh,host};
+  viewCube={scene:vs,cam:vc,renderer:vr,mesh:cubeMesh,host,pickables:[cubeMesh]};
   // Sync local object to appState
   appState.viewCube=viewCube as any;
 

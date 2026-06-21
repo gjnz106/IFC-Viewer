@@ -39,6 +39,11 @@ let planDragState: PlanDragState | null = null;
 declare const THREE: any;
 declare const FED_LABELS: string[];
 
+// Forward declarations to satisfy TypeScript's linear scoping
+declare function planSelectStorey(idx: number | string): void;
+declare function planFit(): void;
+declare function requestPlanRender(): void;
+
 window.togglePlanOverlay = function(): void {
   const panel = document.getElementById('planOverlay') as HTMLElement;
   const btn = document.getElementById('btnPlan') as HTMLElement;
@@ -236,7 +241,7 @@ window.requestPlanRender = function(): void {
 
 function drawPlanCameraMarker(): void {
   if (!planView) return;
-  const svg = document.getElementById('planMarkerSvg') as SVGElement | null;
+  const svg = document.getElementById('planMarkerSvg') as unknown as SVGElement | null;
   if (!svg) return;
   const pcam = planView.camera;
   const fw = pcam.right - pcam.left;

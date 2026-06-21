@@ -161,6 +161,7 @@ function doCompare(a: Record<string, any>, b: Record<string, any>): any {
   // ── Phase 2: Smart match unmatched by Type + Name ──
   // When Revit modifies/moves an element, it often creates a new GlobalId.
   // We detect this by matching: same Type + same/similar Name → Modified (with new GlobalId)
+  const modifiedBeforePhase2 = modified.length;
   const matchedA = new Set<number>();
   const matchedB = new Set<number>();
 
@@ -228,7 +229,7 @@ function doCompare(a: Record<string, any>, b: Record<string, any>): any {
     }
   }
 
-  log(`Phase2 (smart match): +${modified.length - modified.length} modified via Type+Name`);
+  log(`Phase2 (smart match): +${modified.length - modifiedBeforePhase2} modified via Type+Name`);
   log(`Final: added=${added.length}, removed=${removed.length}, modified=${modified.length}, unchanged=${unchanged.length}`);
 
   return { added, removed, modified, unchanged };
@@ -341,7 +342,7 @@ function showResultsUI() {
   const sA = document.getElementById('sA'); if (sA) sA.textContent = '+' + r.added.length;
   const sR = document.getElementById('sR'); if (sR) sR.textContent = '−' + r.removed.length;
   const sM = document.getElementById('sM'); if (sM) sM.textContent = '~' + r.modified.length;
-  const sU = document.getElementById('sU'); if (sU) sU.textContent = r.unchanged.length;
+  const sU = document.getElementById('sU'); if (sU) sU.textContent = String(r.unchanged.length);
   appState.activeFilter = 'all';
   appState.activeCategories = new Set();
   document.querySelectorAll('.fchip').forEach((c: any) => c.classList.toggle('on', c.dataset.f === 'all'));

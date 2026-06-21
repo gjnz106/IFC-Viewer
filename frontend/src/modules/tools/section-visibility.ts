@@ -1,4 +1,37 @@
+import * as THREE from 'three';
+import { IFCLoader } from 'web-ifc-three';
+// IFC type code constants from the IFC4 schema (stable numeric values)
+const IFCSPACE = 3856911033;
+const IFCOPENINGELEMENT = 3588315303;
+const IFCPROJECT = 103090709;
+const IFCSITE = 4097777520;
+const IFCBUILDING = 4031249490;
+const IFCBUILDINGSTOREY = 3124254112;
+const IFCWALL = 2391406946;
+const IFCWALLSTANDARDCASE = 3512223829;
+const IFCSLAB = 1529196076;
+const IFCCOLUMN = 843113511;
+const IFCBEAM = 753842376;
+const IFCDOOR = 395920057;
+const IFCWINDOW = 3304561284;
+const IFCROOF = 2016517767;
+const IFCSTAIR = 331165859;
+const IFCSTAIRFLIGHT = 4252922144;
+const IFCRAILING = 2262370178;
+const IFCPLATE = 3171933400;
+const IFCMEMBER = 1073191201;
+const IFCCURTAINWALL = 3495092785;
+const IFCFOOTING = 900683007;
+const IFCBUILDINGELEMENTPROXY = 1095909175;
+const IFCFURNISHINGELEMENT = 263784265;
+const IFCFLOWSEGMENT = 987401354;
+const IFCFLOWTERMINAL = 2223149337;
+const IFCFLOWFITTING = 4278956645;
 import { appState } from '../../state/index.js';
+import { log } from '../core/ifc-category.js';
+import { setStatus } from './focus-highlight.js';
+import { fedRenderSlots } from '../compare/federation-load.js';
+import { IFC_NAMES } from '../../constants.js';
 
 // ── Section Plan parallel to clicked face (Dalux-style) ──
 // Only creates ONE clipping plane at the face position. All other directions stay fully open.
@@ -69,13 +102,13 @@ function zoomToElement(bbox: any){
 
 // Keyboard shortcuts
 document.addEventListener('keydown',e=>{
-  if(e.key==='h'||e.key==='H'){if(appState.ctxTarget)hideExpressID(appState.ctxTarget.expressID,appState.ctxTarget.modelIdx)}
-  if(e.key==='i'||e.key==='I'){if(appState.ctxTarget)isolateExpressID(appState.ctxTarget.expressID,appState.ctxTarget.modelIdx)}
+  if(e.key==='h'||e.key==='H'){if(appState.ctxTarget)(window as any).hideExpressID?.(appState.ctxTarget.expressID,appState.ctxTarget.modelIdx)}
+  if(e.key==='i'||e.key==='I'){if(appState.ctxTarget)(window as any).isolateExpressID?.(appState.ctxTarget.expressID,appState.ctxTarget.modelIdx)}
   if(e.key==='Escape'){
     // Only clear highlight + section, NOT unhide
     clearHighlight();
     document.getElementById('propArea')!.innerHTML='<div class="prop-empty">Click element in 3D to inspect</div>';
-    if(appState.sectionActive){toggleSectionBox()}
+    if(appState.sectionActive){window.toggleSectionBox?.()}
   }
 });
 
@@ -417,7 +450,7 @@ async function buildCatFromModels(){
   if(!api)return;
 
   window._catData={};
-  window._catModelIDs={}; // {typeName: {0: [expressIDs], 1: [expressIDs]}}
+  (window as any)._catModelIDs={}; // {typeName: {0: [expressIDs], 1: [expressIDs]}}
 
   // PRODUCT_TYPES for category filter UI + clash element-type dropdown.
   // Critical: must include all CONCRETE IFC4 subtypes that real authoring
@@ -527,8 +560,8 @@ async function buildCatFromModels(){
   // Show panel tabs so Search is accessible even without compare
   document.getElementById('panelTabs')!.classList.add('show');
   appState.activeCategories=new Set();
-  buildCatDropdown();
-  updateCatTags();
+  (window as any).buildCatDropdown?.();
+  (window as any).updateCatTags?.();
 }
 
 // ══ Apply category visibility in VIEW mode (no compare) ══
@@ -923,7 +956,7 @@ function initSectionDrag(){
     const h=hits.length>0?hits[0].object:null;
     if(h!==lastH){
       sectionBox.arrows.forEach((a: any,i: number)=>{a.material.color.set([0xef4444,0xef4444,0x22c55e,0x22c55e,0x3b82f6,0x3b82f6][i]);a.scale.setScalar(1.0)});
-      if(h){h.material.color.set(0xffffff);h.scale.setScalar(1.3)}
+      if(h){(h as any).material.color.set(0xffffff);h.scale.setScalar(1.3)}
       lastH=h;
     }
     appState.renderer.domElement.style.cursor=h?'grab':'';

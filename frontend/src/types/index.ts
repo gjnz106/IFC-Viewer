@@ -1,15 +1,32 @@
 import type * as THREE from 'three';
 
 // ── IFC / Model types ──────────────────────────────────────────────────
+export interface StoreyInfo {
+  expressID: number;
+  name: string;
+  elevation: number;
+}
+
+export interface SpatialInfo {
+  storeys: StoreyInfo[];
+  siteName?: string;
+  buildingName?: string;
+  sites?: any[];
+  trueNorthAngle?: number;
+}
+
 export interface LoadedModel {
   modelID: number;
-  mesh: THREE.Object3D;
-  units?: { length: number; area: number; volume: number };
-  spatial?: {
-    storeys: Record<number, string>;
-    storeySolids?: Record<number, number[]>;
+  mesh?: THREE.Object3D;
+  units?: {
+    lengthFactor: number; lengthUnit: string;
+    areaFactor: number; areaUnit: string;
+    volumeFactor: number; volumeUnit: string;
   };
+  spatial?: SpatialInfo;
+  fileName?: string;
   visible?: boolean;
+  [key: string]: any;
 }
 
 export interface ModelBounds {
@@ -33,14 +50,20 @@ export interface CompareItem {
   modelIdB?: number;
 }
 
+export interface CompareEntity {
+  gid: string;
+  entity?: any;
+  a?: any;
+  b?: any;
+  status: 'added' | 'removed' | 'modified' | 'unchanged';
+  diffs?: any[];
+}
+
 export interface CompareResult {
-  items: CompareItem[];
-  added: number;
-  removed: number;
-  changed: number;
-  unchanged: number;
-  modelIdA: number;
-  modelIdB: number;
+  added: CompareEntity[];
+  removed: CompareEntity[];
+  modified: CompareEntity[];
+  unchanged: CompareEntity[];
 }
 
 // ── Colorize types ─────────────────────────────────────────────────────
@@ -92,35 +115,38 @@ export interface ClashResult {
 }
 
 // ── Validator types ────────────────────────────────────────────────────
-export interface SGRule {
-  id: string;
-  agency: string;
+export interface SGValidationContext {
+  entities: any[];
+  byClass: Map<string, any[]>;
+  modelIDs: any[];
   gateway: string;
-  category: string;
-  check: (ctx: SGValidationContext) => SGRuleResult[];
-  description?: string;
 }
 
 export interface SGRuleResult {
-  ruleId: string;
-  expressId: number;
-  modelId: number;
-  status: 'pass' | 'fail' | 'warning';
-  message: string;
+  ruleId?: string;
+  expressId?: number;
+  modelId?: number;
+  status?: 'pass' | 'fail' | 'warning';
+  message?: string;
   element?: string;
+  [key: string]: any;
 }
 
-export interface SGValidationContext {
-  modelID: number;
-  loadedModels: any[];
-  ifcLoader: any;
-  allElements?: any[];
+export interface SGRule {
+  id: string;
+  agency: string;
+  gateway: string | string[];
+  category: string;
+  severity?: string;
+  check: (ctx: SGValidationContext) => any;
+  description?: string;
 }
 
 export interface SGState {
-  results: SGRuleResult[];
-  activeGateway: string;
+  results: { rules: any[]; stats: any } | null;
+  gateway: string;
   cachedCtx: SGValidationContext | null;
+  cachedCtxKey: string | null;
   selectedRuleIdx: number;
 }
 
@@ -241,9 +267,11 @@ declare global {
     renderTree?: () => void;
     togG?: (h: HTMLElement) => void;
     selI?: (gid: string) => void;
-    navIssue?: (dir: 'prev' | 'next') => void;
+    navIssue?: (dir: number) => void;
     exportCSV?: () => void;
     exportBCF?: () => Promise<void>;
+    buildIssues?: () => void;
+    runCompare?: (a: Record<string, any>, b: Record<string, any>) => any;
 
     // File handling
     handleFile?: (idx: number) => Promise<void>;
@@ -271,6 +299,24 @@ declare global {
     toggleColorize?: () => Promise<void>;
     _colorizeInvalidate?: (modelIdx: number) => void;
     colorizeSetProp?: (v: string) => void;
+    colorizeSetMode?: (mode: string) => void;
+    applyColorize?: () => Promise<void>;
+    colorizeAddRule?: () => void;
+    colorizeDeleteRule?: (idx: number) => void;
+    colorizeSetRuleColor?: (idx: number, color: string) => void;
+    colorizeSetRuleName?: (idx: number, name: string) => void;
+    colorizeAddCondition?: (ruleIdx: number) => void;
+    colorizeRemoveCondition?: (ruleIdx: number, condIdx: number) => void;
+    colorizeUpdateCondition?: (ruleIdx: number, condIdx: number, field: string, value: string) => void;
+    colorizeSetColor?: (key: string, color: string) => void;
+    colorizeToggleValue?: (key: string) => void;
+    colorizeResetColors?: () => void;
+    colorizeClear?: () => void;
+    colorizeToggleCollapse?: () => void;
+    colorizeSaveScheme?: (name: string) => void;
+    colorizeToggleSchemesPanel?: () => void;
+    colorizeLoadScheme?: (name: string) => void;
+    colorizeDeleteScheme?: (name: string) => void;
 
     // UI shell (header / panel toggles)
     toggleLeftPanel?: () => void;
@@ -369,6 +415,37 @@ declare global {
 
     // AI
     aiIndexSummary?: () => void;
+    buildAIIndex?: () => Promise<void>;
+    countElements?: (...args: any[]) => any;
+    sumQuantity?: (...args: any[]) => any;
+    runAITool?: (name: string, args: any) => any;
+    AI_TOOLS?: any[];
+
+    // Context menu / color-schemes
+    ctxAction?: (action: string, extra?: any) => void;
+    showAllHidden?: () => void;
+
+    // Internal state
+    _catData?: Record<string, any>;
+    _catModelIDs?: number[];
+    _pendingPivot?: THREE.Vector3 | null;
+    _vpResize?: () => void;
+    _hlMat?: any;
+    _lastHL?: { subset: any; mid: number } | null;
+    dragHandle?: any;
+    getAllProps?: (modelID: number) => Promise<Record<string, any>>;
+    findModelIdx?: (obj: any) => number;
+    clearHighlight?: () => void;
+    initIFC?: () => Promise<boolean>;
+    loadIFC?: (idx: number) => Promise<void>;
+    escapeHtml?: (s: string) => string;
+    DEBUG?: boolean;
+    IFC_NAMES?: Record<number, string>;
+    measureMode?: boolean;
+    measurePoints?: any[];
+    addMeasurePoint?: (pt: any) => void;
+    updateSectionFromSliders?: () => void;
+    storey?: number | null;
   }
 }
 

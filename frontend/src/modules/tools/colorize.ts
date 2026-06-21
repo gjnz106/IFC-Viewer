@@ -88,7 +88,7 @@ window.toggleColorize=async function(){
 // Apply the current coloring. Dispatcher based on mode. Called whenever the
 // coloring state should be re-rendered (mode toggle, property change, rule
 // edit, color change).
-window.applyColorize=async function(){
+async function applyColorize(): Promise<void> {
   if(!appState.colorize.active)return;
   // Always reset: clear subsets + ensure base is faded.
   colorizeDisposeSubsets();
@@ -100,7 +100,8 @@ window.applyColorize=async function(){
   }else{
     await applyColorizeAuto();
   }
-};
+}
+window.applyColorize = applyColorize;
 
 // Ensure props are loaded & cached for both loaded models. Shared by both
 // modes. Reshapes getAllProps() output from {globalId: entity} to
@@ -136,7 +137,7 @@ async function colorizeLoadPropsCache(): Promise<void> {
 async function applyColorizeAuto(): Promise<void> {
   // Sync property dropdown into state
   const sel=document.getElementById('czProp') as HTMLSelectElement | null;
-  if(sel)appState.colorize.property=sel.value||'category';
+  if(sel)appState.colorize.property=(sel.value||'category') as typeof appState.colorize.property;
 
   // Build value → {expressIDs per model} index
   const idx: Record<string, {0: Set<number>; 1: Set<number>}> = {};
