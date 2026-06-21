@@ -597,7 +597,7 @@ async function sgBuildContext(): Promise<any> {
     for (const [mid, eids] of byModelID) {
       try {
         const api = mgr.state.api;
-        const relIDs = api.GetLineIDsWithType(mid, IFCRELDEFINESBYPROPERTIES);
+        const relIDs = api.GetLineIDsWithType(mid, IFCRELDEFINESBYPROPERTIES) as any;
         const relCount = relIDs.size();
         log(`SG pset scan: ${relCount} IfcRelDefinesByProperties in model ${mid}`);
 
