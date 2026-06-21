@@ -10,9 +10,9 @@
     "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
     "frontend": "npm run dev --workspace=frontend",
     "backend": "npm run dev --workspace=backend",
-    "build:standalone": "tsx build.ts",
-    "verify:standalone": "tsx scripts/verify-build.ts",
-    "typecheck:standalone": "tsx scripts/typecheck-standalone.ts"
+    "build:standalone": "node --import tsx build.ts",
+    "verify:standalone": "node --import tsx scripts/verify-build.ts",
+    "typecheck:standalone": "node --import tsx scripts/typecheck-standalone.ts"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
