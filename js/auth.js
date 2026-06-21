@@ -8,7 +8,9 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
-  reload as reloadUser
+  reload as reloadUser,
+  createUserWithEmailAndPassword,
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
 const firebaseConfig = {
   apiKey: "AIzaSyCrqJiIxlahcHZuwa7xS7KMX8Z5c6Ky3Oo",
@@ -41,11 +43,13 @@ const viewLoading = $("authViewLoading");
 const viewLogin = $("authViewLogin");
 const viewVerify = $("authViewVerify");
 const viewReset = $("authViewReset");
+const viewSignup = $("authViewSignup");
 function showView(which) {
   viewLoading.style.display = which === "loading" ? "" : "none";
   viewLogin.style.display = which === "login" ? "" : "none";
   viewVerify.style.display = which === "verify" ? "" : "none";
   viewReset.style.display = which === "reset" ? "" : "none";
+  viewSignup.style.display = which === "signup" ? "" : "none";
 }
 showView("loading");
 const _authInitTimeout = setTimeout(() => {
@@ -202,7 +206,12 @@ window.showResetView = function() {
 };
 window.showLoginView = function() {
   clearMsg("resetMsg");
+  clearMsg("signupMsg");
   showView("login");
+};
+window.showSignupView = function() {
+  clearMsg("signupMsg");
+  showView("signup");
 };
 $("resetForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -265,6 +274,46 @@ window.doLogout = async function() {
 };
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && $("confirmBackdrop").classList.contains("show")) {
-    cancelLogout();
+    window.cancelLogout();
+  }
+});
+$("signupForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!auth) return;
+  clearMsg("signupMsg");
+  const name = $("signupName").value.trim();
+  const email = $("signupEmail").value.trim();
+  const pass = $("signupPassword").value;
+  const pass2 = $("signupPasswordConfirm").value;
+  if (!name || !email || !pass || !pass2) {
+    showMsg("signupMsg", "Please fill in all fields.");
+    return;
+  }
+  if (pass !== pass2) {
+    showMsg("signupMsg", "Passwords do not match.");
+    return;
+  }
+  if (pass.length < 6) {
+    showMsg("signupMsg", "Password should be at least 6 characters.");
+    return;
+  }
+  setLoading("signupSubmit", true);
+  try {
+    const { user } = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(user, { displayName: name });
+    await sendEmailVerification(user).catch(() => {
+    });
+    showMsg("signupMsg", "Account created! Please check your email for verification.", "success");
+  } catch (err) {
+    const c = err?.code || "";
+    if (c === "auth/email-already-in-use") {
+      showMsg("signupMsg", "This email is already registered. Try signing in instead.");
+    } else if (c === "auth/weak-password") {
+      showMsg("signupMsg", "Password is too weak. Use at least 6 characters.");
+    } else {
+      showMsg("signupMsg", friendlyAuthError(err));
+    }
+  } finally {
+    setLoading("signupSubmit", false);
   }
 });

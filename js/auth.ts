@@ -8,7 +8,9 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
-  reload as reloadUser
+  reload as reloadUser,
+  createUserWithEmailAndPassword,
+  updateProfile
 } from 'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js';
 
 // ⚠️  REPLACE THIS CONFIG with your Firebase project's config from
@@ -57,12 +59,14 @@ const viewLoading = $('authViewLoading');
 const viewLogin  = $('authViewLogin');
 const viewVerify = $('authViewVerify');
 const viewReset  = $('authViewReset');
+const viewSignup = $('authViewSignup');
 
 function showView(which){
   viewLoading.style.display = which === 'loading' ? '' : 'none';
   viewLogin.style.display   = which === 'login'   ? '' : 'none';
   viewVerify.style.display  = which === 'verify'  ? '' : 'none';
   viewReset.style.display   = which === 'reset'   ? '' : 'none';
+  viewSignup.style.display  = which === 'signup'  ? '' : 'none';
 }
 
 // Start in loading state — same as AuthGuard waiting for hasHydrated.
@@ -240,7 +244,12 @@ window.showResetView = function(){
 };
 window.showLoginView = function(){
   clearMsg('resetMsg');
+  clearMsg('signupMsg');
   showView('login');
+};
+window.showSignupView = function(){
+  clearMsg('signupMsg');
+  showView('signup');
 };
 
 $('resetForm').addEventListener('submit', async e => {
@@ -309,6 +318,51 @@ window.doLogout = async function(){
 // Esc closes confirm dialog
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape' && $('confirmBackdrop').classList.contains('show')){
-    cancelLogout();
+    (window as any).cancelLogout();
+  }
+});
+
+// ── SIGNUP form ─────────────────────────────────────────────────────────
+$('signupForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if(!auth) return;
+  clearMsg('signupMsg');
+  const name  = ($('signupName') as HTMLInputElement).value.trim();
+  const email = ($('signupEmail') as HTMLInputElement).value.trim();
+  const pass  = ($('signupPassword') as HTMLInputElement).value;
+  const pass2 = ($('signupPasswordConfirm') as HTMLInputElement).value;
+
+  if(!name || !email || !pass || !pass2){
+    showMsg('signupMsg', 'Please fill in all fields.');
+    return;
+  }
+  if(pass !== pass2){
+    showMsg('signupMsg', 'Passwords do not match.');
+    return;
+  }
+  if(pass.length < 6){
+    showMsg('signupMsg', 'Password should be at least 6 characters.');
+    return;
+  }
+
+  setLoading('signupSubmit', true);
+  try{
+    const { user } = await createUserWithEmailAndPassword(auth, email, pass);
+    // Set display name on the profile
+    await updateProfile(user, { displayName: name });
+    // Send email verification (onAuthStateChanged will switch to verify view)
+    await sendEmailVerification(user).catch(() => {});
+    showMsg('signupMsg', 'Account created! Please check your email for verification.', 'success');
+  }catch(err: any){
+    const c = err?.code || '';
+    if(c === 'auth/email-already-in-use'){
+      showMsg('signupMsg', 'This email is already registered. Try signing in instead.');
+    } else if(c === 'auth/weak-password'){
+      showMsg('signupMsg', 'Password is too weak. Use at least 6 characters.');
+    } else {
+      showMsg('signupMsg', friendlyAuthError(err));
+    }
+  }finally{
+    setLoading('signupSubmit', false);
   }
 });

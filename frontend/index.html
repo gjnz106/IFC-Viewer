@@ -1118,7 +1118,34 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
           </div>
           <button type="submit" class="auth-submit" id="loginSubmit"><span class="auth-spinner"></span><span class="auth-submit-label">Sign in</span></button>
         </form>
-        <div class="auth-foot">Don't have an account? <span class="auth-signup-link">Sign up</span></div>
+        <div class="auth-foot">Don't have an account? <span class="auth-signup-link" onclick="showSignupView()">Sign up</span></div>
+      </div>
+      <div id="authViewSignup" style="display:none">
+        <button type="button" class="auth-back-btn" onclick="showLoginView()">← Back to Sign in</button>
+        <div class="auth-heading-block">
+          <h2 class="auth-heading">Create an account</h2>
+          <p class="auth-heading-sub">Already have an account? <span class="auth-inline-link" onclick="showLoginView()">Sign in</span></p>
+        </div>
+        <div class="auth-msg" id="signupMsg"></div>
+        <form class="auth-form" id="signupForm" autocomplete="on">
+          <div class="auth-field">
+            <label class="auth-label" for="signupName">Full Name</label>
+            <input class="auth-input" type="text" id="signupName" name="name" autocomplete="name" required placeholder="John Doe">
+          </div>
+          <div class="auth-field">
+            <label class="auth-label" for="signupEmail">Email Address</label>
+            <input class="auth-input" type="email" id="signupEmail" name="email" autocomplete="email" required placeholder="you@example.com">
+          </div>
+          <div class="auth-field">
+            <label class="auth-label" for="signupPassword">Password</label>
+            <input class="auth-input" type="password" id="signupPassword" name="new-password" autocomplete="new-password" required placeholder="••••••••">
+          </div>
+          <div class="auth-field">
+            <label class="auth-label" for="signupPasswordConfirm">Confirm Password</label>
+            <input class="auth-input" type="password" id="signupPasswordConfirm" name="new-password" autocomplete="new-password" required placeholder="••••••••">
+          </div>
+          <button type="submit" class="auth-submit" id="signupSubmit"><span class="auth-spinner"></span><span class="auth-submit-label">Sign up</span></button>
+        </form>
       </div>
       <div id="authViewVerify" style="display:none">
         <div class="auth-verify">
@@ -1134,6 +1161,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
         </div>
       </div>
       <div id="authViewReset" style="display:none">
+        <button type="button" class="auth-back-btn" onclick="showLoginView()">← Back to Sign in</button>
         <div class="auth-heading-block">
           <h2 class="auth-heading">Forgot password?</h2>
           <p class="auth-heading-sub">Remembered? <span class="auth-inline-link" onclick="showLoginView()">Sign in</span></p>

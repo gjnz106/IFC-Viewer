@@ -40,18 +40,19 @@ async function main(): Promise<void> {
     ? ok('js/auth.js is up to date with js/auth.ts')
     : bad('js/auth.js is stale — run `npm run build:standalone`');
 
-  // 3. index.html wiring. The standalone inlines its CSS (<style>) and app
-  //    code, so check for the inlined stylesheet, the import map, and the
-  //    app module (identified by its `import * as THREE` header).
+  // 3. index.html wiring. The standalone references external CSS/JS,
+  //    so check for the stylesheet, the auth module, the app module, and
+  //    the import map.
   const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
-  for (const n of ['<style>', '<script type="importmap">', 'import * as THREE']) {
-    html.includes(n) ? ok(`contains ${n}`) : bad(`missing ${n}`);
+  const need = ['css/styles.css', 'js/auth.js', 'js/app.js', '<script type="importmap">'];
+  for (const n of need) {
+    html.includes(n) ? ok(`references ${n}`) : bad(`missing ${n}`);
   }
   const iMap = html.indexOf('<script type="importmap">');
-  const iApp = html.indexOf('import * as THREE');
+  const iApp = html.indexOf('src="js/app.js"');
   iMap !== -1 && iApp !== -1 && iMap < iApp
-    ? ok('importmap precedes the app module')
-    : bad('importmap must come before the app module (import * as THREE)');
+    ? ok('importmap precedes the app module script')
+    : bad('importmap must come before <script type="module" src="js/app.js">');
 
   console.log(failed ? `\n${failed} check(s) failed.` : '\nAll checks passed.');
   process.exit(failed ? 1 : 0);

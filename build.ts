@@ -16,7 +16,7 @@
 //  GitHub Pages serves the committed js/app.js directly; the build is a
 //  dev-time convenience for regenerating it after editing the sources.
 // ─────────────────────────────────────────────────────────────────────────
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, copyFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { transform } from 'esbuild';
@@ -69,6 +69,16 @@ async function main(): Promise<void> {
   const authJs = await tsToJs(readFileSync(join(ROOT, 'js', 'auth.ts'), 'utf8'), 'auth.ts');
   writeFileSync(join(ROOT, 'js', 'auth.js'), authJs);
   console.log(`Built js/auth.js (${authJs.length} bytes).`);
+
+  // 3. CSS: frontend/public/css/styles.css → css/styles.css
+  const cssDestDir = join(ROOT, 'css');
+  if (!existsSync(cssDestDir)) {
+    mkdirSync(cssDestDir, { recursive: true });
+  }
+  const cssSrc = join(ROOT, 'frontend', 'public', 'css', 'styles.css');
+  const cssDest = join(cssDestDir, 'styles.css');
+  copyFileSync(cssSrc, cssDest);
+  console.log(`Copied CSS to ${cssDest} (${statSync(cssSrc).size} bytes).`);
 }
 
 main().catch((e) => {
