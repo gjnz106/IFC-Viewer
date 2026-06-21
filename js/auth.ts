@@ -53,7 +53,7 @@ function setHasHydrated(){
 }
 
 // ── DOM helpers ────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
+const $ = (id: string): any => document.getElementById(id);
 const overlay = $('authOverlay');
 const viewLoading = $('authViewLoading');
 const viewLogin  = $('authViewLogin');
@@ -292,7 +292,7 @@ window.toggleUserMenu = function(ev){
 document.addEventListener('click', e => {
   const menu = $('userMenu');
   if(!menu.classList.contains('show')) return;
-  if(e.target.closest('#userMenu') || e.target.closest('#userBadge')) return;
+  if((e.target as any).closest('#userMenu') || (e.target as any).closest('#userBadge')) return;
   menu.classList.remove('show');
 });
 
