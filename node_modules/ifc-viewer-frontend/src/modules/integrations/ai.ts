@@ -101,7 +101,7 @@ async function buildAIIndex(opts: { force?: boolean } = {}): Promise<any> {
     // 3) Gán VẬT LIỆU cho element — batch đọc IfcRelAssociatesMaterial
     const eidToMaterials: Record<number, string[]> = {};
     try {
-      const relIDs = api.GetLineIDsWithType(modelID, TYPE_REL_MATERIAL);
+      const relIDs = api.GetLineIDsWithType(modelID, TYPE_REL_MATERIAL) as any;
       for (let i = 0; i < relIDs.size(); i++) {
         const rel = await mgr.getItemProperties(modelID, relIDs.get(i), false);
         if (!rel?.RelatingMaterial) continue;
@@ -120,7 +120,7 @@ async function buildAIIndex(opts: { force?: boolean } = {}): Promise<any> {
     // 4) Gán KHỐI LƯỢNG (Base Quantities) — batch đọc IfcRelDefinesByProperties
     const eidToQty: Record<number, any> = {};
     try {
-      const relIDs = api.GetLineIDsWithType(modelID, TYPE_REL_PROPS);
+      const relIDs = api.GetLineIDsWithType(modelID, TYPE_REL_PROPS) as any;
       for (let i = 0; i < relIDs.size(); i++) {
         const rel = await mgr.getItemProperties(modelID, relIDs.get(i), false);
         const pdef = rel?.RelatingPropertyDefinition;

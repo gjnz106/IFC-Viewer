@@ -396,7 +396,6 @@ export function initThree(): void {
         break;
       }
       if(!validHit) validHit=hit;
-      break;
     }
     if(!validHit){restoreViewSnap();(window as any).clearHighlight();document.getElementById('propArea')!.innerHTML='<div class="prop-empty">Click element in 3D to inspect</div>';return}
 
@@ -799,20 +798,3 @@ export function initThree(): void {
 // the main camera's orientation. Clicking a face snaps the main camera to
 // that orthogonal view. Clicking a corner snaps to a 45° isometric-ish view.
 
-// Extend window type for custom properties
-declare global {
-  interface Window {
-    _zoomState: {
-      accum: number;
-      pivot: THREE.Vector3;
-      pivotValid: boolean;
-      stepBase: number;
-      easing: number;
-    };
-    _pendingPivot: THREE.Vector3 | null;
-    _vpResize: () => void;
-    _hlMat: THREE.MeshPhongMaterial | null;
-    _lastHL: { subset: THREE.Object3D; mid: number } | null;
-    dragHandle: any;
-  }
-}

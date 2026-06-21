@@ -43,7 +43,7 @@ async function searchBuildCache(){
     const psetLookup = new Map<number, any[]>();
     if(api){
       try{
-        const relIDs = api.GetLineIDsWithType(m.modelID, 4186316022);
+        const relIDs = api.GetLineIDsWithType(m.modelID, 4186316022) as any;
         for(let ri=0; ri<relIDs.size(); ri++){
           try{
             const rel = await mgr.getItemProperties(m.modelID, relIDs.get(ri), false);

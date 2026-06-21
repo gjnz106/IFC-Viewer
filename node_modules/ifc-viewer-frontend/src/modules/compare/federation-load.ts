@@ -30,7 +30,7 @@ window.fedHandleFile = function(ev: Event){
     if(!appState.ifcLoader){if(!await (window as any).initIFC()) return}
     await (window as any).loadIFC(idx);
     fedRenderSlots();
-  })();
+  })().catch((e: unknown)=>console.error('fedHandleFile error:', e));
   // Reset input so same file can be reloaded
   (ev.target as HTMLInputElement).value = '';
 };

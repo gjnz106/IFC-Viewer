@@ -425,7 +425,7 @@ function fieldDoubleTapZoom(clientX: number, clientY: number){
 
   let foundEid: number | null = null;
   try{
-    const eid = appState.ifcLoader!.ifcManager.getExpressId(hit.object.geometry as any, hit.faceIndex!);
+    const eid = appState.ifcLoader!.ifcManager.getExpressId((hit.object as any).geometry, hit.faceIndex!);
     if(eid > 0) foundEid = eid;
   }catch(e){}
   if(!foundEid && (hit.object as any).geometry?.attributes?.expressID){
@@ -732,7 +732,7 @@ function fieldPlan2DSetupTouch(){
 
     let foundEid: number | null = null;
     try{
-      const eid = appState.ifcLoader!.ifcManager.getExpressId(hit.object.geometry as any, hit.faceIndex!);
+      const eid = appState.ifcLoader!.ifcManager.getExpressId((hit.object as any).geometry, hit.faceIndex!);
       if(eid > 0) foundEid = eid;
     }catch(e2){}
     if(!foundEid && (hit.object as any).geometry?.attributes?.expressID){

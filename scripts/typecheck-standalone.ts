@@ -26,16 +26,18 @@ const bundle = IMPORT_HEADER + '\n' + files.map((f) => stripOne(readFileSync(joi
 const tmp = join(ROOT, '.standalone-bundle.ts');
 writeFileSync(tmp, bundle);
 try {
+  const tscPath = join(ROOT, 'node_modules/typescript/bin/tsc');
   execFileSync(
-    'npx',
-    ['tsc', '--noEmit', '--skipLibCheck', '--target', 'ES2020', '--module', 'ESNext',
+    'node',
+    [tscPath, '--noEmit', '--skipLibCheck', '--target', 'ES2020', '--module', 'ESNext',
       '--moduleResolution', 'Bundler', '--lib', 'ES2020,DOM,DOM.Iterable',
       '--strict', 'false', '--noImplicitAny', 'false',
       tmp, join(SRC, 'globals.d.ts')],
     { cwd: ROOT, stdio: 'inherit' },
   );
   console.log('Standalone bundle type-check passed.');
-} catch {
+} catch (err) {
+  console.error('Type-check failed:', err);
   process.exitCode = 1;
 } finally {
   rmSync(tmp, { force: true });

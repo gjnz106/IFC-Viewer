@@ -23,7 +23,7 @@ export const appState = {
   // ── Model data ───────────────────────────────────────────────────────
   // slots 0,1 = Compare A/B; slots 2+ = federation discipline files
   files: [null, null] as (File | null)[],
-  loadedModels: [null, null] as (THREE.Group | null)[],
+  loadedModels: [null, null] as (any | null)[],
   compareResult: null as CompareResult | null,
   activeFilter: 'all' as string,
 
@@ -57,9 +57,10 @@ export const appState = {
 
   // ── Validator ────────────────────────────────────────────────────────
   sgState: {
-    results: [],
-    activeGateway: 'BE',
+    results: null,
+    gateway: 'BE',
     cachedCtx: null,
+    cachedCtxKey: null,
     selectedRuleIdx: -1,
   } as SGState,
 

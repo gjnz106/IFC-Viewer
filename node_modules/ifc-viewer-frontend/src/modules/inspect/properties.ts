@@ -233,7 +233,7 @@ async function showProps(props: any, modelIdx: number): Promise<void> {
   let materialLabel='';
   try{
     if(mgr.getMaterialsProperties){
-      const mats=await mgr.getMaterialsProperties(mid, eid, true, true);
+      const mats=await (mgr as any).getMaterialsProperties(mid, eid, true, true);
       if(Array.isArray(mats)&&mats.length>0){
         const names: string[]=[];
         const walk=(m: any)=>{
@@ -359,7 +359,7 @@ async function showProps(props: any, modelIdx: number): Promise<void> {
   // (both instance-level and type-level) in one call.
   let allPsets: any[]=[];
   try{
-    const data=await mgr.getPropertySets(mid, eid, true, true);
+    const data=await (mgr as any).getPropertySets(mid, eid, true, true);
     if(Array.isArray(data))allPsets=data;
   }catch(e: any){log('Pset resolve err:',e?.message)}
 
