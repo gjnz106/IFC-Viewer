@@ -83,6 +83,7 @@ IFC-Viewer/
 - **Dev:** `cd backend && npm run dev` (tsx watch, port 3000)
 - **Môi trường:** copy `backend/.env.example` → `backend/.env`, điền `ANTHROPIC_API_KEY`
 - **AI proxy:** Frontend gọi `POST /api/ai/chat` thay vì gọi Anthropic trực tiếp
+- **Đa provider:** proxy hỗ trợ thử nghiệm nhiều nhà cung cấp qua field `provider` (`anthropic` | `openai` | `google`). Backend dịch request/response sang định dạng Anthropic để vòng lặp tool-use ở client không đổi. Key đặt trong `.env`; `GET /api/ai/status` liệt kê provider đã cấu hình. UI chat có nút ⚙ để chọn provider/model.
 
 ### Module Pattern
 - Mỗi module: `import { appState } from '../state/index.js';`

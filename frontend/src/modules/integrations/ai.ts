@@ -386,12 +386,33 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
    Gọi API qua backend proxy /api/ai/chat thay vì trực tiếp Anthropic.
 ═══════════════════════════════════════════════════════════════════════ */
 (function () {
+  // Model mặc định cho từng provider (dùng khi người dùng để trống ô model)
+  const PROVIDER_DEFAULT_MODEL: Record<string, string> = {
+    anthropic: 'claude-haiku-4-5-20251001',  // Haiku rẻ, hợp truy vấn thường
+    openai: 'gpt-4o-mini',
+    google: 'gemini-2.0-flash',
+  };
   const AI_CONFIG = {
-    model: 'claude-haiku-4-5-20251001',  // Haiku rẻ, hợp truy vấn thường
+    provider: 'anthropic',                // anthropic | openai | google (& tương thích)
+    model: '',                            // để trống = dùng model mặc định của provider
     maxTokens: 1024,
     proxyUrl: '/api/ai/chat',             // Backend proxy — không cần API key ở client
+    statusUrl: '/api/ai/status',
   };
+  // Khôi phục lựa chọn provider/model đã lưu
+  try {
+    const saved = JSON.parse(localStorage.getItem('aiConfig') || '{}');
+    if (saved.provider) AI_CONFIG.provider = saved.provider;
+    if (typeof saved.model === 'string') AI_CONFIG.model = saved.model;
+  } catch { }
   (window as any).AI_CONFIG = AI_CONFIG;
+
+  function effectiveModel(): string {
+    return AI_CONFIG.model.trim() || PROVIDER_DEFAULT_MODEL[AI_CONFIG.provider] || '';
+  }
+  function persistConfig(): void {
+    try { localStorage.setItem('aiConfig', JSON.stringify({ provider: AI_CONFIG.provider, model: AI_CONFIG.model })); } catch { }
+  }
 
   // ── styles (scoped .aic-) khớp biến màu app ──
   const css = `
@@ -422,6 +443,12 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
     font-family:inherit;max-height:90px;min-height:38px;box-sizing:border-box}
   .aic-send{background:var(--blue,#2563eb);color:#fff;border:none;border-radius:8px;width:40px;cursor:pointer;font-size:16px;flex-shrink:0}
   .aic-send:disabled{opacity:.5;cursor:default}
+  .aic-settings{display:none;flex-direction:column;gap:7px;padding:10px 14px;border-bottom:1px solid var(--border,#d5d9e2);background:var(--bg-card,#f0f1f4)}
+  .aic-settings.open{display:flex}
+  .aic-settings label{font-size:11px;color:var(--text-dim,#4a5068);display:flex;flex-direction:column;gap:3px}
+  .aic-settings select,.aic-settings input{border:1px solid var(--border,#d5d9e2);border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;background:var(--bg-panel,#fff);color:var(--text,#1a1d26)}
+  .aic-settings .aic-hint{font-size:10px;color:var(--text-muted,#8590a6);font-style:italic}
+  .aic-settings option:disabled{color:var(--text-muted,#8590a6)}
   `;
   const styleEl = document.createElement('style');
   styleEl.textContent = css;
@@ -437,8 +464,18 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   panel.innerHTML = `
     <div class="aic-head">
       <span class="aic-dot"></span><b>Trợ lý AI · IFC Delta</b>
+      <button class="aic-iconbtn" data-act="settings" title="Cài đặt provider/model">⚙</button>
       <button class="aic-iconbtn" data-act="clear" title="Xoá hội thoại">🗑</button>
       <button class="aic-iconbtn" data-act="close" title="Đóng">✕</button>
+    </div>
+    <div class="aic-settings">
+      <label>Nhà cung cấp (provider)
+        <select class="aic-provider"></select>
+      </label>
+      <label>Model <span class="aic-hint">(để trống = mặc định của provider)</span>
+        <input class="aic-model" type="text" placeholder="vd: gpt-4o-mini, gemini-2.0-flash, claude-…">
+      </label>
+      <div class="aic-hint aic-provhint"></div>
     </div>
     <div class="aic-msgs"></div>
     <div class="aic-foot">
@@ -450,7 +487,42 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   const $ = (s: string) => panel.querySelector(s) as HTMLElement;
   const msgs = $('.aic-msgs') as HTMLElement,
     inputEl = $('.aic-in') as HTMLTextAreaElement,
-    sendBtn = $('.aic-send') as HTMLButtonElement;
+    sendBtn = $('.aic-send') as HTMLButtonElement,
+    settingsEl = $('.aic-settings') as HTMLElement,
+    providerSel = $('.aic-provider') as HTMLSelectElement,
+    modelInput = $('.aic-model') as HTMLInputElement,
+    provHint = $('.aic-provhint') as HTMLElement;
+
+  // ── nạp danh sách provider từ backend, đánh dấu cái chưa cấu hình ──
+  let providersMeta: any[] = [];
+  function fillProviders(): void {
+    providerSel.innerHTML = '';
+    const list = providersMeta.length ? providersMeta : [
+      { id: 'anthropic', label: 'Anthropic (Claude)', configured: true },
+      { id: 'openai', label: 'OpenAI (& tương thích)', configured: true },
+      { id: 'google', label: 'Google (Gemini)', configured: true },
+    ];
+    for (const p of list) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.label + (p.configured ? '' : ' — chưa cấu hình');
+      opt.disabled = providersMeta.length ? !p.configured : false;
+      providerSel.appendChild(opt);
+    }
+    providerSel.value = AI_CONFIG.provider;
+    modelInput.value = AI_CONFIG.model;
+    updateProvHint();
+  }
+  function updateProvHint(): void {
+    const def = PROVIDER_DEFAULT_MODEL[AI_CONFIG.provider] || '(không rõ)';
+    const meta = providersMeta.find(p => p.id === AI_CONFIG.provider);
+    const note = meta && !meta.configured ? ' ⚠ provider này chưa có API key ở backend.' : '';
+    provHint.textContent = `Model mặc định: ${def}.${note}`;
+  }
+  fetch(AI_CONFIG.statusUrl)
+    .then(r => r.json())
+    .then(d => { providersMeta = d.providers || []; fillProviders(); })
+    .catch(() => fillProviders());
 
   // ── render helpers ──
   function render(role: string, text: string): HTMLElement {
@@ -521,7 +593,8 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            model: AI_CONFIG.model,
+            provider: AI_CONFIG.provider,
+            model: effectiveModel(),
             max_tokens: AI_CONFIG.maxTokens,
             system,
             tools: window.AI_TOOLS,
@@ -564,6 +637,9 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   fab.onclick = () => { panel.classList.add('open'); fab.style.display = 'none'; inputEl.focus(); };
   panel.querySelector('[data-act=close]')!.addEventListener('click', () => { panel.classList.remove('open'); fab.style.display = 'flex'; });
   panel.querySelector('[data-act=clear]')!.addEventListener('click', () => { history.length = 0; msgs.innerHTML = ''; });
+  panel.querySelector('[data-act=settings]')!.addEventListener('click', () => { settingsEl.classList.toggle('open'); });
+  providerSel.addEventListener('change', () => { AI_CONFIG.provider = providerSel.value; persistConfig(); updateProvHint(); });
+  modelInput.addEventListener('input', () => { AI_CONFIG.model = modelInput.value; persistConfig(); });
   function autoGrow() { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 90) + 'px'; }
   inputEl.oninput = autoGrow;
   function submit() {
