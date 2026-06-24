@@ -449,6 +449,16 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
     font-family:inherit;max-height:90px;min-height:38px;box-sizing:border-box}
   .aic-send{background:var(--blue,#2563eb);color:#fff;border:none;border-radius:8px;width:40px;cursor:pointer;font-size:16px;flex-shrink:0}
   .aic-send:disabled{opacity:.5;cursor:default}
+  .aic-msg.assistant strong{font-weight:600}
+  .aic-msg.assistant em{font-style:italic}
+  .aic-msg.assistant code{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-card,#f0f1f4);padding:1px 4px;border-radius:4px}
+  .aic-md-h{font-weight:600;margin:3px 0 1px}
+  .aic-md-ul{margin:4px 0;padding-left:18px}
+  .aic-md-ul li{margin:1px 0}
+  .aic-md-sp{height:6px}
+  .aic-md-table{border-collapse:collapse;margin:6px 0;font-size:12px;width:100%}
+  .aic-md-table th,.aic-md-table td{border:1px solid var(--border,#d5d9e2);padding:3px 7px;text-align:left;vertical-align:top}
+  .aic-md-table th{background:var(--bg-card,#f0f1f4);font-weight:600}
   `;
   const styleEl = document.createElement('style');
   styleEl.textContent = css;
@@ -477,11 +487,60 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
   const $ = s => panel.querySelector(s);
   const msgs = $('.aic-msgs'), inputEl = $('.aic-in'), sendBtn = $('.aic-send');
 
+  // ── Markdown TỐI GIẢN → HTML (escape trước, chỉ sinh thẻ an toàn) ──
+  function aicEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function aicInline(s){           // s đã được escape HTML
+    return s
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  }
+  function aicMd(src){
+    const lines = String(src).replace(/\r\n?/g,'\n').split('\n');
+    const isSep = (r)=> /-/.test(r) && /^\s*\|?[\s:|-]+\|?\s*$/.test(r);
+    const splitRow = (r)=> r.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(c=>c.trim());
+    let html = '', i = 0;
+    while(i < lines.length){
+      const line = lines[i];
+      // Bảng: dòng có '|' + dòng kế là separator |---|
+      if(line.indexOf('|') !== -1 && i+1 < lines.length && isSep(lines[i+1])){
+        const headers = splitRow(line); i += 2;
+        let body = '';
+        while(i < lines.length && lines[i].indexOf('|') !== -1 && lines[i].trim() !== ''){
+          const cells = splitRow(lines[i]);
+          body += '<tr>' + cells.map(c=>'<td>'+aicInline(aicEsc(c))+'</td>').join('') + '</tr>';
+          i++;
+        }
+        html += '<table class="aic-md-table"><thead><tr>'
+              + headers.map(h=>'<th>'+aicInline(aicEsc(h))+'</th>').join('')
+              + '</tr></thead><tbody>'+body+'</tbody></table>';
+        continue;
+      }
+      // Danh sách: -, *, ▸, •
+      if(/^\s*[-*▸•]\s+/.test(line)){
+        let items = '';
+        while(i < lines.length && /^\s*[-*▸•]\s+/.test(lines[i])){
+          items += '<li>'+aicInline(aicEsc(lines[i].replace(/^\s*[-*▸•]\s+/, '')))+'</li>'; i++;
+        }
+        html += '<ul class="aic-md-ul">'+items+'</ul>';
+        continue;
+      }
+      // Tiêu đề: #, ##, ###
+      const h = line.match(/^\s*#{1,3}\s+(.*)$/);
+      if(h){ html += '<div class="aic-md-h">'+aicInline(aicEsc(h[1]))+'</div>'; i++; continue; }
+      // Dòng trống / đoạn thường
+      if(line.trim() === ''){ html += '<div class="aic-md-sp"></div>'; i++; continue; }
+      html += '<div>'+aicInline(aicEsc(line))+'</div>'; i++;
+    }
+    return html;
+  }
+
   // ── render helpers ──
   function render(role, text){
     const d = document.createElement('div');
     d.className = 'aic-msg ' + role;
-    d.textContent = text;
+    if(role === 'assistant') d.innerHTML = aicMd(text);   // chỉ assistant render Markdown
+    else d.textContent = text;                            // user/error: văn bản thuần (an toàn)
     msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
     return d;
   }
@@ -494,7 +553,7 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
   function thinking(on, el){
     if(on){
       const d = document.createElement('div');
-      d.className = 'aic-think'; d.textContent = 'Đang suy nghĩ…';
+      d.className = 'aic-think'; d.textContent = 'Đang xử lý…';
       msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; return d;
     } else if(el){ el.remove(); }
   }
@@ -534,7 +593,10 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
       'TỪ CHỐI NGOÀI PHẠM VI: nếu câu hỏi KHÔNG liên quan đến mô hình đang mở (kiến thức chung, lập trình, tin tức, toán/đời sống ngoài lề, trò chuyện phiếm…), hãy lịch sự từ chối ngắn gọn và nhắc rằng bạn chỉ trả lời về mô hình IFC đang mở. Tuyệt đối không dùng kiến thức ngoài, không trả lời thông tin ngoài mô hình.',
       'QUY TẮC SỐ LIỆU: với mọi câu hỏi cần con số, PHẢI gọi tool count_elements hoặc sum_quantity để lấy số CHÍNH XÁC. Chỉ dùng dữ liệu từ tool và ngữ cảnh bên dưới. TUYỆT ĐỐI không tự đoán, không bịa số.',
       'Khi đặt giá trị lọc (category, storey, ifcClass), hãy dùng đúng tên có trong danh sách ngữ cảnh bên dưới (vd "tầng 3" → storey "L3"; "cột" → category "Columns").',
-      'Trả lời bằng tiếng Việt, ngắn gọn, nêu rõ con số kèm đơn vị. Nếu kết quả = 0 hoặc có element thiếu khối lượng, nói rõ. Nếu chưa load model, hãy yêu cầu người dùng load model trước.',
+      'NGÔN NGỮ: trả lời CÙNG NGÔN NGỮ với câu hỏi của người dùng — hỏi tiếng Việt thì đáp tiếng Việt, hỏi tiếng Anh thì đáp tiếng Anh (mặc định tiếng Việt nếu không rõ).',
+      'PHONG CÁCH: trả lời chuyên nghiệp, DỨT KHOÁT, súc tích. Mở đầu bằng đáp số/kết luận chính kèm đơn vị, rồi mới tới chi tiết. Không vòng vo, không xin lỗi thừa. Nếu kết quả = 0 hoặc có element thiếu khối lượng, nói rõ. Nếu chưa load model, yêu cầu người dùng load model trước.',
+      'ĐỊNH DẠNG: dùng Markdown TỐI GIẢN — được phép **in đậm** cho số/kết luận quan trọng, danh sách "- " và bảng markdown đơn giản khi liệt kê số liệu. Gọn gàng, không tiêu đề lớn rườm rà.',
+      'ICON: chỉ dùng ký hiệu tối giản ĐƠN SẮC khi thật cần (▸ • – → ↑ ↓ │). TUYỆT ĐỐI KHÔNG dùng emoji màu (📊 🥇 🥈 🥉 💡 ✅ ⚠️ 🔥 📈 …).',
       '',
       'NGỮ CẢNH MÔ HÌNH HIỆN TẠI:',
       ctx,
@@ -586,13 +648,12 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
         }
         const data = await res.json();
         history.push({ role:'assistant', content: data.content });
-        const texts = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-        if(texts) render('assistant', texts);
         if(data.stop_reason === 'tool_use'){
+          // Lượt trung gian: chạy tool nền, KHÔNG hiển thị văn bản tự-thuật kế
+          // hoạch hay badge tool — chỉ giữ chỉ báo "Đang xử lý…".
           const toolUses = (data.content||[]).filter(b=>b.type==='tool_use');
           const results = [];
           for(const tu of toolUses){
-            toolBadge(tu.name, tu.input);
             let out;
             try{ out = await window.runAITool(tu.name, tu.input); }
             catch(err){ out = { error: String((err && err.message) || err) }; }
@@ -601,6 +662,9 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
           history.push({ role:'user', content: results });
           continue;
         }
+        // Lượt cuối: chỉ giờ mới hiển thị câu trả lời.
+        const texts = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+        if(texts) render('assistant', texts);
         break;
       }
     }catch(e){
