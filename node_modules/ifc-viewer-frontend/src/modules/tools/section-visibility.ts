@@ -417,7 +417,10 @@ async function loadIFC(idx: number){
       // Slots 0,1: update original upload card UI
       if(st){st.className='uc-status ok';st.textContent='✓ Loaded';}
       document.getElementById('visRow'+idx)!.style.display='block';
-      (document.getElementById('btnCompare') as HTMLButtonElement).disabled=!(appState.loadedModels[0]&&appState.loadedModels[1]);
+      const bothLoaded = !!(appState.loadedModels[0]&&appState.loadedModels[1]);
+      (document.getElementById('btnCompare') as HTMLButtonElement).disabled=!bothLoaded;
+      const panelBtn = document.getElementById('btnRunComparePanel') as HTMLButtonElement|null;
+      if(panelBtn){panelBtn.disabled=!bothLoaded;panelBtn.style.opacity=bothLoaded?'1':'.35';}
     }else{
       // Federation slot: update federation UI
       fedRenderSlots();

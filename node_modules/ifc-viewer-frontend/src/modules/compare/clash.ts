@@ -369,7 +369,10 @@ window.exitClashMode = function(): void {
   document.getElementById('btnExportClashBCF')!.style.display = 'none';
   document.getElementById('btnCompare')!.style.display = '';
   document.getElementById('vpClashLegend')!.classList.remove('show');
-  (document.getElementById('btnCompare') as HTMLButtonElement).disabled = !(appState.loadedModels[0] && appState.loadedModels[1]);
+  const bothLoaded = !!(appState.loadedModels[0] && appState.loadedModels[1]);
+  (document.getElementById('btnCompare') as HTMLButtonElement).disabled = !bothLoaded;
+  const panelBtn2 = document.getElementById('btnRunComparePanel') as HTMLButtonElement|null;
+  if(panelBtn2){panelBtn2.disabled=!bothLoaded;panelBtn2.style.opacity=bothLoaded?'1':'.35';}
   document.getElementById('clashGroupBar')!.style.display = 'none';
 
   clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); });
