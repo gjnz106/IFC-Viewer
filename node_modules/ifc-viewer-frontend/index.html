@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFC Delta — 3D Version Compare</title>
+<title>T3LAB.IFC — 3D Version Compare</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1131,6 +1131,36 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .vp-tool:disabled{opacity:.28;cursor:not-allowed}
 .vp-tsep{width:1px;height:18px;background:rgba(255,255,255,.1);margin:0 4px;flex:none}
 
+/* ── Sidebar page navigation (IDD-style icon nav) ─────────────── */
+.sidebar-nav{
+  flex:none;width:48px;
+  background:var(--bg-panel);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:8px 0;gap:2px;z-index:5;
+}
+.nav-item{
+  width:36px;height:36px;border-radius:10px;
+  border:none;background:transparent;color:var(--text-muted);
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .13s ease,color .13s ease;
+  position:relative;
+}
+.nav-item:hover{background:var(--bg-hover);color:var(--text-dim)}
+.nav-item.active{background:var(--bg-card);color:var(--text)}
+.nav-item[title]::after{
+  content:attr(title);
+  position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);
+  background:var(--text);color:#fff;
+  font-size:11px;font-weight:500;padding:4px 8px;border-radius:6px;
+  white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity .1s .12s;z-index:200;
+}
+.nav-item:hover[title]::after{opacity:1}
+.nav-sep{width:24px;height:1px;background:var(--border);margin:4px 0;flex:none}
+.nav-spacer{flex:1}
+
 /* ── Upload card ─────────────────────────────────────────────────── */
 .uc-card{
   position:relative;display:block;
@@ -1187,7 +1217,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
     </div>
     <div class="auth-brand-top">
       <div class="auth-brand-logo">
-        <div class="auth-brand-logo-name">IFC Delta</div>
+        <div class="auth-brand-logo-name">T3LAB.IFC</div>
         <div class="auth-brand-logo-sub">3D Version Compare</div>
       </div>
       <div class="auth-brand-hero">
@@ -1322,30 +1352,16 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 
     <!-- App title (tight, after chip) -->
     <div style="padding-left:6px;flex:none">
-      <div class="logo-name">IFC Delta <span>3D</span></div>
+      <div class="logo-name">T3LAB<span>.IFC</span></div>
       <div class="logo-sub" id="headerModeLbl">Version Compare</div>
     </div>
 
-    <div class="h-sep"></div>
 
-    <!-- Mode segmented: Field / Compare / Clash -->
-    <div class="hdr-mode-wrap">
-      <button id="fieldModeBtn" onclick="fieldEnterMode()" class="hdr-seg" title="Field Mode — tablet-optimized">
-        <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>
-        Field
-      </button>
-      <button id="btnCompare" disabled onclick="runCompare()" class="hdr-seg hdr-seg-active" title="Compare two IFC versions">
-        <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>
-        Compare
-      </button>
-      <button id="btnClash" onclick="toggleClashMode()" class="hdr-seg" title="Clash detection" style="color:var(--red)">
-        <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>
-        Clash
-      </button>
-    </div>
-
-    <!-- Hidden legacy buttons (JS controls visibility) -->
+    <!-- Hidden elements — IDs required by JS modules, not shown in UI -->
     <div style="display:none">
+      <button id="btnCompare" disabled onclick="runCompare()">Compare</button>
+      <button id="btnClash" onclick="toggleClashMode()">Clash</button>
+      <button id="fieldModeBtn" onclick="fieldEnterMode()">Field</button>
       <button id="btnRunClash" disabled onclick="runClashDetection()">Run Clash</button>
       <button id="btnExitClash" onclick="exitClashMode()">Exit Clash</button>
       <button id="btnExitCompare" onclick="exitCompare()">Exit Compare</button>
@@ -1407,6 +1423,32 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 
   <!-- ═══════════ BODY ═══════════ -->
   <div style="flex:1;min-height:0;display:flex">
+
+    <!-- ═══ PAGE NAV ═══ -->
+    <nav class="sidebar-nav" id="sidebarNav">
+      <!-- Viewer -->
+      <button class="nav-item active" data-page="viewer" onclick="navigateTo('viewer')" title="Viewer">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>
+      </button>
+      <!-- Compare -->
+      <button class="nav-item" data-page="compare" onclick="navigateTo('compare')" title="Compare">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M12 8v8M9 11l3-3 3 3"/></svg>
+      </button>
+      <!-- Clash -->
+      <button class="nav-item" data-page="clash" onclick="navigateTo('clash')" title="Clash">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M13 2L4 14h7l-1 8 10-12h-7z"/></svg>
+      </button>
+      <div class="nav-sep"></div>
+      <!-- Validate -->
+      <button class="nav-item" data-page="validate" onclick="navigateTo('validate')" title="SG Validate">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5C9 18.5 5 15 5 10.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>
+      </button>
+      <div class="nav-spacer"></div>
+      <!-- Field mode -->
+      <button class="nav-item" data-page="field" onclick="navigateTo('field')" title="Field Mode">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>
+      </button>
+    </nav>
 
     <!-- ═══ LEFT SIDEBAR ═══ -->
     <aside id="leftPanel" style="flex:none;width:312px;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto">
@@ -1476,6 +1518,13 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
           <button class="fed-add-btn" id="fedAddBtn" onclick="fedAddSlot()">+ Add more files</button>
           <input type="file" id="fedFileInput" accept=".ifc,*/*" style="display:none" onchange="fedHandleFile(event)">
         </div>
+
+        <!-- Run Compare CTA — shown when both A/B slots are loaded -->
+        <button id="btnRunComparePanel" onclick="runCompare()" disabled
+          style="margin-top:10px;width:100%;height:36px;border-radius:9px;border:none;background:var(--text);color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;opacity:.35;transition:opacity .15s ease">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>
+          Run Compare
+        </button>
       </div>
 
       <div style="height:1px;background:var(--border);margin:0 16px"></div>

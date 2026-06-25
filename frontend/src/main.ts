@@ -24,12 +24,15 @@ import './modules/inspect/search.js';
 import './modules/ui/fieldmode.js';
 import './modules/integrations/ai.js';
 import './modules/ui/ui-shell.js';
+import { initRouter } from './modules/ui/router.js';
+import { initStatePersist } from './modules/ui/state-persist.js';
 
 // ── Initialize the viewer ─────────────────────────────────────────────────
 initThree();
-// initSectionDrag is registered from color-schemes.ts via window or exported
 if (typeof (window as any).initSectionDrag === 'function') {
   (window as any).initSectionDrag();
 }
 initViewCube();
-log('IFC Delta ready');
+initStatePersist();  // restore UI prefs from localStorage
+initRouter();        // set up hash routing + restore last page
+log('T3LAB.IFC ready');
