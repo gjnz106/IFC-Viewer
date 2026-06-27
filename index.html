@@ -215,7 +215,7 @@
       <button class="btn" id="btnShowAll" style="display:none" onclick="showAllHidden()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Show All</button>
       <button class="btn" id="btnWalk" onclick="toggleWalkMode()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg> Walk</button>
       <button class="btn" id="btnPlan" onclick="togglePlanOverlay()" title="Show 2D plan overlay (top-down view of current storey)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Plan</button>
-      <button class="btn" id="btnSGCheck" style="border-color:#dc2626;color:#dc2626" onclick="toggleSGCheckPanel()" title="CORENET X / IFC-SG pre-submission validation (Singapore)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> SG Check</button>
+      <button class="btn primary" id="btnSGCheck" onclick="toggleSGCheckPanel()" title="CORENET X / IFC-SG pre-submission validation (Singapore)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> SG Check</button>
       <button class="btn" onclick="resetCam()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Reset</button>
       <div class="h-sep" style="margin:0 4px"></div>
       <button class="user-badge" id="userBadge" onclick="toggleUserMenu(event)" style="display:none">
@@ -470,7 +470,7 @@
       <!-- Transparency slider -->
       <div class="tp-panel" id="tpPanel">
         <span style="font-size:12px;color:var(--text-muted);font-family:JetBrains Mono">Opacity</span>
-        <input type="range" id="slOpacity" min="5" max="100" value="100" style="width:120px;height:4px" oninput="setGlobalOpacity(this.value)">
+        <input type="range" id="slOpacity" min="5" max="100" value="100" style="width:120px;height:4px;accent-color:var(--accent)" oninput="setGlobalOpacity(this.value)">
         <span id="opVal" style="font-size:12px;font-family:JetBrains Mono;color:var(--text-dim);min-width:28px">100%</span>
       </div>
       <!-- Measure overlay -->
@@ -653,7 +653,7 @@
          ════════════════════════════════════════════════════════════════ -->
     <div class="sg-panel" id="sgPanel">
       <div class="sg-header">
-        <span class="sg-header-icon"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#dc2626;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+        <span class="sg-header-icon"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#5A5755;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
         <span class="sg-header-title">CORENET X / IFC-SG Pre-Submission Validator</span>
         <span class="sg-header-sub" id="sgHeaderSub">— <span id="sgRuleSrc">Built-in rules</span></span>
         <select class="sg-gateway-select" id="sgGateway" onchange="sgChangeGateway()" title="Submission Gateway — different rules apply per gateway">

@@ -10348,7 +10348,7 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
   .aic-panel{position:fixed;right:20px;bottom:20px;z-index:9999;width:380px;max-width:calc(100vw - 40px);
     height:560px;max-height:calc(100vh - 40px);background:var(--bg-panel,#fff);border:1px solid var(--border,#d5d9e2);
     border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;
-    font-family:Inter,system-ui,sans-serif;color:var(--text,#1a1d26)}
+    font-family:'Hanken Grotesk',system-ui,sans-serif;color:var(--text,#4A4541)}
   .aic-panel.open{display:flex}
   .aic-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border,#d5d9e2);background:var(--bg-card,#f0f1f4)}
   .aic-head b{font-size:14px;flex:1}
