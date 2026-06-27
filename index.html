@@ -969,15 +969,24 @@
     vpResize();
   };
 
-  // Right-panel tabs: Properties (inline) · SG Check (opens validator)
+  // Right-panel tabs: Properties (inline) · SG Check (validator embedded in panel)
   window.rpSelect = function(which){
     var a = app();
     if (a && a.classList.contains('right-collapsed')) { window.toggleRightPanelV5(); }
+    var props = document.getElementById('propArea');
+    var sg = document.getElementById('sgPanel');
     if (which === 'sg') {
-      if (window.toggleSGCheckPanel && (!window.sgState || !window.sgState.open)) window.toggleSGCheckPanel();
+      if (props) props.style.display = 'none';
+      if (sg) sg.classList.add('show');
+      if (window.sgState) window.sgState.open = true;
+    } else {
+      if (sg) sg.classList.remove('show');
+      if (props) props.style.display = '';
+      if (window.sgState) window.sgState.open = false;
     }
     document.getElementById('rpTabProps').classList.toggle('on', which === 'props');
     document.getElementById('rpTabSG').classList.toggle('on', which === 'sg');
+    vpResize();
   };
 
   // ── Status bar ──
@@ -993,6 +1002,32 @@
   function init(){
     updateRail();
     window.v5SetMode('compare');
+
+    // Move the SG validator out of the bottom dock and into the right panel
+    // as the "SG Check" tab content (preserves all inner element IDs).
+    var sg = document.getElementById('sgPanel');
+    var rp = document.querySelector('.right-panel');
+    if (sg && rp) { sg.classList.add('sg-in-panel'); rp.appendChild(sg); }
+
+    // Header "SG Check" button → open right panel on the SG tab (toggles).
+    window.toggleSGCheckPanel = function(){
+      var btn = document.getElementById('btnSGCheck');
+      var onSg = document.getElementById('rpTabSG') && document.getElementById('rpTabSG').classList.contains('on');
+      var collapsed = app() && app().classList.contains('right-collapsed');
+      if (onSg && !collapsed) { window.rpSelect('props'); if (btn) btn.classList.remove('active'); }
+      else { window.rpSelect('sg'); if (btn) btn.classList.add('active'); }
+    };
+
+    // When an element is inspected (propArea populated), surface the Properties tab.
+    var propArea = document.getElementById('propArea');
+    if (propArea) {
+      new MutationObserver(function(){
+        var onSg = document.getElementById('rpTabSG') && document.getElementById('rpTabSG').classList.contains('on');
+        var hasContent = propArea.querySelector('.prop-group, .prop-row, table');
+        if (onSg && hasContent) window.rpSelect('props');
+      }).observe(propArea, {childList:true});
+    }
+
     // When the app switches tabs programmatically (e.g. after a compare),
     // make sure the rail-driven left panel is open and showing the model view.
     if (window.switchTab && !window.switchTab._v5) {
