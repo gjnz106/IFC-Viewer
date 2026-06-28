@@ -74,7 +74,13 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .status-badge.done{background:var(--green-lt);color:var(--green)}
 
 /* Left Panel */
-.left-panel{background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.left-panel{grid-column:2;grid-row:2;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+/* Explicit grid placement for the row-2 shell so hiding a panel (display:none)
+   never shifts the remaining columns via auto-placement. */
+#lresize{grid-column:3;grid-row:2}
+.viewport-area{grid-column:4;grid-row:2}
+#rresize{grid-column:5;grid-row:2}
+.right-panel{grid-column:6;grid-row:2}
 .upload-area{padding:8px;display:flex;flex-direction:column;gap:5px;flex-shrink:0;border-bottom:1px solid var(--border)}
 .upload-card{border:1.5px dashed var(--border);border-radius:var(--radius);padding:10px;text-align:center;cursor:pointer;transition:all var(--t);background:var(--bg-card)}
 .upload-card:hover{border-color:var(--blue);background:var(--blue-bg)}
@@ -715,7 +721,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .clash-group-body .clash-card{margin:0;border-radius:0;border-left:0;border-right:0;border-top:0}
 
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-@media(max-width:1100px){.app{grid-template-columns:240px 0 1fr 0 0}.col-resize{display:none}.right-panel{display:none}}
+@media(max-width:1100px){.app{grid-template-columns:52px 240px 0 1fr 0 0}.col-resize{display:none}.right-panel{display:none}}
 
 /* ══════════════════════════════════════════════════════════════════
    FIELD MODE — tablet-optimized layout for on-site BIM review
