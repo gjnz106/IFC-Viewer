@@ -10,11 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "firebase": "^10.7.1",
+    "firebase": "^10.14.1",
+    "jspdf": "^2.5.1",
     "three": "^0.160.0",
+    "three-mesh-bvh": "^0.5.23",
     "web-ifc": "^0.0.57",
-    "web-ifc-three": "^0.0.126",
-    "three-mesh-bvh": "^0.5.23"
+    "web-ifc-three": "^0.0.126"
   },
   "devDependencies": {
     "@types/three": "^0.160.0",

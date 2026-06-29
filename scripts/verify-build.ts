@@ -4,7 +4,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { transform } from 'esbuild';
+import { transform, build as esbuild } from 'esbuild';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 let failed = 0;
@@ -34,11 +34,19 @@ async function main(): Promise<void> {
     ? ok(`js/app.js is up to date with ${files.length} TypeScript sources`)
     : bad('js/app.js is stale — run `npm run build:standalone`');
 
-  // 2. js/auth.js must equal a fresh transpile of frontend/src/lib/auth.ts
-  let authTs = readFileSync(join(ROOT, 'frontend/src/lib/auth.ts'), 'utf8');
-  authTs = authTs.replace(/['"]firebase\/app['"]/g, "'https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js'");
-  authTs = authTs.replace(/['"]firebase\/auth['"]/g, "'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js'");
-  const freshAuth = await tsToJs(authTs, 'auth.ts');
+  // 2. js/auth.js must equal a fresh esbuild bundle of frontend/src/lib/auth.ts
+  //    (Firebase bundled in from node_modules — see build.ts).
+  const freshAuthOut = await esbuild({
+    entryPoints: [join(ROOT, 'frontend/src/lib/auth.ts')],
+    bundle: true,
+    format: 'esm',
+    target: 'es2020',
+    minify: true,
+    legalComments: 'none',
+    write: false,
+    logLevel: 'silent',
+  });
+  const freshAuth = freshAuthOut.outputFiles[0].text;
   readFileSync(join(ROOT, 'js/auth.js'), 'utf8') === freshAuth
     ? ok('js/auth.js is up to date with frontend/src/lib/auth.ts')
     : bad('js/auth.js is stale — run `npm run build:standalone`');

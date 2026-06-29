@@ -98,7 +98,7 @@ async function initIFC(){
   setStatus('loading','Loading WASM...');
   try{
     ifcLoader=new IFCLoader();
-    await ifcLoader.ifcManager.setWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/');
+    await ifcLoader.ifcManager.setWasmPath('/vendor/web-ifc/');
     await ifcLoader.ifcManager.applyWebIfcConfig({USE_FAST_BOOLS:false});
     await ifcLoader.ifcManager.parser.setupOptionalCategories({[IFCSPACE]:false,[IFCOPENINGELEMENT]:false});
     log('WASM ready');setStatus('done','Ready');setTimeout(()=>setStatus('',''),2000);return true;

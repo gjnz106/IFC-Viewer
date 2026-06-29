@@ -10,7 +10,8 @@
     "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
     "frontend": "npm run dev --workspace=frontend",
     "backend": "npm run dev --workspace=backend",
-    "build:standalone": "node --import tsx build.ts",
+    "fetch:vendor": "node scripts/fetch-vendor.mjs",
+    "build:standalone": "node scripts/fetch-vendor.mjs && node --import tsx build.ts",
     "verify:standalone": "node --import tsx scripts/verify-build.ts",
     "typecheck:standalone": "node --import tsx scripts/typecheck-standalone.ts"
   },

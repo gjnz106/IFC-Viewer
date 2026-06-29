@@ -19,7 +19,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, copyFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { transform } from 'esbuild';
+import { transform, build as esbuild } from 'esbuild';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const SRC = join(ROOT, 'src', 'app');
@@ -66,13 +66,42 @@ async function main(): Promise<void> {
   for (const f of files) console.log('  •', f);
 
   // 2. Auth: frontend/src/lib/auth.ts → js/auth.js
-  let authTs = readFileSync(join(ROOT, 'frontend', 'src', 'lib', 'auth.ts'), 'utf8');
-  // Rewrite npm imports to CDN URLs for the browser
-  authTs = authTs.replace(/['"]firebase\/app['"]/g, "'https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js'");
-  authTs = authTs.replace(/['"]firebase\/auth['"]/g, "'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js'");
-  const authJs = await tsToJs(authTs, 'auth.ts');
+  // Firebase is BUNDLED in from node_modules (not loaded from gstatic at
+  // runtime) so the auth flow has zero third-party-CDN dependency — a blocked
+  // or down gstatic.com can no longer prevent the app from loading.
+  const authOut = await esbuild({
+    entryPoints: [join(ROOT, 'frontend', 'src', 'lib', 'auth.ts')],
+    bundle: true,
+    format: 'esm',
+    target: 'es2020',
+    minify: true,
+    legalComments: 'none',
+    write: false,
+    logLevel: 'silent',
+  });
+  const authJs = authOut.outputFiles[0].text;
   writeFileSync(join(ROOT, 'js', 'auth.js'), authJs);
-  console.log(`Built js/auth.js from frontend/src/lib/auth.ts (${authJs.length} bytes).`);
+  console.log(`Built js/auth.js (Firebase bundled) from frontend/src/lib/auth.ts (${authJs.length} bytes).`);
+
+  // 2b. jsPDF: bundle from node_modules → vendor/jspdf/jspdf.esm.js
+  // PDF export (src/app/18-validator-export.ts) dynamically imports this at
+  // runtime. Bundling it from npm (instead of jsdelivr's +esm endpoint, which
+  // chains to further CDN sub-requests) keeps the export feature CDN-free.
+  const jspdfOut = await esbuild({
+    stdin: { contents: "export { jsPDF } from 'jspdf';", resolveDir: ROOT, loader: 'js' },
+    bundle: true,
+    format: 'esm',
+    target: 'es2020',
+    minify: true,
+    legalComments: 'none',
+    write: false,
+    logLevel: 'silent',
+  });
+  const jspdfDir = join(ROOT, 'vendor', 'jspdf');
+  if (!existsSync(jspdfDir)) mkdirSync(jspdfDir, { recursive: true });
+  const jspdfJs = jspdfOut.outputFiles[0].text;
+  writeFileSync(join(jspdfDir, 'jspdf.esm.js'), jspdfJs);
+  console.log(`Built vendor/jspdf/jspdf.esm.js from npm (${jspdfJs.length} bytes).`);
 
   // 3. CSS: frontend/public/css/styles.css → css/styles.css
   const cssDestDir = join(ROOT, 'css');
