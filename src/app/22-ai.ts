@@ -710,3 +710,9 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
 })();
 
 initThree();initSectionDrag();initViewCube();log('Ready');
+// Signal the boot watchdog (inline script in index.html) that the core 3D
+// engine + libraries loaded and initialized successfully. If this never runs
+// (e.g. a vendor module failed to load), the watchdog shows an error+retry
+// screen instead of a silent blank page.
+window.__ifcAppReady = true;
+window.dispatchEvent(new Event('ifc:ready'));

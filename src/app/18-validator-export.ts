@@ -27,9 +27,11 @@ window.toggleSGCheckPanel = function(){
 window.sgExportReport = async function(){
   if(!sgState.results){ log('SG: no results to export'); return; }
   try{
-    // Use jsPDF from existing import if present, else CDN
+    // Use jsPDF from existing import if present, else the self-hosted bundle
+    // (vendor/jspdf/jspdf.esm.js — built from npm so PDF export works without
+    // any third-party CDN).
     if(!window.jspdf){
-      const mod = await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm');
+      const mod = await import('/vendor/jspdf/jspdf.esm.js');
       window.jspdf = mod;
     }
     const { jsPDF } = window.jspdf;

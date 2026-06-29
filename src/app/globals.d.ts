@@ -51,8 +51,8 @@ declare module 'web-ifc';
 declare module 'https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js';
 declare module 'https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js';
 
-// ── Other CDN ESM modules imported dynamically at runtime ──
-declare module 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm';
+// ── Self-hosted ESM modules imported dynamically at runtime ──
+declare module '/vendor/jspdf/jspdf.esm.js';
 
 // ── Third-party globals loaded via <script>/CDN ──
 declare const JSZip: any;
