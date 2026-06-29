@@ -709,10 +709,17 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
   if(window.DEBUG)console.log('Nhấn nút ✦ góc phải-dưới để mở chat. Key giữ ở server (proxy /api/ai/chat).');
 })();
 
-initThree();initSectionDrag();initViewCube();log('Ready');
-// Signal the boot watchdog (inline script in index.html) that the core 3D
-// engine + libraries loaded and initialized successfully. If this never runs
-// (e.g. a vendor module failed to load), the watchdog shows an error+retry
-// screen instead of a silent blank page.
-window.__ifcAppReady = true;
-window.dispatchEvent(new Event('ifc:ready'));
+try {
+  initThree();initSectionDrag();initViewCube();log('Ready');
+  // Signal the boot watchdog (inline script in index.html) that the core 3D
+  // engine + libraries loaded and initialized successfully. If this never runs
+  // (e.g. a vendor module failed to load), the watchdog shows an error+retry
+  // screen instead of a silent blank page.
+  window.__ifcAppReady = true;
+  window.dispatchEvent(new Event('ifc:ready'));
+} catch(err) {
+  console.error('[IFC] Boot failed:', err);
+  // Re-throw so the watchdog's error listener can capture it and show the
+  // error overlay immediately rather than waiting for the 20 s timeout.
+  throw err;
+}

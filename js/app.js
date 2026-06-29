@@ -10638,12 +10638,17 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
   if (window.DEBUG) console.log("%c\u2550\u2550\u2550 AI CHAT UI s\u1EB5n s\xE0ng \u2550\u2550\u2550", "color:#2563eb;font-weight:700");
   if (window.DEBUG) console.log("Nh\u1EA5n n\xFAt \u2726 g\xF3c ph\u1EA3i-d\u01B0\u1EDBi \u0111\u1EC3 m\u1EDF chat. Key gi\u1EEF \u1EDF server (proxy /api/ai/chat).");
 })();
-initThree();
-initSectionDrag();
-initViewCube();
-log("Ready");
-window.__ifcAppReady = true;
-window.dispatchEvent(new Event("ifc:ready"));
+try {
+  initThree();
+  initSectionDrag();
+  initViewCube();
+  log("Ready");
+  window.__ifcAppReady = true;
+  window.dispatchEvent(new Event("ifc:ready"));
+} catch (err) {
+  console.error("[IFC] Boot failed:", err);
+  throw err;
+}
 const PAGE_LABELS = {
   viewer: "3D Viewer",
   compare: "Version Compare",
