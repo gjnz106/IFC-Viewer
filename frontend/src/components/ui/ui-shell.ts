@@ -74,3 +74,108 @@ window.colorizeSetProp = function (v: string): void {
   });
   if ((window as any).applyColorize) (window as any).applyColorize();
 };
+
+// ── IDD Sync Extras (Settings, Team, Invite, Notifications, Help Hub) ──
+
+(window as any).toggleSettingsPanel = function (): void {
+  const el = document.getElementById('settingsOverlay');
+  if (el) {
+    const open = el.style.display !== 'none';
+    if (!open) {
+      const savedLink = localStorage.getItem('projectDriveLink') || '';
+      const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
+      if (input) {
+        input.value = savedLink;
+        if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
+      }
+      el.style.display = 'flex';
+    } else {
+      const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
+      if (input) {
+        localStorage.setItem('projectDriveLink', input.value.trim());
+      }
+      el.style.display = 'none';
+    }
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const savedLink = localStorage.getItem('projectDriveLink') || '';
+  const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
+  if (input) {
+    input.value = savedLink;
+    if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
+  }
+});
+
+(window as any).toggleTeamPanel = function (): void {
+  const el = document.getElementById('teamOverlay');
+  if (el) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'flex';
+  }
+};
+
+(window as any).toggleInvitePanel = function (): void {
+  const el = document.getElementById('inviteOverlay');
+  if (el) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'flex';
+  }
+};
+
+(window as any).setInviteTier = function (tier: 'member' | 'guest'): void {
+  const btnM = document.getElementById('btnTierMember');
+  const btnG = document.getElementById('btnTierGuest');
+  const warning = document.getElementById('guestWarning');
+  if (!btnM || !btnG || !warning) return;
+  if (tier === 'member') {
+    btnM.style.background = '#fff';
+    btnM.style.fontWeight = '700';
+    btnM.style.color = '#009668';
+    btnG.style.background = 'transparent';
+    btnG.style.fontWeight = '500';
+    btnG.style.color = '#8590a6';
+    warning.style.display = 'none';
+  } else {
+    btnG.style.background = '#fff';
+    btnG.style.fontWeight = '700';
+    btnG.style.color = '#b75a00';
+    btnM.style.background = 'transparent';
+    btnM.style.fontWeight = '500';
+    btnM.style.color = '#8590a6';
+    warning.style.display = 'block';
+  }
+};
+
+(window as any).toggleNotifMenu = function (): void {
+  const el = document.getElementById('notifMenuDrop');
+  const bg = document.getElementById('notifMenuBg');
+  if (el && bg) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    bg.style.display = open ? 'none' : 'block';
+    const badge = document.getElementById('notifBadge');
+    if (badge) badge.style.display = 'none';
+  }
+};
+
+(window as any).toggleHelpMenu = function (): void {
+  const el = document.getElementById('helpMenuDrop');
+  const bg = document.getElementById('helpMenuBg');
+  if (el && bg) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    bg.style.display = open ? 'none' : 'block';
+  }
+};
+
+(window as any).clearNotifs = function (): void {
+  const list = document.getElementById('notifList');
+  if (list) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#8590a6;font-size:11px">No new notifications</div>';
+  }
+  const badge = document.getElementById('notifBadge');
+  if (badge) badge.style.display = 'none';
+};
+

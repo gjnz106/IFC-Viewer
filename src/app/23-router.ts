@@ -124,32 +124,106 @@ if (document.readyState === 'loading') {
   }
 };
 
-// ── Settings panel stub (extend in future) ────────────────────────────
-(window as any).toggleSettingsPanel = function() {
-  let panel = document.getElementById('settingsPanel');
-  if (!panel) {
-    // Create minimal settings panel on first open
-    panel = document.createElement('div');
-    panel.id = 'settingsPanel';
-    panel.className = 'settings-panel';
-    panel.innerHTML = `
-      <div class="settings-card">
-        <div class="settings-card-title">
-          <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Project Settings
-        </div>
-        <div class="settings-row"><span>Application</span><span style="font-size:12px;color:var(--text-muted)">T3LAB.IFC &mdash; 3D Version Compare</span></div>
-        <div class="settings-row"><span>Version</span><span style="font-size:12px;color:var(--text-muted)">v1.0</span></div>
-        <div style="margin-top:20px;display:flex;justify-content:flex-end">
-          <button class="btn" onclick="document.getElementById('settingsPanel').style.display='none'" style="height:34px;padding:0 16px;font-size:13px">Close</button>
-        </div>
-      </div>
-    `;
-    panel.addEventListener('click', (e) => {
-      if (e.target === panel) panel.style.display = 'none';
-    });
-    document.body.appendChild(panel);
+// ── IDD Sync Extras (Settings, Team, Invite, Notifications, Help Hub) ──
+
+(window as any).toggleSettingsPanel = function (): void {
+  const el = document.getElementById('settingsOverlay');
+  if (el) {
+    const open = el.style.display !== 'none';
+    if (!open) {
+      const savedLink = localStorage.getItem('projectDriveLink') || '';
+      const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
+      if (input) {
+        input.value = savedLink;
+        if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
+      }
+      el.style.display = 'flex';
+    } else {
+      const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
+      if (input) {
+        localStorage.setItem('projectDriveLink', input.value.trim());
+      }
+      el.style.display = 'none';
+    }
   }
-  const hidden = panel.style.display === 'none' || !panel.style.display;
-  panel.style.display = hidden ? 'flex' : 'none';
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const savedLink = localStorage.getItem('projectDriveLink') || '';
+  const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
+  if (input) {
+    input.value = savedLink;
+    if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
+  }
+});
+
+(window as any).toggleTeamPanel = function (): void {
+  const el = document.getElementById('teamOverlay');
+  if (el) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'flex';
+  }
+};
+
+(window as any).toggleInvitePanel = function (): void {
+  const el = document.getElementById('inviteOverlay');
+  if (el) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'flex';
+  }
+};
+
+(window as any).setInviteTier = function (tier: 'member' | 'guest'): void {
+  const btnM = document.getElementById('btnTierMember');
+  const btnG = document.getElementById('btnTierGuest');
+  const warning = document.getElementById('guestWarning');
+  if (!btnM || !btnG || !warning) return;
+  if (tier === 'member') {
+    btnM.style.background = '#fff';
+    btnM.style.fontWeight = '700';
+    btnM.style.color = '#009668';
+    btnG.style.background = 'transparent';
+    btnG.style.fontWeight = '500';
+    btnG.style.color = '#8590a6';
+    warning.style.display = 'none';
+  } else {
+    btnG.style.background = '#fff';
+    btnG.style.fontWeight = '700';
+    btnG.style.color = '#b75a00';
+    btnM.style.background = 'transparent';
+    btnM.style.fontWeight = '500';
+    btnM.style.color = '#8590a6';
+    warning.style.display = 'block';
+  }
+};
+
+(window as any).toggleNotifMenu = function (): void {
+  const el = document.getElementById('notifMenuDrop');
+  const bg = document.getElementById('notifMenuBg');
+  if (el && bg) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    bg.style.display = open ? 'none' : 'block';
+    const badge = document.getElementById('notifBadge');
+    if (badge) badge.style.display = 'none';
+  }
+};
+
+(window as any).toggleHelpMenu = function (): void {
+  const el = document.getElementById('helpMenuDrop');
+  const bg = document.getElementById('helpMenuBg');
+  if (el && bg) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    bg.style.display = open ? 'none' : 'block';
+  }
+};
+
+(window as any).clearNotifs = function (): void {
+  const list = document.getElementById('notifList');
+  if (list) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#8590a6;font-size:11px">No new notifications</div>';
+  }
+  const badge = document.getElementById('notifBadge');
+  if (badge) badge.style.display = 'none';
 };

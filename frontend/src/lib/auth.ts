@@ -169,6 +169,10 @@ function showLoggedInUser(user: User) {
   // Also populate the topbar account-menu avatar if it exists (new UI design)
   const acMenuAv = document.getElementById('acMenuAv');
   if (acMenuAv) acMenuAv.textContent = initials;
+  const acName = document.querySelector('.account-menu-name');
+  if (acName) acName.textContent = local;
+  const acStatus = document.querySelector('.account-menu-status');
+  if (acStatus) acStatus.textContent = email;
 }
 
 // ── LOGIN form ──────────────────────────────────────────────────────────
@@ -204,11 +208,11 @@ $('verifyResend').addEventListener('click', async () => {
   }
 });
 
-window.checkVerifiedNow = async function () {
+$('verifyCheck').addEventListener('click', async () => {
   if (!auth?.currentUser) return;
-  clearMsg('verifyMsg');
+  setLoading('verifyCheck', true);
   try {
-    await reloadUser(auth.currentUser);
+    await auth.currentUser.reload();
     if (auth.currentUser.emailVerified) {
       overlay.classList.add('hidden');
       showLoggedInUser(auth.currentUser);
@@ -266,24 +270,22 @@ window.signOutFromVerify = async function () {
 // ── User menu (dropdown from header badge) ──────────────────────────────
 window.toggleUserMenu = function (ev?: Event) {
   ev?.stopPropagation();
-  const menu = $('userMenu');
-  if (menu.classList.contains('show')) { menu.classList.remove('show'); return; }
-  const badge = $('userBadge').getBoundingClientRect();
-  menu.style.top = (badge.bottom + 4) + 'px';
-  menu.style.right = (window.innerWidth - badge.right) + 'px';
-  menu.style.left = '';
-  menu.classList.add('show');
+  const menu = document.querySelector('.account-menu') as HTMLElement;
+  if (!menu) return;
+  const isOpen = menu.style.display !== 'none';
+  menu.style.display = isOpen ? 'none' : 'block';
 };
 document.addEventListener('click', e => {
-  const menu = $('userMenu');
-  if (!menu.classList.contains('show')) return;
-  if ((e.target as Element).closest('#userMenu') || (e.target as Element).closest('#userBadge')) return;
-  menu.classList.remove('show');
+  const menu = document.querySelector('.account-menu') as HTMLElement;
+  if (!menu || menu.style.display === 'none') return;
+  if ((e.target as Element).closest('.account-menu') || (e.target as Element).closest('#userBadge')) return;
+  menu.style.display = 'none';
 });
 
 // ── LOGOUT confirm flow ─────────────────────────────────────────────────
 (window as any).confirmLogout = function () {
-  $('userMenu').classList.remove('show');
+  const menu = document.querySelector('.account-menu') as HTMLElement;
+  if (menu) menu.style.display = 'none';
   $('confirmBackdrop').classList.add('show');
 };
 (window as any).cancelLogout = function () {
