@@ -136,6 +136,8 @@ if (auth) {
       if (menu) menu.classList.remove('show');
       const acMenu = document.querySelector('.account-menu') as HTMLElement;
       if (acMenu) acMenu.style.display = 'none';
+      const profileOverlay = document.getElementById('profileOverlay');
+      if (profileOverlay) profileOverlay.style.display = 'none';
       return;
     }
     setAuth(user);
@@ -180,6 +182,20 @@ function showLoggedInUser(user: User) {
   if (acName) acName.textContent = local;
   const acStatus = document.querySelector('.account-menu-status');
   if (acStatus) acStatus.textContent = email;
+  // My Profile dialog
+  const profileAv = document.getElementById('profileAv');
+  if (profileAv) profileAv.textContent = initials;
+  const profileName = document.getElementById('profileName');
+  if (profileName) profileName.textContent = user.displayName || local;
+  const profileEmail = document.getElementById('profileEmail');
+  if (profileEmail) profileEmail.textContent = email;
+  const profileVerified = document.getElementById('profileVerified');
+  if (profileVerified) {
+    profileVerified.textContent = user.emailVerified ? 'Verified' : 'Not verified';
+    profileVerified.style.color = user.emailVerified ? 'var(--green, #009668)' : '#b75a00';
+  }
+  const profileRole = document.getElementById('profileRole');
+  if (profileRole) profileRole.textContent = (window as any).isAdmin ? 'Admin' : 'Member';
 }
 
 // ── LOGIN form ──────────────────────────────────────────────────────────

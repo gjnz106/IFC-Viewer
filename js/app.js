@@ -11055,6 +11055,13 @@ window.toggleTeamPanel = function() {
     el.style.display = open ? "none" : "flex";
   }
 };
+window.toggleProfilePanel = function() {
+  const el = document.getElementById("profileOverlay");
+  if (el) {
+    const open = el.style.display !== "none";
+    el.style.display = open ? "none" : "flex";
+  }
+};
 window.toggleInvitePanel = function() {
   const el = document.getElementById("inviteOverlay");
   if (el) {

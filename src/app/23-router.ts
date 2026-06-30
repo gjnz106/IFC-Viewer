@@ -178,6 +178,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 };
 
+(window as any).toggleProfilePanel = function (): void {
+  const el = document.getElementById('profileOverlay');
+  if (el) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'flex';
+  }
+};
+
 (window as any).toggleInvitePanel = function (): void {
   const el = document.getElementById('inviteOverlay');
   if (el) {
