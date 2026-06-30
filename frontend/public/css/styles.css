@@ -679,7 +679,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .ctx-header{padding:6px 14px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);font-family:'JetBrains Mono'}
 
 /* Transparency panel */
-.tp-panel{position:absolute;bottom:12px;right:12px;display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;z-index:10;opacity:.85;transition:opacity var(--t)}
+.tp-panel{position:absolute;top:50px;left:12px;display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;z-index:10;opacity:.85;transition:opacity var(--t)}
 .tp-panel:hover{opacity:1}
 
 /* Measure info bar */

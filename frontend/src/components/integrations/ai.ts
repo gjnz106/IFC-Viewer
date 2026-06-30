@@ -439,7 +439,7 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
       #FF6B9D 77%,
       #FF6B6B 100%
     );
-    opacity:0.85;
+    opacity:0;
     transition:opacity .25s ease;
   }
   .aic-fab-ring-mask{
@@ -448,7 +448,7 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
     background:var(--bg-panel,#fff);
     z-index:1;
   }
-  /* spinning ring when busy */
+  /* ring only appears while the assistant is working — a clean spinning loader, not idle decoration */
   @keyframes aic-spin{to{--aic-ring-angle:360deg}}
   @property --aic-ring-angle{syntax:"<angle>";initial-value:0deg;inherits:false}
   .aic-fab-wrap.busy .aic-fab-ring{
@@ -498,12 +498,12 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
     will-change:transform;
     transition:transform .08s ease;
   }
-  /* panel open animation */
+  /* panel open animation — subtle fade/rise, no overshoot */
   @keyframes aic-panel-in{
-    from{opacity:0;transform:scale(.94) translateY(12px)}
+    from{opacity:0;transform:scale(.98) translateY(6px)}
     to{opacity:1;transform:scale(1) translateY(0)}
   }
-  .aic-panel.open{display:flex;animation:aic-panel-in .2s cubic-bezier(.22,.68,0,1.15) both}
+  .aic-panel.open{display:flex;animation:aic-panel-in .16s ease-out both}
   /* ── Head with live gradient shimmer when busy ── */
   .aic-head{
     display:flex;align-items:center;gap:9px;
@@ -656,7 +656,7 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
     <div class="aic-head">
       <span class="aic-dot"></span><b>Trợ lý AI · IFC Delta</b>
       <button class="aic-iconbtn" data-act="settings" title="Cài đặt provider/model">⚙</button>
-      <button class="aic-iconbtn" data-act="clear" title="Xoá hội thoại">🗑</button>
+      <button class="aic-iconbtn" data-act="clear" title="Xoá hội thoại / Reset">↻</button>
       <button class="aic-iconbtn" data-act="close" title="Đóng">✕</button>
     </div>
     <div class="aic-settings">

@@ -10460,7 +10460,7 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
       #FF6B9D 77%,
       #FF6B6B 100%
     );
-    opacity:0.85;
+    opacity:0;
     transition:opacity .25s ease;
   }
   .aic-fab-ring-mask{
@@ -10469,7 +10469,7 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
     background:var(--bg-panel,#fff);
     z-index:1;
   }
-  /* spinning ring when busy */
+  /* ring only appears while the assistant is working \u2014 a clean spinning loader, not idle decoration */
   @keyframes aic-spin{to{--aic-ring-angle:360deg}}
   @property --aic-ring-angle{syntax:"<angle>";initial-value:0deg;inherits:false}
   .aic-fab-wrap.busy .aic-fab-ring{
@@ -10519,12 +10519,12 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
     will-change:transform;
     transition:transform .08s ease;
   }
-  /* panel open animation */
+  /* panel open animation \u2014 subtle fade/rise, no overshoot */
   @keyframes aic-panel-in{
-    from{opacity:0;transform:scale(.94) translateY(12px)}
+    from{opacity:0;transform:scale(.98) translateY(6px)}
     to{opacity:1;transform:scale(1) translateY(0)}
   }
-  .aic-panel.open{display:flex;animation:aic-panel-in .2s cubic-bezier(.22,.68,0,1.15) both}
+  .aic-panel.open{display:flex;animation:aic-panel-in .16s ease-out both}
   /* \u2500\u2500 Head with live gradient shimmer when busy \u2500\u2500 */
   .aic-head{
     display:flex;align-items:center;gap:9px;
@@ -10667,7 +10667,7 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
         <b>T3Lab Assistant</b>
         <span>IFC AI Copilot</span>
       </div>
-      <button class="aic-iconbtn" data-act="clear" title="Xo\xE1 h\u1ED9i tho\u1EA1i">\u{1F5D1}</button>
+      <button class="aic-iconbtn" data-act="clear" title="Xo\xE1 h\u1ED9i tho\u1EA1i / Reset">\u21BB</button>
       <button class="aic-iconbtn" data-act="close" title="\u0110\xF3ng">\u2715</button>
     </div>
     <div class="aic-msgs"></div>
