@@ -261,6 +261,7 @@ declare global {
     showProps?: (expressId: number, modelId: number) => void;
     propAccordionToggle?: (hdr: HTMLElement) => void;
     propAccordionToggleAll?: (expand: boolean) => void;
+    rpSelect?: (tab: 'props' | 'sg') => void;
 
     // Compare
     exitCompare?: () => void;

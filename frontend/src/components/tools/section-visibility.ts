@@ -133,7 +133,12 @@ async function initIFC(){
   setStatus('loading','Loading WASM...');
   try{
     appState.ifcLoader=new IFCLoader();
-    await appState.ifcLoader.ifcManager.setWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/');
+    // Self-host the web-ifc WASM (in frontend/public/vendor/web-ifc/, version-matched
+    // to the bundled web-ifc) instead of a CDN — the CDN can be blocked and then the
+    // loader falls back to a same-origin path that the SPA rewrite answers with HTML,
+    // causing "expected magic word 00 61 73 6d, found 3c 21 44 4f". A real static file
+    // is served before the rewrite, so this is robust on both Vercel and Firebase.
+    await appState.ifcLoader.ifcManager.setWasmPath('/vendor/web-ifc/');
     await appState.ifcLoader.ifcManager.applyWebIfcConfig({USE_FAST_BOOLS:false});
     await appState.ifcLoader.ifcManager.parser.setupOptionalCategories({[IFCSPACE]:false,[IFCOPENINGELEMENT]:false});
     log('WASM ready');setStatus('done','Ready');setTimeout(()=>setStatus('',''),2000);return true;
@@ -561,7 +566,9 @@ async function buildCatFromModels(){
   log('Categories found:',Object.keys(window._catData).length,'types');
   document.getElementById('catFilter')!.classList.add('show');
   // Show panel tabs so Search is accessible even without compare
-  document.getElementById('panelTabs')!.classList.add('show');
+  // (#panelTabs is vestigial — the redesigned tab strip is always visible — so
+  // guard against null instead of crashing the load/compare flow.)
+  document.getElementById('panelTabs')?.classList.add('show');
   appState.activeCategories=new Set();
   (window as any).buildCatDropdown?.();
   (window as any).updateCatTags?.();
@@ -679,7 +686,7 @@ window.exitCompare=function(){
   (document.getElementById('eTree') as HTMLElement).style.display='';
 
   // Hide issues
-  document.getElementById('panelTabs')!.classList.remove('show');
+  document.getElementById('panelTabs')?.classList.remove('show');
   document.getElementById('issuesList')!.classList.remove('show');
   document.getElementById('issuesList')!.innerHTML='';
   document.getElementById('issueNav')!.classList.remove('show');
@@ -1015,4 +1022,13 @@ window.handleFile=async function(idx: number){
     const f=(e as DragEvent).dataTransfer!.files[0];if(f&&f.name.toLowerCase().endsWith('.ifc')){appState.files[idx]=f;el.classList.add('loaded');
     document.getElementById('fn'+idx)!.textContent=f.name;document.getElementById('fs'+idx)!.textContent=(f.size/1048576).toFixed(2)+' MB';
     (async()=>{if(!appState.ifcLoader){if(!await initIFC())return}await loadIFC(idx)})()}});
+});
+
+// ── Expose cross-module callers on window ──
+// Invoked as window.X() from other modules (viewer-core pick handler, file-input
+// /drive loaders, focus tools). In the deployed standalone these share one scope;
+// the Vite port must attach them so the runtime calls resolve.
+Object.assign(window as any, {
+  clearHighlight, createSectionBox3D, initIFC, loadIFC,
+  sectionPlanParallelToFace, updateSectionHandleSizes, zoomToElement,
 });

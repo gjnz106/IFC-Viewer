@@ -12,6 +12,7 @@ import './components/compare/federation-load.js';
 import './components/compare/compare.js';
 import './components/inspect/properties.js';
 import './components/tools/measure.js';
+import './components/tools/coordinates.js';
 import './components/tools/focus-highlight.js';
 import './components/compare/clash.js';
 import './components/tools/walk.js';

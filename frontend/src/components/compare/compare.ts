@@ -752,3 +752,6 @@ export function applyCategoryVisibility3D() {
 export function renderSummary() {
   showResultsUI();
 }
+
+// ── Expose on window for cross-module caller ──
+Object.assign(window as any, { showResultsUI });

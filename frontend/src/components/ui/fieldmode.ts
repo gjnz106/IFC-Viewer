@@ -792,3 +792,6 @@ if('ontouchstart' in window && window.innerWidth <= 1200){
 }
 
 export { fieldToast, fieldBuildStoreys, walkTouchInit };
+
+// ── Expose on window for cross-module caller (walk mode touch init) ──
+Object.assign(window as any, { walkTouchInit });

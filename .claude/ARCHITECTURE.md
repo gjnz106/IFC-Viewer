@@ -65,7 +65,7 @@ với code đang chạy production. Lợi ích:
 | `15-plan-overlay.ts` | Lớp phủ mặt bằng 2D (top-down ortho) |
 | `16-validator-rules.ts` | CORENET X / IFC-SG — Phase 1 (~35 rule built-in) |
 | `17-validator-json-loader.ts` | Phase 2 — nạp rule JSON + ~100 rule mở rộng |
-| `18-validator-export.ts` | Validator export PDF / BCF (BCF còn stub) |
+| `18-validator-export.ts` | Validator export PDF (jsPDF) / BCF 2.1 (zip qua JSZip) — đầy đủ |
 | `19-drive.ts` | Tích hợp Google Drive |
 | `20-search.ts` | Tìm kiếm & lọc cấu kiện |
 | `21-fieldmode.ts` | Field mode (tablet/công trường): touch, joystick, storey, plan 2D |

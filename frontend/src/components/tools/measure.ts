@@ -3,12 +3,16 @@ import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 
 // ── Module-level measure state ──
-let measureMode: boolean = false;
+// measureMode + measurePoints live on window so viewer-core's pick handler and
+// the floating-toolbar buttons share one source of truth. measurePoints is
+// mutated in place (never reassigned) so the window reference stays valid.
 let measureType: string = 'distance';
-let measurePoints: THREE.Vector3[] = [];
+const measurePoints: THREE.Vector3[] = [];
 let measureMarkers: THREE.Object3D[] = [];
 let measureLine: THREE.Line | null = null;
 let measureLabel: THREE.Sprite | null = null;
+(window as any).measureMode = false;
+(window as any).measurePoints = measurePoints;
 
 // ── Level mode: single click = show elevation ──
 function handleMeasurePoint(point: THREE.Vector3): void {
@@ -65,7 +69,7 @@ function handleMeasurePoint(point: THREE.Vector3): void {
     (document.getElementById('measureText') as HTMLElement).textContent = `📐 EL ${el.toFixed(3)}m (${elMM}mm) | Click another point or Clear`;
 
     // Allow clicking more points without clearing
-    measurePoints = [];
+    measurePoints.length = 0;
     return;
   }
 
@@ -135,6 +139,67 @@ function handleMeasurePoint(point: THREE.Vector3): void {
     appState.renderer.domElement.style.cursor = 'crosshair';
   }
 }
+
+// ══ Measure tool wiring (toolbar buttons + viewer-core pick handler) ══
+// Ported from the deployed standalone (src/app/10-properties.ts) so the
+// floating-toolbar Measure button, the Distance/Level mode buttons, Clear, and
+// the 3D-pick → addMeasurePoint flow all work in the Vite build.
+(window as any).setMeasureMode = function (type: string): void {
+  measureType = type;
+  (window as any).clearMeasure();
+  const dBtn = document.getElementById('modeDistance');
+  const lBtn = document.getElementById('modeLevel');
+  if (!dBtn || !lBtn) return;
+  if (type === 'distance') {
+    dBtn.style.borderColor = 'var(--blue)'; dBtn.style.background = 'var(--blue-lt)'; dBtn.style.color = 'var(--blue)'; dBtn.style.fontWeight = '600';
+    lBtn.style.borderColor = 'var(--border)'; lBtn.style.background = 'var(--bg-card)'; lBtn.style.color = 'var(--text-dim)'; lBtn.style.fontWeight = '400';
+    (document.getElementById('measureText') as HTMLElement).textContent = 'Click first point';
+  } else {
+    lBtn.style.borderColor = 'var(--blue)'; lBtn.style.background = 'var(--blue-lt)'; lBtn.style.color = 'var(--blue)'; lBtn.style.fontWeight = '600';
+    dBtn.style.borderColor = 'var(--border)'; dBtn.style.background = 'var(--bg-card)'; dBtn.style.color = 'var(--text-dim)'; dBtn.style.fontWeight = '400';
+    (document.getElementById('measureText') as HTMLElement).textContent = 'Click a point to read elevation';
+  }
+};
+
+(window as any).toggleMeasure = function (): void {
+  const on = !(window as any).measureMode;
+  (window as any).measureMode = on;
+  document.getElementById('btnMeasure')?.classList.toggle('active', on);
+  const info = document.getElementById('measureInfo');
+  if (info) info.style.display = on ? 'flex' : 'none';
+  if (!on) {
+    (window as any).clearMeasure();
+  } else {
+    (window as any).setMeasureMode(measureType);
+    appState.renderer.domElement.style.cursor = 'crosshair';
+  }
+};
+
+(window as any).clearMeasure = function (): void {
+  measurePoints.length = 0;
+  measureMarkers.forEach(m => { if (m.parent) m.parent.remove(m); });
+  measureMarkers = [];
+  if (measureLine) { if (measureLine.parent) measureLine.parent.remove(measureLine); measureLine = null; }
+  if (measureLabel) { if (measureLabel.parent) measureLabel.parent.remove(measureLabel); measureLabel = null; }
+  const on = (window as any).measureMode;
+  appState.renderer.domElement.style.cursor = on ? 'crosshair' : '';
+  if (on) {
+    (document.getElementById('measureText') as HTMLElement).textContent = measureType === 'distance' ? 'Click first point' : 'Click a point to read elevation';
+  }
+};
+
+// Called by viewer-core's pick handler with the clicked world point.
+(window as any).addMeasurePoint = function (point: THREE.Vector3): void {
+  const geo = new THREE.SphereGeometry(0.08, 12, 12);
+  const color = measureType === 'level' ? 0xf59e0b : 0x2563eb;
+  const sphere = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, depthTest: false }));
+  sphere.position.copy(point);
+  sphere.renderOrder = 999;
+  appState.scene.add(sphere);
+  measureMarkers.push(sphere);
+  measurePoints.push(point.clone());
+  handleMeasurePoint(point);
+};
 
 // ══ Global Opacity ══
 window.setGlobalOpacity = function (val: number): void {
@@ -462,7 +527,7 @@ function buildIssues(): void {
     });
   }
   (document.getElementById('issuesList') as HTMLElement).innerHTML = html;
-  document.getElementById('panelTabs')!.classList.add('show');
+  document.getElementById('panelTabs')?.classList.add('show');
 
   // Always switch to issues tab after compare
   window.switchTab!('issues');
@@ -482,3 +547,9 @@ window.focusIssue = function (idx: number): void {
 };
 
 export { buildIssues, handleMeasurePoint, applyCatVis, buildCatDropdown, updateCatTags, filterIssuesList };
+
+// ── Expose the category-dropdown helpers on window ──
+// color-schemes.ts and section-visibility.ts call these via window.X() after
+// visibility changes. This module owns the category dropdown UI, so its versions
+// are the canonical ones (compare.ts carries equivalent copies for its own use).
+Object.assign(window as any, { applyCatVis, buildCatDropdown, updateCatTags });

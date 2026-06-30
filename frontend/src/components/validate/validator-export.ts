@@ -339,3 +339,7 @@ export function escapeHtml(s: any): string {
   if(s == null) return '';
   return String(s).replace(/[&<>"']/g, (c: string) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
 }
+
+// federation-load.ts calls window.escapeHtml(fname) non-defensively when rendering
+// federation slot names; attach it so that path doesn't throw.
+(window as any).escapeHtml = escapeHtml;

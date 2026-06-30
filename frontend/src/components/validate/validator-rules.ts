@@ -885,3 +885,6 @@ export const SG_RULES: any[] = [
     }
   }
 ];
+
+// ── Expose validator helpers on window for cross-module callers ──
+Object.assign(window as any, { sgReadNumeric, sgReadParam });

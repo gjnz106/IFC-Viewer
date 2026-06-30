@@ -602,6 +602,14 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .leg{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono'}
 .leg-d{width:7px;height:7px;border-radius:2px}
 
+/* Floating viewport toolbar — dark pill clusters, bottom-centered */
+.vp-toolbar{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;z-index:10}
+.vp-tg{display:flex;align-items:center;gap:2px;padding:6px;border-radius:999px;background:#2C2420;box-shadow:0 8px 24px -6px rgba(20,16,14,.45)}
+.vp-tool{flex:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;background:transparent;color:#ACA59E;cursor:pointer;transition:background var(--t),color var(--t)}
+.vp-tool:hover{background:rgba(255,255,255,.10);color:#fff}
+.vp-tool.active{background:rgba(255,255,255,.16);color:#fff}
+.vp-tsep{flex:none;width:1px;height:18px;margin:0 4px;background:rgba(255,255,255,.14)}
+
 /* Section Box Panel */
 .section-panel{position:absolute;bottom:8px;left:8px;z-index:10;display:none;padding:10px 12px;border-radius:var(--radius);background:rgba(255,255,255,.92);border:1px solid var(--border);backdrop-filter:blur(6px);width:240px}
 .section-panel.show{display:block}

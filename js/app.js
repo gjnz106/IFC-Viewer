@@ -427,7 +427,6 @@ function initThree() {
         break;
       }
       if (!validHit) validHit = hit2;
-      break;
     }
     if (!validHit) {
       restoreViewSnap();
@@ -3831,7 +3830,22 @@ window.propAccordionToggleAll = function(expand) {
     else h.classList.remove("expanded");
   });
 };
+window.rpSelect = function(tab) {
+  document.getElementById("rpTabProps")?.classList.toggle("on", tab === "props");
+  document.getElementById("rpTabSG")?.classList.toggle("on", tab === "sg");
+  const propArea = document.getElementById("propArea");
+  const sgEmpty = document.getElementById("rpSGEmpty");
+  if (propArea) propArea.style.display = tab === "props" ? "" : "none";
+  if (tab === "sg") {
+    if (sgEmpty) sgEmpty.style.display = sgState.open ? "none" : "flex";
+    if (!sgState.open) window.toggleSGCheckPanel?.();
+  } else {
+    if (sgEmpty) sgEmpty.style.display = "none";
+    if (sgState.open) window.toggleSGCheckPanel?.();
+  }
+};
 async function showProps(props, modelIdx) {
+  window.rpSelect?.("props");
   const mid = loadedModels[modelIdx]?.modelID;
   const eid = props.expressID;
   const mgr = ifcLoader?.ifcManager;

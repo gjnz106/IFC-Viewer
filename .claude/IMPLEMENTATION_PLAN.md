@@ -39,23 +39,40 @@ Xem `ARCHITECTURE.md` cho bản đồ module.
 
 ## Giai đoạn 1 — Ưu tiên cao (báo cáo §4 + §7)
 
-### 1.1 Proxy bảo mật API key ✅ Đã xong (qua Express, không qua Cloudflare Worker)
+### 1.1 Proxy bảo mật API key ✅ Đã xong (serverless Vercel + Express, không qua Cloudflare Worker)
 Khoá API key ở server trước khi mở AI cho team. Không bao giờ deploy file kèm API key (§6).
-- [x] `backend/src/routes/ai.ts`: `requireAuth()` xác thực Firebase ID token qua REST
-      `accounts:lookup` (không cần Admin SDK/service-account — Web API key vốn công khai).
-      Từ chối 401 nếu thiếu token/token không hợp lệ/email chưa xác minh.
-- [x] `rateLimitByUid()`: giới hạn 20 yêu cầu/10 phút theo uid (in-memory, đủ cho team
-      ~20 người trên 1 instance; cấu hình qua `AI_RATE_LIMIT_MAX`/`AI_RATE_LIMIT_WINDOW_MS`).
+
+> ⚠️ **Hai proxy song song — phân biệt cái nào đang chạy production:**
+> - **`api/ai/chat.js` (Vercel serverless) — ĐANG DEPLOY.** Provider **DeepSeek**
+>   (`DEEPSEEK_API_KEY`). Đây là endpoint `/api/ai/chat` mà bản `src/app/` (production)
+>   thực sự gọi. Client gửi `provider` rỗng + `model` rỗng → proxy luôn dùng DeepSeek.
+> - **`backend/src/routes/ai.ts` (Express) — CHƯA DEPLOY.** Đa provider
+>   (anthropic mặc định / openai / deepseek / google), có UI chọn `⚙` ở bản `frontend/`
+>   (Vite). Dùng cho dev/thử nghiệm; chỉ lên production khi cắt deploy sang `frontend/`
+>   (Giai đoạn R) hoặc host backend riêng. **Lưu ý:** "Haiku/Anthropic" trong báo cáo gốc
+>   là ý định ban đầu — bản đang chạy production là **DeepSeek**, không phải Anthropic.
+
+- [x] Xác thực Firebase ID token qua REST `accounts:lookup` (không cần Admin SDK/service-account
+      — Web API key vốn công khai). Từ chối 401 nếu thiếu/sai token hoặc email chưa xác minh.
+      Áp dụng ở **cả hai** proxy: `api/ai/chat.js` (production, thêm 2026-06-30) và
+      `backend/src/routes/ai.ts` (`requireAuth()`).
+- [x] Rate-limit 20 yêu cầu/10 phút theo uid (in-memory; cấu hình qua
+      `AI_RATE_LIMIT_MAX`/`AI_RATE_LIMIT_WINDOW_MS`). Ở Express là middleware ổn định;
+      ở serverless là **best-effort** (mỗi instance có Map riêng, bị reclaim khi rảnh) —
+      lớp bảo vệ chính ở serverless là auth, không phải rate-limit toàn cục.
 - [x] Audit log tối thiểu: mỗi request `/chat` ghi 1 dòng JSON (uid, email, provider, model,
       status, usage) ra stdout — không ghi nội dung câu hỏi/trả lời. Đủ để tra cứu chi
-      phí/lạm dụng qua log hosting (Vercel/Firebase), không cần DB riêng.
+      phí/lạm dụng qua log hosting (Vercel/Firebase), không cần DB riêng. Có ở cả hai proxy.
 - [x] Client (`src/app/22-ai.ts` + `frontend/.../integrations/ai.ts`): gửi kèm header
       `Authorization: Bearer <Firebase ID token>` qua `window.getAuthToken()`
       (thêm trong `frontend/src/lib/auth.ts`, dùng chung cho cả 2 codebase qua `js/auth.js`).
 - [ ] (Còn thiếu so với phương án Cloudflare ban đầu) prompt caching phía provider, giới hạn
       chi tiêu cứng trên Console nhà cung cấp — cân nhắc nếu chi phí thực tế vượt ước tính.
+      Đặc biệt nên đặt **hard cap chi tiêu trên Console DeepSeek** vì rate-limit serverless
+      chỉ là best-effort.
 - **Done khi:** không còn secret nào trong bundle; AI chạy qua proxy có xác thực + rate-limit.
-  ✅ Đạt — chỉ còn phần giới hạn chi tiêu ở Console provider là tuỳ chọn bổ sung.
+  ✅ Đạt — proxy production (`api/ai/chat.js`) đã có auth + rate-limit + audit từ 2026-06-30;
+  chỉ còn giới hạn chi tiêu ở Console provider là tuỳ chọn bổ sung.
 
 ### 1.2 Mở rộng tool AI
 - [ ] `src/app/22-ai.js`: thêm lọc đa điều kiện (category + tầng + vật liệu + lớp IFC).

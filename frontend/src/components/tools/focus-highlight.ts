@@ -383,3 +383,6 @@ function escXml(s: any): string { return String(s || '').replace(/&/g, '&amp;').
 function setStatus(t: string, x: string): void { const b = document.getElementById('statusBadge')!; b.className = 'status-badge show ' + t; (document.getElementById('statusText') as HTMLElement).textContent = x; }
 
 export { focusIssueGeometry, showIssueProps, escXml, setStatus };
+
+// ── Expose cross-module callers on window ──
+Object.assign(window as any, { escXml, setStatus });

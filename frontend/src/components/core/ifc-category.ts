@@ -182,3 +182,6 @@ export function initThree(): void {
 
   // NOTE: initThree() continues in 03-viewer-core.ts (wheel zoom, ambient light, etc.)
 }
+
+// ── Expose core helpers on window for cross-module callers ──
+Object.assign(window as any, { log, ifcClassToRevitCategory });

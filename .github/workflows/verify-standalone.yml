@@ -1,0 +1,35 @@
+# Chặn artifact stale: đảm bảo js/app.js + js/auth.js (đang deploy) khớp với
+# nguồn TypeScript trong src/app/ và frontend/src/lib/auth.ts. Nếu ai sửa source
+# mà quên chạy `npm run build:standalone`, CI này fail.
+name: verify-standalone
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'src/app/**'
+      - 'frontend/src/lib/auth.ts'
+      - 'js/**'
+      - 'index.html'
+      - 'build.ts'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/verify-standalone.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Verify committed build matches sources
+        run: npm run verify:standalone
+      # Ghi chú: `npm run typecheck:standalone` hiện còn ~253 lỗi type tồn đọng
+      # (chủ yếu DOM cast HTMLElement.value/.checked) nên CHƯA đưa vào gate cứng.
+      # Khi dọn xong, thêm bước chạy nó ở đây để chặn hồi quy kiểu.

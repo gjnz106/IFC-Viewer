@@ -305,3 +305,8 @@ export function initSectionDrag(): void {
 
 // Re-export colorizeFadeBase and colorizeDisposeSubsets for modules that import from color-schemes
 export { colorizeFadeBase, colorizeDisposeSubsets };
+
+// ── Expose cross-module callers on window ──
+// window.getElementBBox (zoom-to/measure), window.isolateExpressID /
+// window.hideExpressID (context menu) are called from other modules.
+Object.assign(window as any, { getElementBBox, hideExpressID, isolateExpressID });

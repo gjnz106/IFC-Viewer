@@ -338,7 +338,7 @@ window.toggleClashMode = function(): void {
     const br = document.getElementById('bresize'); if (br) br.style.display = '';
     document.getElementById('eTree')!.style.display = 'none';
     document.getElementById('issuesList')!.classList.remove('show');
-    document.getElementById('panelTabs')!.classList.remove('show');
+    document.getElementById('panelTabs')?.classList.remove('show');
     document.getElementById('issueNav')!.classList.remove('show');
     document.getElementById('btnRunClash')!.style.display = '';
     document.getElementById('btnCompare')!.style.display = 'none';

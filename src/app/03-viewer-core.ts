@@ -207,13 +207,15 @@
         }
         if(!inside)continue;
       }
-      // Prefer diff-subset hits (they have userData.diffSubset) when compare is active
+      // Prefer diff-subset hits (they have userData.diffSubset) when compare is active.
+      // Subsets overlap the faded base geometry at near-identical depth, so the base
+      // mesh can be the first hit — keep scanning until a diff subset is found, falling
+      // back to the first base hit. (Matches frontend/.../core/viewer-core.ts.)
       if(compareResult && hit.object.userData?.diffSubset){
         validHit=hit;
         break;
       }
       if(!validHit) validHit=hit;
-      break;
     }
     if(!validHit){restoreViewSnap();clearHighlight();document.getElementById('propArea').innerHTML='<div class="prop-empty">Click element in 3D to inspect</div>';return}
     

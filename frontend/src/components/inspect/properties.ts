@@ -68,7 +68,29 @@ window.propAccordionToggleAll=function(expand: boolean){
   });
 };
 
+// ── Right-panel tabs: Properties / SG Check ──
+window.rpSelect = function(tab: 'props' | 'sg'){
+  document.getElementById('rpTabProps')?.classList.toggle('on', tab==='props');
+  document.getElementById('rpTabSG')?.classList.toggle('on', tab==='sg');
+  const propArea=document.getElementById('propArea') as HTMLElement|null;
+  const sgEmpty=document.getElementById('rpSGEmpty') as HTMLElement|null;
+  const sgState=appState.sgState as any;
+  if(propArea) propArea.style.display = tab==='props' ? '' : 'none';
+  if(tab==='sg'){
+    if(sgEmpty) sgEmpty.style.display = sgState.open ? 'none' : 'flex';
+    if(!sgState.open)(window as any).toggleSGCheckPanel?.();
+  }else{
+    if(sgEmpty) sgEmpty.style.display = 'none';
+    if(sgState.open)(window as any).toggleSGCheckPanel?.();
+  }
+};
+
 async function showProps(props: any, modelIdx: number): Promise<void> {
+  // Reveal the right panel if it's collapsed so the properties table is visible
+  // when an element is picked (it defaults to display:none).
+  const rp = document.getElementById('rightPanel');
+  if (rp && getComputedStyle(rp).display === 'none') rp.style.display = 'flex';
+  (window as any).rpSelect?.('props');
   const mid=(appState.loadedModels[modelIdx] as any)?.modelID;
   const eid=props.expressID;
   const mgr=appState.ifcLoader?.ifcManager;

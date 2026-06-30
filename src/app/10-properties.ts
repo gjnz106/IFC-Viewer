@@ -62,7 +62,24 @@ window.propAccordionToggleAll=function(expand){
   });
 };
 
+// ── Right-panel tabs: Properties / SG Check ──
+window.rpSelect=function(tab){
+  document.getElementById('rpTabProps')?.classList.toggle('on', tab==='props');
+  document.getElementById('rpTabSG')?.classList.toggle('on', tab==='sg');
+  const propArea=document.getElementById('propArea');
+  const sgEmpty=document.getElementById('rpSGEmpty');
+  if(propArea) propArea.style.display = tab==='props' ? '' : 'none';
+  if(tab==='sg'){
+    if(sgEmpty) sgEmpty.style.display = sgState.open ? 'none' : 'flex';
+    if(!sgState.open) (window as any).toggleSGCheckPanel?.();
+  }else{
+    if(sgEmpty) sgEmpty.style.display = 'none';
+    if(sgState.open) (window as any).toggleSGCheckPanel?.();
+  }
+};
+
 async function showProps(props,modelIdx){
+  (window as any).rpSelect?.('props');
   const mid=loadedModels[modelIdx]?.modelID;
   const eid=props.expressID;
   const mgr=ifcLoader?.ifcManager;
