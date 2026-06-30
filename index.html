@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js"></script>
-<link rel="stylesheet" href="css/styles.css?v=v5-2">
+<link rel="stylesheet" href="css/styles.css">
 <!-- ── Boot watchdog ──────────────────────────────────────────────────────
      Turns a silent blank page into a clear, actionable error screen. The app
      boots from ES modules (js/app.js + the /vendor/ libraries); if any of
@@ -76,7 +76,7 @@
 </head>
 <body>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• AUTH OVERLAY â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ================== AUTH OVERLAY ================== -->
 <div class="auth-overlay" id="authOverlay">
   <div class="auth-brand-panel">
     <div class="auth-grid-bg">
@@ -157,7 +157,7 @@
       </div>
       <div id="authViewVerify" style="display:none">
         <div class="auth-verify">
-          <div class="auth-verify-icon">âœ‰</div>
+          <div class="auth-verify-icon">✉</div>
           <div class="auth-verify-title">Verify your email</div>
           <div class="auth-verify-desc">We sent a verification link to <b id="verifyEmail">—</b>.<br>Click the link in your inbox, then refresh this page.</div>
           <div class="auth-msg" id="verifyMsg"></div>
@@ -193,7 +193,7 @@
     <div class="user-menu-header-name" id="userMenuName">—</div>
     <div class="user-menu-header-email" id="userMenuEmail">—</div>
   </div>
-  <button class="user-menu-item" onclick="confirmLogout()">â¤´ Sign out</button>
+  <button class="user-menu-item" onclick="confirmLogout()">⤴ Sign out</button>
 </div>
 
 <!-- Confirm-logout dialog -->
@@ -208,26 +208,98 @@
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• APP â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  APP â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  -->
 <div id="app" style="height:100vh;width:100vw;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);font-family:'Hanken Grotesk',-apple-system,system-ui,sans-serif;color:var(--text-dim);-webkit-font-smoothing:antialiased">
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â• HEADER â•â•â•â•â•â•â•â•â•â•â• -->
-  <header class="header">
+  <!-- ══════════ TOPBAR ══════════ -->
+  <header class="topbar">
 
-    <!-- Dark glass app chip — IDD project-chip pattern -->
-    <div class="tb-app-chip">
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.88)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>
-      <span class="chip-label">IFC</span>
+    <!-- Brand logo – IDD exact pattern -->
+    <div class="tb-brand">
+      <span class="tb-brand-name">T3LAB<span class="tb-brand-dot">.</span>IFC</span>
     </div>
+    <span class="tb-brand-sep"></span>
 
-    <!-- App title (tight, after chip) -->
-    <div style="padding-left:6px;flex:none">
-      <div class="logo-name">T3LAB<span>.IFC</span></div>
-      <div class="logo-sub" id="headerModeLbl">Version Compare</div>
+    <!-- Page title -->
+    <div class="tb-title">
+      <span class="t" id="headerModeLbl">Version Compare</span>
     </div>
-
 
     <!-- Hidden elements — IDs required by JS modules, not shown in UI -->
+    <!-- ── Right side (IDD style) ── -->
+    <div class="tb-right">
+
+      <div id="statusBadge" class="status-badge"><span id="statusText"></span></div>
+
+      <!-- Panel toggles -->
+      <button onclick="toggleLeftPanel()" id="btnToggleLeft" class="tb-icon-btn hdr-panel-btn hdr-panel-btn-active" title="Versions panel">
+        <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="9" y1="4.5" x2="9" y2="19.5"/><rect x="4.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button onclick="toggleRightPanel()" id="btnToggleRight" class="tb-icon-btn hdr-panel-btn" title="Properties panel">
+        <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="15" y1="4.5" x2="15" y2="19.5"/><rect x="16.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg>
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <!-- SG Check – primary CTA -->
+      <button id="btnSGCheck" onclick="toggleSGCheckPanel()" class="btn btn-primary" style="height:32px;padding:0 13px;font-size:13px;gap:6px;border-radius:9px">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>
+        SG Check
+      </button>
+
+      <!-- Export dropdown -->
+      <div style="position:relative">
+        <button onclick="toggleExportMenu()" id="btnExportMenu" class="btn" style="height:32px;padding:0 12px;font-size:13px;gap:5px;border-radius:9px">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 14v4a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 18v-4"/></svg>
+          Export
+          <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div id="exportMenuDrop" style="display:none;position:absolute;top:40px;right:0;width:264px;background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--sh-lg);padding:6px;z-index:1000">
+          <button onclick="captureScreenshot();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 16l5-5 4 4 3-3 6 6"/></svg></span><span class="exp-txt"><span class="exp-title">Snapshot image</span><span class="exp-sub">Current viewport</span></span><span class="exp-ext">PNG</span></button>
+          <button onclick="sgExportReport();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5"/></svg></span><span class="exp-txt"><span class="exp-title">SG Check report</span><span class="exp-sub">Full compliance results</span></span><span class="exp-ext">PDF</span></button>
+          <button onclick="exportCSV();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span><span class="exp-txt"><span class="exp-title">Change list</span><span class="exp-sub">Added / modified / removed</span></span><span class="exp-ext">CSV</span></button>
+          <button onclick="exportBCF();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9zM12 2v18M4 6.5l8 4.5 8-4.5"/></svg></span><span class="exp-txt"><span class="exp-title">Issues package</span><span class="exp-sub">BCF for coordination</span></span><span class="exp-ext">BCF</span></button>
+          <div style="height:1px;background:var(--border);margin:5px 8px"></div>
+          <button onclick="exportClashCSV();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span><span class="exp-txt"><span class="exp-title">Clash list</span><span class="exp-sub">Clash detection results</span></span><span class="exp-ext">CSV</span></button>
+          <button onclick="exportClashBCF();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9zM12 2v18M4 6.5l8 4.5 8-4.5"/></svg></span><span class="exp-txt"><span class="exp-title">Clash issues</span><span class="exp-sub">BCF for coordination</span></span><span class="exp-ext">BCF</span></button>
+        </div>
+        <div id="exportMenuBg" onclick="toggleExportMenu()" style="display:none;position:fixed;inset:0;z-index:999"></div>
+      </div>
+
+      <div class="tb-sep"></div>
+
+      <!-- Settings icon button -->
+      <button class="tb-icon-btn" id="btnSettings" onclick="toggleSettingsPanel()" title="Project Settings">
+        <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+
+      <!-- Account avatar + dropdown (IDD style) -->
+      <div class="tb-account" id="tbAccountWrap">
+        <button class="tb-account-trigger" id="userBadge" onclick="toggleUserMenu(event)" style="display:none" title="Account">
+          <span class="tb-account-av" id="userAvatar">·</span>
+        </button>
+        <!-- Account dropdown -->
+        <div class="account-menu" style="display:none">
+          <div class="account-menu-head">
+            <span class="account-menu-av" id="acMenuAv"></span>
+            <div style="min-width:0">
+              <div class="account-menu-name">—</div>
+              <div class="account-menu-status">—</div>
+            </div>
+          </div>
+          <div class="account-menu-sep"></div>
+          <div class="account-menu-links">
+            <button class="account-link" onclick="confirmLogout()">
+              <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Hidden elements – IDs required by JS modules, not shown in UI -->
     <div style="display:none">
       <button id="btnCompare" disabled onclick="runCompare()">Compare</button>
       <button id="btnClash" onclick="toggleClashMode()">Clash</button>
@@ -241,101 +313,55 @@
       <button id="btnExportClashBCF" onclick="exportClashBCF()">Clash BCF</button>
     </div>
 
-    <div id="statusBadge" class="status-badge"><span id="statusText"></span></div>
-
-    <!-- â”€â”€ Right actions â”€â”€ -->
-    <div class="h-right">
-
-      <!-- Panel toggles -->
-      <button onclick="toggleLeftPanel()" id="btnToggleLeft" class="hdr-panel-btn hdr-panel-btn-active" title="Versions panel">
-        <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="9" y1="4.5" x2="9" y2="19.5"/><rect x="4.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg>
-      </button>
-      <button onclick="toggleRightPanel()" id="btnToggleRight" class="hdr-panel-btn" title="Properties panel">
-        <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="15" y1="4.5" x2="15" y2="19.5"/><rect x="16.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg>
-      </button>
-
-      <div class="h-sep"></div>
-
-      <!-- SG Check — primary CTA -->
-      <button id="btnSGCheck" onclick="toggleSGCheckPanel()" class="btn btn-primary" style="height:32px;padding:0 13px;font-size:13px;gap:6px;border-radius:9px">
-        <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>
-        SG Check
-      </button>
-
-      <!-- Export dropdown -->
-      <div style="position:relative">
-        <button onclick="toggleExportMenu()" id="btnExportMenu" class="btn" style="height:32px;padding:0 12px;font-size:13px;gap:5px;border-radius:9px">
-          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 14v4a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 18v-4"/></svg>
-          Export
-          <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <div id="exportMenuDrop" style="display:none;position:absolute;top:40px;right:0;width:264px;background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--sh-lg);padding:6px;z-index:30">
-          <button onclick="captureScreenshot();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 16l5-5 4 4 3-3 6 6"/></svg></span><span class="exp-txt"><span class="exp-title">Snapshot image</span><span class="exp-sub">Current viewport</span></span><span class="exp-ext">PNG</span></button>
-          <button onclick="sgExportReport();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5"/></svg></span><span class="exp-txt"><span class="exp-title">SG Check report</span><span class="exp-sub">Full compliance results</span></span><span class="exp-ext">PDF</span></button>
-          <button onclick="exportCSV();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span><span class="exp-txt"><span class="exp-title">Change list</span><span class="exp-sub">Added / modified / removed</span></span><span class="exp-ext">CSV</span></button>
-          <button onclick="exportBCF();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9zM12 2v18M4 6.5l8 4.5 8-4.5"/></svg></span><span class="exp-txt"><span class="exp-title">Issues package</span><span class="exp-sub">BCF for coordination</span></span><span class="exp-ext">BCF</span></button>
-          <div style="height:1px;background:var(--border);margin:5px 8px"></div>
-          <button onclick="exportClashCSV();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg></span><span class="exp-txt"><span class="exp-title">Clash list</span><span class="exp-sub">Clash detection results</span></span><span class="exp-ext">CSV</span></button>
-          <button onclick="exportClashBCF();toggleExportMenu()" class="exp-item"><span class="exp-ico"><svg viewBox="0 0 24 24"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9zM12 2v18M4 6.5l8 4.5 8-4.5"/></svg></span><span class="exp-txt"><span class="exp-title">Clash issues</span><span class="exp-sub">BCF for coordination</span></span><span class="exp-ext">BCF</span></button>
-        </div>
-        <div id="exportMenuBg" onclick="toggleExportMenu()" style="display:none;position:fixed;inset:0;z-index:29"></div>
-      </div>
-
-      <div class="h-sep"></div>
-
-      <!-- User badge -->
-      <button class="user-badge" id="userBadge" onclick="toggleUserMenu(event)" style="display:none">
-        <span class="user-avatar" id="userAvatar">·</span>
-        <span class="user-name" id="userName">—</span>
-      </button>
-    </div>
   </header>
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â• BODY â•â•â•â•â•â•â•â•â•â•â• -->
+  <!-- ————————————————— BODY ————————————————— -->
   <div class="body-row" style="flex:1;min-height:0;display:flex">
 
-    <!-- â•â•â• PAGE NAV â•â•â• -->
-    <nav class="sidebar-nav" id="sidebarNav">
-      <!-- Viewer -->
-      <button class="nav-item active" data-page="viewer" onclick="navigateTo('viewer')" title="Viewer">
-        <span class="nav-icon-box">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>
-        </span>
-        <span class="nav-label">Viewer</span>
-      </button>
-      <!-- Compare -->
-      <button class="nav-item" data-page="compare" onclick="navigateTo('compare')" title="Compare">
-        <span class="nav-icon-box">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M12 8v8M9 11l3-3 3 3"/></svg>
-        </span>
-        <span class="nav-label">Compare</span>
-      </button>
-      <!-- Clash -->
-      <button class="nav-item" data-page="clash" onclick="navigateTo('clash')" title="Clash">
-        <span class="nav-icon-box">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M13 2L4 14h7l-1 8 10-12h-7z"/></svg>
-        </span>
-        <span class="nav-label">Clash</span>
-      </button>
-      <div class="nav-sep"></div>
-      <!-- Validate -->
-      <button class="nav-item" data-page="validate" onclick="navigateTo('validate')" title="SG Validate">
-        <span class="nav-icon-box">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5C9 18.5 5 15 5 10.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>
-        </span>
-        <span class="nav-label">SG Validate</span>
-      </button>
-      <div class="nav-spacer"></div>
-      <!-- Field mode -->
-      <button class="nav-item" data-page="field" onclick="navigateTo('field')" title="Field Mode">
-        <span class="nav-icon-box">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>
-        </span>
-        <span class="nav-label">Field Mode</span>
-      </button>
+    <!-- ═══ PAGE NAV (IDD sidebar style) ═══ -->
+    <nav class="sidebar" id="sidebarNav">
+      <div class="sb-nav">
+        <!-- Viewer -->
+        <button class="sb-item active" data-page="viewer" onclick="navigateTo('viewer')" title="Viewer">
+          <span class="sb-icon-box">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>
+          </span>
+          <span class="sb-label">Viewer</span>
+        </button>
+        <!-- Compare -->
+        <button class="sb-item" data-page="compare" onclick="navigateTo('compare')" title="Compare">
+          <span class="sb-icon-box">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M12 8v8M9 11l3-3 3 3"/></svg>
+          </span>
+          <span class="sb-label">Compare</span>
+        </button>
+        <!-- Clash -->
+        <button class="sb-item" data-page="clash" onclick="navigateTo('clash')" title="Clash">
+          <span class="sb-icon-box">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M13 2L4 14h7l-1 8 10-12h-7z"/></svg>
+          </span>
+          <span class="sb-label">Clash</span>
+        </button>
+        <div class="sb-divider"></div>
+        <!-- Validate -->
+        <button class="sb-item" data-page="validate" onclick="navigateTo('validate')" title="SG Validate">
+          <span class="sb-icon-box">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5C9 18.5 5 15 5 10.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>
+          </span>
+          <span class="sb-label">SG Validate</span>
+        </button>
+        <div class="nav-spacer"></div>
+        <!-- Field mode -->
+        <button class="sb-item" data-page="field" onclick="navigateTo('field')" title="Field Mode">
+          <span class="sb-icon-box">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>
+          </span>
+          <span class="sb-label">Field Mode</span>
+        </button>
+      </div>
     </nav>
 
-    <!-- â•â•â• LEFT SIDEBAR â•â•â• -->
+    <!-- === LEFT SIDEBAR === -->
     <aside id="leftPanel" style="flex:none;width:312px;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto">
 
       <div style="padding:16px 16px 8px">
@@ -448,7 +474,7 @@
         <div class="filter-bar" id="filterB">
           <button class="fchip on" data-f="all" onclick="setFilter('all')">All</button>
           <button class="fchip fa" data-f="added" onclick="setFilter('added')">+ Added</button>
-          <button class="fchip fr" data-f="removed" onclick="setFilter('removed')">âˆ’ Removed</button>
+          <button class="fchip fr" data-f="removed" onclick="setFilter('removed')">− Removed</button>
           <button class="fchip fm" data-f="modified" onclick="setFilter('modified')">~ Modified</button>
         </div>
       </div>
@@ -459,7 +485,7 @@
           <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px">Category Filter</div>
           <div class="cat-select-btn" id="catBtn" onclick="toggleCatDropdown()">
             <div class="cat-tags" id="catTags"><span style="color:var(--text-muted)">All categories</span></div>
-            <span class="arrow">â–¼</span>
+            <span class="arrow">▼</span>
           </div>
           <div class="cat-dropdown" id="catDropdown">
             <input class="cat-dd-search" id="catSearch" placeholder="Search category..." oninput="filterCatDropdown()">
@@ -486,8 +512,8 @@
       <div class="issue-nav" id="issueNav">
         <span class="issue-nav-info" id="issueNavInfo">0 / 0</span>
         <div class="issue-nav-btns">
-          <button class="inav" onclick="navIssue(-1)">â—€</button>
-          <button class="inav" onclick="navIssue(1)">â–¶</button>
+          <button class="inav" onclick="navIssue(-1)">◀</button>
+          <button class="inav" onclick="navIssue(1)">▶</button>
         </div>
       </div>
 
@@ -512,7 +538,7 @@
             <input class="search-adv-val" id="searchAdvProp" placeholder="Property name" style="width:110px" list="searchPropList">
             <datalist id="searchPropList"></datalist>
             <select class="search-adv-select" id="searchAdvOp" style="max-width:80px">
-              <option value="exists">exists</option><option value="empty">is empty</option><option value="eq">equals</option><option value="neq">not equals</option><option value="contains">contains</option><option value="gt">greater than</option><option value="lt">less than</option><option value="gte">â‰¥</option><option value="lte">â‰¤</option>
+              <option value="exists">exists</option><option value="empty">is empty</option><option value="eq">equals</option><option value="neq">not equals</option><option value="contains">contains</option><option value="gt">greater than</option><option value="lt">less than</option><option value="gte">≥</option><option value="lte">≤</option>
             </select>
             <input class="search-adv-val" id="searchAdvVal" placeholder="Value">
             <button class="search-act-btn" onclick="searchRun()" style="padding:3px 10px">Go</button>
@@ -530,7 +556,7 @@
 
     </aside>
 
-    <!-- â•â•â• VIEWPORT CENTER â•â•â• -->
+    <!-- === VIEWPORT CENTER === -->
     <main style="flex:1;min-width:0;position:relative;background:radial-gradient(120% 90% at 50% 35%, #F5F3F0 0%, #EAE7E3 70%, #E2DED9 100%);overflow:hidden;display:flex;flex-direction:column">
 
       <!-- Floor grid -->
@@ -556,7 +582,7 @@
           <span style="font-size:12px;font-weight:500;color:var(--text-muted)" id="vpHUDMeta">—</span>
         </div>
 
-        <!-- â”€â”€ Floating viewport toolbar (IDD ViewerToolbar pattern) â”€â”€ -->
+        <!-- ── Floating viewport toolbar (IDD ViewerToolbar pattern) ── -->
         <div class="vp-toolbar" id="vpToolbar">
           <div class="vp-tg">
             <button id="btnMeasure" onclick="toggleMeasure()" class="vp-tool" title="Measure distances">
@@ -628,7 +654,7 @@
           <div class="cz-head">
             <div class="cz-title" id="czTitle">Colorize</div>
             <button class="cz-x" onclick="colorizeToggleCollapse()" id="czCollapseBtn">–</button>
-            <button class="cz-x" onclick="toggleColorize()">Ã—</button>
+            <button class="cz-x" onclick="toggleColorize()">×</button>
           </div>
           <div id="czBody" style="display:flex;flex-direction:column;min-height:0;flex:1">
             <div class="cz-tabs">
@@ -671,11 +697,11 @@
         <div class="section-panel" id="sectionPanel">
           <div class="sp-title">Section Box</div>
           <div class="sp-row"><span class="sp-label">X+</span><input type="range" class="sp-slider" id="slXp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vXp">100%</span></div>
-          <div class="sp-row"><span class="sp-label">Xâˆ’</span><input type="range" class="sp-slider" id="slXn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vXn">0%</span></div>
+          <div class="sp-row"><span class="sp-label">X−</span><input type="range" class="sp-slider" id="slXn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vXn">0%</span></div>
           <div class="sp-row"><span class="sp-label">Y+</span><input type="range" class="sp-slider" id="slYp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vYp">100%</span></div>
-          <div class="sp-row"><span class="sp-label">Yâˆ’</span><input type="range" class="sp-slider" id="slYn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vYn">0%</span></div>
+          <div class="sp-row"><span class="sp-label">Y−</span><input type="range" class="sp-slider" id="slYn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vYn">0%</span></div>
           <div class="sp-row"><span class="sp-label">Z+</span><input type="range" class="sp-slider" id="slZp" min="0" max="100" value="100" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZp">100%</span></div>
-          <div class="sp-row"><span class="sp-label">Zâˆ’</span><input type="range" class="sp-slider" id="slZn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZn">0%</span></div>
+          <div class="sp-row"><span class="sp-label">Z−</span><input type="range" class="sp-slider" id="slZn" min="0" max="100" value="0" oninput="updateSectionFromSliders()"><span class="sp-val" id="vZn">0%</span></div>
           <button class="btn" style="width:100%;justify-content:center;margin-top:6px" onclick="resetSection()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Reset Section</button>
         </div>
 
@@ -717,33 +743,33 @@
       <!-- Clash panel resize handle -->
       <div class="row-resize" id="bresize" style="display:none"></div>
 
-      <!-- â”€â”€â”€ CLASH PANEL â”€â”€â”€ -->
+      <!-- ─── CLASH PANEL ─── -->
       <div class="clash-panel" id="clashPanel">
         <div class="clash-header">
           <div class="clash-rule-name-row"><label>Rule Name</label><input type="text" id="clashRuleName" class="clash-rule-name" value="Source set vs Target set" placeholder="Rule name"></div>
           <div class="clash-presets">
             <span class="clash-presets-lbl">Quick:</span>
-            <button class="clash-preset-btn" onclick="applyClashPreset('struct-mep')">Structure â†” MEP</button>
-            <button class="clash-preset-btn" onclick="applyClashPreset('arch-mep')">Architecture â†” MEP</button>
-            <button class="clash-preset-btn" onclick="applyClashPreset('struct-arch')">Structure â†” Architecture</button>
-            <button class="clash-preset-btn" onclick="applyClashPreset('all-all')">All â†” All</button>
+            <button class="clash-preset-btn" onclick="applyClashPreset('struct-mep')">Structure ↔ MEP</button>
+            <button class="clash-preset-btn" onclick="applyClashPreset('arch-mep')">Architecture ↔ MEP</button>
+            <button class="clash-preset-btn" onclick="applyClashPreset('struct-arch')">Structure ↔ Architecture</button>
+            <button class="clash-preset-btn" onclick="applyClashPreset('all-all')">All ↔ All</button>
             <button class="clash-preset-btn clash-preset-swap" onclick="swapClashSets()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg> Swap</button>
           </div>
           <div class="clash-bottom-grid">
             <div class="clash-set-section">
-              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set <span class="clash-file-tag" id="clashFileA">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('A')">+</button><button class="clash-row-act" onclick="removeLastClashRow('A')">âˆ’</button></div></div>
+              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set <span class="clash-file-tag" id="clashFileA">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('A')">+</button><button class="clash-row-act" onclick="removeLastClashRow('A')">−</button></div></div>
               <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesA"></tbody></table>
               <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsA" checked> Include parts</label>
             </div>
             <div class="clash-set-section">
-              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set <span class="clash-file-tag" id="clashFileB">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('B')">+</button><button class="clash-row-act" onclick="removeLastClashRow('B')">âˆ’</button></div></div>
+              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set <span class="clash-file-tag" id="clashFileB">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('B')">+</button><button class="clash-row-act" onclick="removeLastClashRow('B')">−</button></div></div>
               <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesB"></tbody></table>
               <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsB" checked> Include parts</label>
             </div>
           </div>
           <div class="clash-config-grid">
             <div class="clash-config-block"><div class="clash-config-title">Type</div><label class="clash-cb"><input type="checkbox" id="clashTypeClash" checked> Clash</label><label class="clash-cb"><input type="checkbox" id="clashTypeDuplicate"> Duplicate</label><label class="clash-cb"><input type="checkbox" id="clashTypeDistance"> Distance</label></div>
-            <div class="clash-config-block"><div class="clash-config-title">Tolerances</div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxSize"> Clash box size</label><input type="number" id="clashTolBoxSizeVal" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div><div class="clash-tol-row clash-tol-sub"><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolShortest"> Shortest side</label><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolLongest" checked> Longest side</label></div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxVol"> Clash box volume</label><input type="number" id="clashTolBoxVolVal" class="clash-input-tiny" value="0" min="0" step="0.001"><span class="clash-unit">mÂ³</span></div><div class="clash-tol-row"><label class="clash-tol-lbl">Minimum distance</label><input type="number" id="clashTolMinDist" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div></div>
+            <div class="clash-config-block"><div class="clash-config-title">Tolerances</div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxSize"> Clash box size</label><input type="number" id="clashTolBoxSizeVal" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div><div class="clash-tol-row clash-tol-sub"><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolShortest"> Shortest side</label><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolLongest" checked> Longest side</label></div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxVol"> Clash box volume</label><input type="number" id="clashTolBoxVolVal" class="clash-input-tiny" value="0" min="0" step="0.001"><span class="clash-unit">m³</span></div><div class="clash-tol-row"><label class="clash-tol-lbl">Minimum distance</label><input type="number" id="clashTolMinDist" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div></div>
             <div class="clash-config-block"><div class="clash-config-title">Include results from a single:</div><label class="clash-cb"><input type="checkbox" id="clashSingleModel" checked> Model</label><label class="clash-cb"><input type="checkbox" id="clashSingleSystem"> System</label><label class="clash-cb"><input type="checkbox" id="clashSingleComponent"> Component</label></div>
           </div>
           <div class="clash-desc-block"><div class="clash-config-title">Description</div><textarea id="clashDescription" class="clash-desc" rows="2" placeholder="Optional rule description"></textarea></div>
@@ -759,10 +785,10 @@
             <option value="none">No grouping</option><option value="categoryA">Source Category</option><option value="categoryB">Target Category</option><option value="level">Story Level</option>
           </select>
         </div>
-        <div class="clash-list" id="clashList"><div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>â–¶ Run Clash</b></div></div>
+        <div class="clash-list" id="clashList"><div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div></div>
       </div>
 
-      <!-- â”€â”€â”€ SG PANEL â”€â”€â”€ -->
+      <!-- ─── SG PANEL ─── -->
       <div class="sg-panel" id="sgPanel">
         <div class="sg-header">
           <span class="sg-header-icon"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:#D05050;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
@@ -778,7 +804,7 @@
           </div>
         </div>
         <div class="sg-body">
-          <div class="sg-col"><div class="sg-col-hdr">Validation Rules<span class="sg-col-hdr-count" id="sgRuleCount">0</span></div><div class="sg-col-body" id="sgRulesList"><div class="sg-empty">Click <b>â–¶ Validate</b> to run rules</div></div></div>
+          <div class="sg-col"><div class="sg-col-hdr">Validation Rules<span class="sg-col-hdr-count" id="sgRuleCount">0</span></div><div class="sg-col-body" id="sgRulesList"><div class="sg-empty">Click <b>▶ Validate</b> to run rules</div></div></div>
           <div class="sg-col"><div class="sg-col-hdr"><span id="sgFailColTitle">Failing Elements</span><span class="sg-col-hdr-count" id="sgFailCount">0</span></div><div class="sg-col-body" id="sgFailList"><div class="sg-empty">Select a rule on the left to see failing elements</div></div></div>
           <div class="sg-col">
             <div class="sg-col-hdr">Compliance Dashboard</div>
@@ -803,7 +829,7 @@
 
     </main>
 
-    <!-- â•â•â• RIGHT PANEL (Properties) â•â•â• -->
+    <!-- === RIGHT PANEL (Properties) === -->
     <aside id="rightPanel" style="flex:none;width:320px;background:var(--bg-panel);border-left:1px solid var(--border);display:none;flex-direction:column;overflow:hidden">
       <div style="flex:none;padding:16px 18px 12px;border-bottom:1px solid var(--border)">
         <div style="font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Properties</div>
@@ -815,7 +841,7 @@
 
 </div><!-- /app -->
 
-<!-- â•â• FIELD MODE â•â• -->
+<!-- == FIELD MODE == -->
 <div class="field-bar" id="fieldBar">
   <button class="field-btn" onclick="fieldOpenLoader()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="field-btn-label">Open</span></button>
   <div class="field-sep"></div>
@@ -868,7 +894,7 @@
   <div class="walk-joy walk-joy-left" id="walkJoy"><div class="walk-joy-bg"></div><div class="walk-joy-knob" id="walkJoyKnob"></div><div class="walk-joy-label">MOVE</div></div>
   <div class="walk-center-btns">
     <button class="walk-ud-btn" ontouchstart="walkTouchUD('up',true)" ontouchend="walkTouchUD('up',false)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="18 15 12 9 6 15"/></svg><span class="walk-ud-label">Up</span></button>
-    <div class="walk-speed-pill" id="walkSpeedPill">1.0Ã—</div>
+    <div class="walk-speed-pill" id="walkSpeedPill">1.0×</div>
     <button class="walk-ud-btn" ontouchstart="walkTouchUD('down',true)" ontouchend="walkTouchUD('down',false)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="6 9 12 15 18 9"/></svg><span class="walk-ud-label">Down</span></button>
   </div>
   <div class="walk-joy walk-joy-right" id="walkLookJoy"><div class="walk-joy-bg"></div><div class="walk-joy-knob" id="walkLookKnob"></div><div class="walk-joy-label">LOOK</div></div>

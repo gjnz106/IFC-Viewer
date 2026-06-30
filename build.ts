@@ -112,6 +112,53 @@ async function main(): Promise<void> {
   const cssDest = join(cssDestDir, 'styles.css');
   copyFileSync(cssSrc, cssDest);
   console.log(`Copied CSS to ${cssDest} (${statSync(cssSrc).size} bytes).`);
+
+  // 4. HTML: generate root index.html from frontend/index.html
+  // The frontend HTML targets the Vite dev server (CSS at /css/styles.css,
+  // entry at /src/main.ts). For standalone deploy we:
+  //   a) Fix the CSS link to be root-relative (remove leading /)
+  //   b) Inject the boot-watchdog script (extract from any pre-existing root
+  //      index.html if present, otherwise skip — first build only)
+  //   c) Replace the Vite entry <script> with the vendor import map + js/auth.js + js/app.js
+  const frontendHtml = readFileSync(join(ROOT, 'frontend', 'index.html'), 'utf8');
+  let rootHtml = frontendHtml;
+
+  // a) Fix CSS link
+  rootHtml = rootHtml.replace(
+    '<link rel="stylesheet" href="/css/styles.css">',
+    '<link rel="stylesheet" href="css/styles.css">',
+  );
+
+  // b) Inject boot watchdog — extract from the existing root index.html so we
+  //    don't have to re-escape the regex literals embedded in the watchdog JS.
+  const rootHtmlPath = join(ROOT, 'index.html');
+  if (existsSync(rootHtmlPath)) {
+    const existingRoot = readFileSync(rootHtmlPath, 'utf8');
+    const wdStart = existingRoot.indexOf('<!-- ── Boot watchdog');
+    const wdEnd   = existingRoot.indexOf('</script>', wdStart) + '</script>'.length;
+    if (wdStart !== -1 && wdEnd > wdStart) {
+      const watchdog = existingRoot.slice(wdStart, wdEnd);
+      rootHtml = rootHtml.replace('</head>', watchdog + '\n</head>');
+    }
+  }
+
+  // c) Replace Vite entry with standalone import map + scripts
+  const standaloneScripts =
+    '<!-- Self-hosted ES modules (mirrored under /vendor/ by scripts/fetch-vendor.mjs).\n' +
+    '     Served from our own origin so a blocked/down third-party CDN can never\n' +
+    '     blank the app. Keep these paths in sync with scripts/fetch-vendor.mjs. -->\n' +
+    '<script type="importmap">\n' +
+    '{"imports":{"three":"/vendor/three/three.module.js","three/addons/":"/vendor/three/addons/",' +
+    '"three/examples/jsm/utils/BufferGeometryUtils":"/vendor/three/addons/utils/BufferGeometryUtils.js",' +
+    '"three-mesh-bvh":"/vendor/three-mesh-bvh/index.module.js",' +
+    '"web-ifc":"/vendor/web-ifc/web-ifc-api.js","web-ifc-three":"/vendor/web-ifc-three/IFCLoader.js"}}\n' +
+    '</script>\n' +
+    '<script type="module" src="js/auth.js"></script>\n' +
+    '<script type="module" src="js/app.js"></script>';
+  rootHtml = rootHtml.replace('<script type="module" src="/src/main.ts"></script>', standaloneScripts);
+
+  writeFileSync(rootHtmlPath, rootHtml);
+  console.log(`Generated root index.html from frontend/index.html (${rootHtml.length} bytes).`);
 }
 
 main().catch((e) => {

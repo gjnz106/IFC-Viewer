@@ -162,11 +162,13 @@ function showLoggedInUser(user: User) {
   const email = user.email || '';
   const local = email.split('@')[0] || 'user';
   const initials = (local.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2) || 'U').toUpperCase();
-  $('userName').textContent = local;
   $('userAvatar').textContent = initials;
   $('userBadge').style.display = '';
   $('userMenuName').textContent = local;
   $('userMenuEmail').textContent = email;
+  // Also populate the topbar account-menu avatar if it exists (new UI design)
+  const acMenuAv = document.getElementById('acMenuAv');
+  if (acMenuAv) acMenuAv.textContent = initials;
 }
 
 // ── LOGIN form ──────────────────────────────────────────────────────────
