@@ -417,7 +417,7 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
 
   // ── styles (scoped .aic-) khớp biến màu app ──
   const css = `
-  /* ── FAB wrapper (magnetic motion handled by JS) ── */
+  /* ── FAB wrapper ── */
   .aic-fab-wrap{
     position:fixed;right:20px;bottom:20px;z-index:9998;
     width:56px;height:56px;
@@ -465,30 +465,29 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
   .aic-fab{
     position:relative;z-index:2;
     width:56px;height:56px;border-radius:50%;
-    background:var(--bg-panel,#fff);
+    background:#0a0a0c;
     border:none;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
     transition:transform .12s cubic-bezier(.22,.68,0,1.4);
   }
-  .aic-fab:hover{transform:scale(1.07)}
   .aic-fab:active{transform:scale(0.94)}
-  /* ring icon SVG inside FAB */
+  /* rainbow ring logo inside FAB — gentle continuous rotation, like a voice/breathing indicator */
+  @keyframes aic-ring-rotate{to{transform:rotate(360deg)}}
   .aic-fab-icon{
-    width:32px;height:32px;
+    width:46px;height:46px;
     border-radius:50%;
     background:conic-gradient(
       #FF6B6B 0%,#FF8E53 12%,#FFD93D 25%,
       #6BCB77 38%,#4D96FF 51%,#C77DFF 64%,
       #FF6B9D 77%,#FF6B6B 100%
     );
-    mask:radial-gradient(circle, transparent 38%, #000 39%);
-    -webkit-mask:radial-gradient(circle, transparent 38%, #000 39%);
-    transition:transform .3s ease;
+    mask:radial-gradient(circle, transparent 64%, #000 68%);
+    -webkit-mask:radial-gradient(circle, transparent 64%, #000 68%);
+    animation:aic-ring-rotate 8s linear infinite;
   }
   .aic-fab-wrap.busy .aic-fab-icon{
-    animation:aic-spin 1.4s linear infinite;
+    animation:aic-ring-rotate 1.3s linear infinite;
   }
-  .aic-fab:hover .aic-fab-icon{transform:rotate(30deg) scale(1.08)}
   /* ── Panel ── */
   .aic-panel{
     position:fixed;right:20px;bottom:86px;z-index:9999;
@@ -629,7 +628,7 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
   styleEl.textContent = css;
   document.head.appendChild(styleEl);
 
-  // ── FAB wrapper (magnetic motion) ──
+  // ── FAB wrapper ──
   const fabWrap = document.createElement('div');
   fabWrap.className = 'aic-fab-wrap';
 
@@ -648,23 +647,6 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
   fabWrap.appendChild(fabRing);
   fabWrap.appendChild(fab);
   document.body.appendChild(fabWrap);
-
-  // ── Mouse magnetic pull on FAB ──
-  document.addEventListener('mousemove', (e) => {
-    const rect = fabWrap.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const dx = e.clientX - cx;
-    const dy = e.clientY - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const radius = 120;
-    if (dist < radius) {
-      const strength = (1 - dist / radius) * 12;
-      fabWrap.style.transform = `translate(${dx / dist * strength}px, ${dy / dist * strength}px)`;
-    } else {
-      fabWrap.style.transform = '';
-    }
-  });
 
   const panel = document.createElement('div');
   panel.className = 'aic-panel';

@@ -8850,6 +8850,7 @@ let _gdCurrentFolder = null;
 let _gdFolderStack = [];
 let _odExpanded = false;
 let _gdTokenClient = null;
+let _pendingLoad = null;
 window.odToggle = function() {
   _odExpanded = !_odExpanded;
   document.getElementById("odBody").classList.toggle("show", _odExpanded);
@@ -8862,6 +8863,7 @@ function odUpdateBadge(state) {
 window.gdLogin = function() {
   if (GD_CONFIG.CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE") {
     alert("Google Drive not configured.\n\n1. Go to console.cloud.google.com\n2. Create project \u2192 Enable Google Drive API\n3. Credentials \u2192 Create OAuth 2.0 Client ID\n4. Authorized JS origins: https://gjnz106.github.io\n5. Open this HTML \u2192 search GD_CONFIG\n6. Replace YOUR_GOOGLE_CLIENT_ID_HERE");
+    _pendingLoad = null;
     return;
   }
   if (!_gdTokenClient) {
@@ -8871,12 +8873,29 @@ window.gdLogin = function() {
       callback: (resp) => {
         if (resp.error) {
           log("GDrive auth error:", resp.error);
+          _pendingLoad = null;
           return;
         }
         _gdToken = resp.access_token;
         odUpdateBadge("on");
         gdGetUserInfo();
-        gdBrowseRoot();
+        if (_pendingLoad) {
+          const { fileId, slot } = _pendingLoad;
+          _pendingLoad = null;
+          if (slot === -99) {
+            _gdFolderStack = [{ id: fileId, name: "Project Folder" }];
+            _gdCurrentFolder = { id: fileId, name: "Project Folder" };
+            gdBrowseFolder(fileId);
+            const odBody = document.getElementById("odBody");
+            if (odBody && !odBody.classList.contains("show")) {
+              window.odToggle();
+            }
+          } else {
+            window.gdLoadFile(fileId, "Model from Drive", slot);
+          }
+        } else {
+          gdBrowseRoot();
+        }
       }
     });
   }
@@ -8967,7 +8986,7 @@ window.gdNavigateTo = function(idx) {
   _gdCurrentFolder = _gdFolderStack[idx];
   gdBrowseFolder(_gdCurrentFolder.id);
 };
-window.gdLoadFile = async function(fileId, fileName) {
+window.gdLoadFile = async function(fileId, fileName, forcedSlot) {
   const content = document.getElementById("odContent");
   const origHtml = content.innerHTML;
   content.innerHTML = '<div class="od-loading">\u23F3 Downloading ' + escapeHtml(fileName) + "\u2026</div>";
@@ -8978,11 +8997,15 @@ window.gdLoadFile = async function(fileId, fileName) {
     content.innerHTML = '<div class="od-loading">\u23F3 Loading into viewer\u2026</div>';
     const file = new File([blob], fileName, { type: "application/octet-stream" });
     let targetSlot = -1;
-    if (!loadedModels[0]) targetSlot = 0;
-    else if (!loadedModels[1]) targetSlot = 1;
-    else {
-      targetSlot = fedNextSlot;
-      fedNextSlot++;
+    if (forcedSlot !== void 0 && forcedSlot >= 0) {
+      targetSlot = forcedSlot;
+    } else {
+      if (!loadedModels[0]) targetSlot = 0;
+      else if (!loadedModels[1]) targetSlot = 1;
+      else {
+        targetSlot = fedNextSlot;
+        fedNextSlot++;
+      }
     }
     files[targetSlot] = file;
     if (targetSlot < 2) {
@@ -9006,6 +9029,83 @@ window.gdLoadFile = async function(fileId, fileName) {
     log("GDrive load err:", e.message);
     content.innerHTML = origHtml;
     alert("Failed to load: " + e.message);
+  }
+};
+function extractDriveId(url) {
+  const folderMatch = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (folderMatch) return { type: "folder", id: folderMatch[1] };
+  const fileDMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileDMatch) return { type: "file", id: fileDMatch[1] };
+  const fileIdMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (fileIdMatch) return { type: "file", id: fileIdMatch[1] };
+  return null;
+}
+window.updateDriveActionButtons = function() {
+  const input = document.getElementById("projectDriveLink");
+  const actions = document.getElementById("driveStreamActions");
+  const btnA = document.getElementById("btnStreamA");
+  const btnB = document.getElementById("btnStreamB");
+  const btnBrowse = document.getElementById("btnBrowseFolder");
+  if (!input || !actions) return;
+  const url = input.value.trim();
+  if (!url) {
+    actions.style.display = "none";
+    return;
+  }
+  const parsed = extractDriveId(url);
+  if (parsed) {
+    actions.style.display = "block";
+    if (parsed.type === "file") {
+      if (btnA) btnA.style.display = "inline-block";
+      if (btnB) btnB.style.display = "inline-block";
+      if (btnBrowse) btnBrowse.style.display = "none";
+    } else {
+      if (btnA) btnA.style.display = "none";
+      if (btnB) btnB.style.display = "none";
+      if (btnBrowse) btnBrowse.style.display = "inline-block";
+    }
+  } else {
+    actions.style.display = "none";
+  }
+};
+window.streamProjectDrive = function(slot) {
+  const input = document.getElementById("projectDriveLink");
+  if (!input) return;
+  const url = input.value.trim();
+  const parsed = extractDriveId(url);
+  if (!parsed || parsed.type !== "file") {
+    alert("Please enter a valid Google Drive file link.");
+    return;
+  }
+  if (window.toggleSettingsPanel) window.toggleSettingsPanel();
+  if (_gdToken) {
+    window.gdLoadFile(parsed.id, "Model from Drive", slot);
+  } else {
+    _pendingLoad = { fileId: parsed.id, slot };
+    window.gdLogin();
+  }
+};
+window.browseProjectDriveFolder = function() {
+  const input = document.getElementById("projectDriveLink");
+  if (!input) return;
+  const url = input.value.trim();
+  const parsed = extractDriveId(url);
+  if (!parsed || parsed.type !== "folder") {
+    alert("Please enter a valid Google Drive folder link.");
+    return;
+  }
+  if (window.toggleSettingsPanel) window.toggleSettingsPanel();
+  if (_gdToken) {
+    _gdFolderStack = [{ id: parsed.id, name: "Project Folder" }];
+    _gdCurrentFolder = { id: parsed.id, name: "Project Folder" };
+    gdBrowseFolder(parsed.id);
+    const odBody = document.getElementById("odBody");
+    if (odBody && !odBody.classList.contains("show")) {
+      window.odToggle();
+    }
+  } else {
+    _pendingLoad = { fileId: parsed.id, slot: -99 };
+    window.gdLogin();
   }
 };
 window.gdLogout = function() {
@@ -10341,45 +10441,209 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
   };
   window.AI_CONFIG = AI_CONFIG;
   const css = `
-  .aic-fab{position:fixed;right:20px;bottom:20px;z-index:9998;width:52px;height:52px;border-radius:50%;
-    background:var(--blue,#2563eb);color:#fff;border:none;cursor:pointer;font-size:22px;
-    box-shadow:0 4px 14px rgba(37,99,235,.4);display:flex;align-items:center;justify-content:center;transition:transform .15s ease}
-  .aic-fab:hover{transform:scale(1.06)}
-  .aic-panel{position:fixed;right:20px;bottom:20px;z-index:9999;width:380px;max-width:calc(100vw - 40px);
-    height:560px;max-height:calc(100vh - 40px);background:var(--bg-panel,#fff);border:1px solid var(--border,#d5d9e2);
-    border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;
-    font-family:'Hanken Grotesk',system-ui,sans-serif;color:var(--text,#4A4541)}
-  .aic-panel.open{display:flex}
-  .aic-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border,#d5d9e2);background:var(--bg-card,#f0f1f4)}
-  .aic-head b{font-size:14px;flex:1}
-  .aic-head .aic-dot{width:8px;height:8px;border-radius:50%;background:var(--green,#16a34a)}
-  .aic-iconbtn{background:none;border:none;cursor:pointer;color:var(--text-dim,#4a5068);font-size:16px;padding:4px;border-radius:6px;line-height:1}
-  .aic-iconbtn:hover{background:var(--bg-hover,#e8eaef)}
-  .aic-cfg{display:none;padding:10px 14px;border-bottom:1px solid var(--border,#d5d9e2);background:var(--amber-bg,#fef9ed);font-size:12px}
-  .aic-cfg.show{display:block}
-  .aic-cfg label{display:block;font-weight:600;margin-bottom:4px;color:var(--text-dim,#4a5068)}
-  .aic-cfg input{width:100%;padding:7px 9px;border:1px solid var(--border,#d5d9e2);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box}
-  .aic-cfg .aic-note{margin-top:7px;color:var(--amber,#d97706);line-height:1.4}
+  /* \u2500\u2500 FAB wrapper \u2500\u2500 */
+  .aic-fab-wrap{
+    position:fixed;right:20px;bottom:20px;z-index:9998;
+    width:56px;height:56px;
+    will-change:transform;
+    transition:transform .08s cubic-bezier(.22,.68,0,1.2);
+  }
+  /* \u2500\u2500 Ring canvas \u2500\u2500 */
+  .aic-fab-ring{
+    position:absolute;inset:-4px;
+    border-radius:50%;
+    background:conic-gradient(
+      from var(--aic-ring-angle,0deg),
+      #FF6B6B 0%,
+      #FF8E53 12%,
+      #FFD93D 25%,
+      #6BCB77 38%,
+      #4D96FF 51%,
+      #C77DFF 64%,
+      #FF6B9D 77%,
+      #FF6B6B 100%
+    );
+    opacity:0.85;
+    transition:opacity .25s ease;
+  }
+  .aic-fab-ring-mask{
+    position:absolute;inset:4px;
+    border-radius:50%;
+    background:var(--bg-panel,#fff);
+    z-index:1;
+  }
+  /* spinning ring when busy */
+  @keyframes aic-spin{to{--aic-ring-angle:360deg}}
+  @property --aic-ring-angle{syntax:"<angle>";initial-value:0deg;inherits:false}
+  .aic-fab-wrap.busy .aic-fab-ring{
+    animation:aic-spin 1.4s linear infinite;
+    opacity:1;
+  }
+  /* pulse glow behind ring when busy */
+  @keyframes aic-glow{
+    0%,100%{box-shadow:0 0 0 0 rgba(139,156,244,.35), 0 4px 18px rgba(0,0,0,.14)}
+    50%{box-shadow:0 0 0 7px rgba(139,156,244,.10), 0 4px 18px rgba(0,0,0,.18)}
+  }
+  .aic-fab-wrap.busy{animation:aic-glow 1.8s ease-in-out infinite}
+  /* \u2500\u2500 FAB button itself \u2500\u2500 */
+  .aic-fab{
+    position:relative;z-index:2;
+    width:56px;height:56px;border-radius:50%;
+    background:#0a0a0c;
+    border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .12s cubic-bezier(.22,.68,0,1.4);
+  }
+  .aic-fab:active{transform:scale(0.94)}
+  /* rainbow ring logo inside FAB \u2014 gentle continuous rotation, like a voice/breathing indicator */
+  @keyframes aic-ring-rotate{to{transform:rotate(360deg)}}
+  .aic-fab-icon{
+    width:46px;height:46px;
+    border-radius:50%;
+    background:conic-gradient(
+      #FF6B6B 0%,#FF8E53 12%,#FFD93D 25%,
+      #6BCB77 38%,#4D96FF 51%,#C77DFF 64%,
+      #FF6B9D 77%,#FF6B6B 100%
+    );
+    mask:radial-gradient(circle, transparent 64%, #000 68%);
+    -webkit-mask:radial-gradient(circle, transparent 64%, #000 68%);
+    animation:aic-ring-rotate 8s linear infinite;
+  }
+  .aic-fab-wrap.busy .aic-fab-icon{
+    animation:aic-ring-rotate 1.3s linear infinite;
+  }
+  /* \u2500\u2500 Panel \u2500\u2500 */
+  .aic-panel{
+    position:fixed;right:20px;bottom:86px;z-index:9999;
+    width:390px;max-width:calc(100vw - 40px);
+    height:570px;max-height:calc(100vh - 110px);
+    background:var(--bg-panel,#fff);
+    border:1px solid var(--border,#d5d9e2);
+    border-radius:16px;
+    box-shadow:0 16px 48px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.06);
+    display:none;flex-direction:column;overflow:hidden;
+    font-family:'Hanken Grotesk',Inter,system-ui,sans-serif;
+    color:var(--text,#1a1d26);
+    transform-origin:bottom right;
+    will-change:transform;
+    transition:transform .08s ease;
+  }
+  /* panel open animation */
+  @keyframes aic-panel-in{
+    from{opacity:0;transform:scale(.94) translateY(12px)}
+    to{opacity:1;transform:scale(1) translateY(0)}
+  }
+  .aic-panel.open{display:flex;animation:aic-panel-in .2s cubic-bezier(.22,.68,0,1.15) both}
+  /* \u2500\u2500 Head with live gradient shimmer when busy \u2500\u2500 */
+  .aic-head{
+    display:flex;align-items:center;gap:9px;
+    padding:12px 14px;
+    border-bottom:1px solid var(--border,#d5d9e2);
+    background:var(--bg-card,#f0f1f4);
+    position:relative;overflow:hidden;
+    transition:background .3s ease;
+  }
+  @keyframes aic-shimmer{
+    0%{transform:translateX(-100%)}
+    100%{transform:translateX(260%)}
+  }
+  .aic-head::after{
+    content:'';
+    position:absolute;top:0;left:0;width:40%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(139,156,244,.18),transparent);
+    transform:translateX(-100%);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s;
+  }
+  .aic-panel.busy .aic-head{background:linear-gradient(135deg,#f8f8ff,#f0f1f4 60%,#f5f3ff)}
+  .aic-panel.busy .aic-head::after{animation:aic-shimmer 2s linear infinite;opacity:1}
+  /* \u2500\u2500 Head content \u2500\u2500 */
+  .aic-head-logo{
+    width:22px;height:22px;border-radius:50%;flex-shrink:0;
+    background:conic-gradient(
+      #FF6B6B 0%,#FF8E53 12%,#FFD93D 25%,
+      #6BCB77 38%,#4D96FF 51%,#C77DFF 64%,
+      #FF6B9D 77%,#FF6B6B 100%
+    );
+    mask:radial-gradient(circle, transparent 36%, #000 37%);
+    -webkit-mask:radial-gradient(circle, transparent 36%, #000 37%);
+  }
+  .aic-panel.busy .aic-head-logo{animation:aic-spin .9s linear infinite}
+  .aic-head-title{flex:1;display:flex;flex-direction:column;gap:1px}
+  .aic-head-title b{font-size:13.5px;font-weight:700;color:#18181B;line-height:1}
+  .aic-head-title span{font-size:10px;color:var(--text-muted,#8590a6);line-height:1;font-family:'JetBrains Mono',monospace}
+  .aic-iconbtn{
+    background:none;border:none;cursor:pointer;
+    color:var(--text-dim,#4a5068);font-size:15px;
+    padding:5px;border-radius:8px;line-height:1;
+    transition:background .12s ease,color .12s ease;
+  }
+  .aic-iconbtn:hover{background:var(--bg-hover,#e8eaef);color:#18181B}
+  /* \u2500\u2500 Messages \u2500\u2500 */
   .aic-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--bg,#f5f6f8)}
-  .aic-msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
-  .aic-msg.user{align-self:flex-end;background:var(--blue,#2563eb);color:#fff;border-bottom-right-radius:4px}
-  .aic-msg.assistant{align-self:flex-start;background:var(--bg-panel,#fff);border:1px solid var(--border,#d5d9e2);border-bottom-left-radius:4px}
-  .aic-msg.error{align-self:stretch;background:var(--red-bg,#fdeaea);color:var(--red,#D05050);border:1px solid var(--red,#D05050);font-size:12px;max-width:100%}
+  .aic-msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
+  .aic-msg.user{
+    align-self:flex-end;background:#18181B;color:#fff;
+    border-bottom-right-radius:4px;
+  }
+  .aic-msg.assistant{
+    align-self:flex-start;background:var(--bg-panel,#fff);
+    border:1px solid var(--border,#d5d9e2);border-bottom-left-radius:4px;
+  }
+  .aic-msg.error{align-self:stretch;background:var(--red-bg,#fdeaea);color:var(--red,#dc2626);border:1px solid var(--red,#dc2626);font-size:12px;max-width:100%}
   .aic-tool{align-self:flex-start;font-size:11px;color:var(--text-muted,#8590a6);background:var(--bg-card,#f0f1f4);
     border:1px solid var(--border,#d5d9e2);border-radius:8px;padding:5px 9px;font-family:'JetBrains Mono',monospace}
-  .aic-think{align-self:flex-start;font-size:12px;color:var(--text-muted,#8590a6);font-style:italic;padding:4px 8px}
-  .aic-foot{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border,#d5d9e2);background:var(--bg-panel,#fff)}
-  .aic-foot textarea{flex:1;resize:none;border:1px solid var(--border,#d5d9e2);border-radius:8px;padding:9px 11px;font-size:13px;
-    font-family:inherit;max-height:90px;min-height:38px;box-sizing:border-box}
-  .aic-send{background:var(--blue,#2563eb);color:#fff;border:none;border-radius:8px;width:40px;cursor:pointer;font-size:16px;flex-shrink:0}
-  .aic-send:disabled{opacity:.5;cursor:default}
-  .aic-msg.assistant strong{font-weight:600}
+  /* animated thinking dots */
+  .aic-think{
+    align-self:flex-start;display:flex;align-items:center;gap:5px;
+    padding:9px 14px;background:var(--bg-panel,#fff);
+    border:1px solid var(--border,#d5d9e2);border-radius:12px;border-bottom-left-radius:4px;
+  }
+  @keyframes aic-dot-bounce{
+    0%,80%,100%{transform:translateY(0);opacity:.4}
+    40%{transform:translateY(-5px);opacity:1}
+  }
+  .aic-think-dot{
+    width:6px;height:6px;border-radius:50%;background:var(--text-muted,#8590a6);
+    animation:aic-dot-bounce 1.2s ease-in-out infinite;
+  }
+  .aic-think-dot:nth-child(2){animation-delay:.16s;background:#8B9CF4}
+  .aic-think-dot:nth-child(3){animation-delay:.32s;background:#C77DFF}
+  /* \u2500\u2500 Footer \u2500\u2500 */
+  .aic-foot{
+    display:flex;gap:8px;padding:10px;
+    border-top:1px solid var(--border,#d5d9e2);
+    background:var(--bg-panel,#fff);
+  }
+  .aic-foot textarea{
+    flex:1;resize:none;border:1px solid var(--border,#d5d9e2);
+    border-radius:10px;padding:9px 11px;font-size:13px;
+    font-family:inherit;max-height:90px;min-height:38px;box-sizing:border-box;
+    transition:border-color .15s ease,box-shadow .15s ease;
+    outline:none;
+  }
+  .aic-foot textarea:focus{
+    border-color:#8B9CF4;
+    box-shadow:0 0 0 3px rgba(139,156,244,.15);
+  }
+  .aic-send{
+    background:#18181B;color:#fff;border:none;
+    border-radius:10px;width:40px;cursor:pointer;
+    font-size:15px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s ease,transform .1s ease;
+  }
+  .aic-send:hover{background:#000;transform:scale(1.05)}
+  .aic-send:active{transform:scale(.95)}
+  .aic-send:disabled{opacity:.4;cursor:default;transform:none}
+  .aic-msg.assistant strong{font-weight:700}
   .aic-msg.assistant em{font-style:italic}
   .aic-msg.assistant code{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-card,#f0f1f4);padding:1px 4px;border-radius:4px}
-  .aic-md-h{font-weight:600;margin:3px 0 1px}
+  .aic-md-h{font-weight:700;margin:4px 0 2px}
   .aic-md-ul{margin:4px 0;padding-left:18px}
-  .aic-md-ul li{margin:1px 0}
-  .aic-md-sp{height:6px}
+  .aic-md-ul li{margin:2px 0}
+  .aic-md-sp{height:5px}
   .aic-md-table{border-collapse:collapse;margin:6px 0;font-size:12px;width:100%}
   .aic-md-table th,.aic-md-table td{border:1px solid var(--border,#d5d9e2);padding:3px 7px;text-align:left;vertical-align:top}
   .aic-md-table th{background:var(--bg-card,#f0f1f4);font-weight:600}
@@ -10387,16 +10651,31 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
   const styleEl = document.createElement("style");
   styleEl.textContent = css;
   document.head.appendChild(styleEl);
+  const fabWrap = document.createElement("div");
+  fabWrap.className = "aic-fab-wrap";
+  const fabRing = document.createElement("div");
+  fabRing.className = "aic-fab-ring";
+  const fabRingMask = document.createElement("div");
+  fabRingMask.className = "aic-fab-ring-mask";
+  fabRing.appendChild(fabRingMask);
   const fab = document.createElement("button");
   fab.className = "aic-fab";
-  fab.title = "Tr\u1EE3 l\xFD AI";
-  fab.textContent = "\u2726";
-  document.body.appendChild(fab);
+  fab.title = "T3Lab Assistant";
+  const fabIcon = document.createElement("div");
+  fabIcon.className = "aic-fab-icon";
+  fab.appendChild(fabIcon);
+  fabWrap.appendChild(fabRing);
+  fabWrap.appendChild(fab);
+  document.body.appendChild(fabWrap);
   const panel = document.createElement("div");
   panel.className = "aic-panel";
   panel.innerHTML = `
     <div class="aic-head">
-      <span class="aic-dot"></span><b>Tr\u1EE3 l\xFD AI \xB7 IFC Delta</b>
+      <div class="aic-head-logo"></div>
+      <div class="aic-head-title">
+        <b>T3Lab Assistant</b>
+        <span>IFC AI Copilot</span>
+      </div>
       <button class="aic-iconbtn" data-act="clear" title="Xo\xE1 h\u1ED9i tho\u1EA1i">\u{1F5D1}</button>
       <button class="aic-iconbtn" data-act="close" title="\u0110\xF3ng">\u2715</button>
     </div>
@@ -10672,6 +10951,15 @@ function applyPage(page, isInit = false) {
   if (page === activePage && !isInit) return;
   activePage = page;
   syncNav(page);
+  const odPanel = document.getElementById("odPanel");
+  const odPanelSep = document.getElementById("odPanelSep");
+  if (odPanel) odPanel.style.display = page === "compare" ? "block" : "none";
+  if (odPanelSep) odPanelSep.style.display = page === "compare" ? "block" : "none";
+  const viewerCard = document.getElementById("projectDriveViewerCard");
+  if (viewerCard) {
+    const hasLink = !!localStorage.getItem("projectDriveLink");
+    viewerCard.style.display = page === "viewer" && hasLink ? "block" : "none";
+  }
   const exitClash = () => {
     if (typeof clashMode !== "undefined" && clashMode) window.exitClashMode?.();
   };
@@ -10727,7 +11015,7 @@ if (document.readyState === "loading") {
 }
 window.toggleUserMenu = function(e) {
   e.stopPropagation();
-  const menu = document.getElementById("userMenu");
+  const menu = document.querySelector(".account-menu");
   const trigger = document.getElementById("userBadge");
   if (!menu) return;
   const open = menu.style.display !== "none";
@@ -10745,29 +11033,96 @@ window.toggleUserMenu = function(e) {
   }
 };
 window.toggleSettingsPanel = function() {
-  let panel = document.getElementById("settingsPanel");
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.id = "settingsPanel";
-    panel.className = "settings-panel";
-    panel.innerHTML = `
-      <div class="settings-card">
-        <div class="settings-card-title">
-          <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Project Settings
-        </div>
-        <div class="settings-row"><span>Application</span><span style="font-size:12px;color:var(--text-muted)">T3LAB.IFC &mdash; 3D Version Compare</span></div>
-        <div class="settings-row"><span>Version</span><span style="font-size:12px;color:var(--text-muted)">v1.0</span></div>
-        <div style="margin-top:20px;display:flex;justify-content:flex-end">
-          <button class="btn" onclick="document.getElementById('settingsPanel').style.display='none'" style="height:34px;padding:0 16px;font-size:13px">Close</button>
-        </div>
-      </div>
-    `;
-    panel.addEventListener("click", (e) => {
-      if (e.target === panel) panel.style.display = "none";
-    });
-    document.body.appendChild(panel);
+  const el = document.getElementById("settingsOverlay");
+  if (el) {
+    const open = el.style.display !== "none";
+    if (!open) {
+      const savedLink = localStorage.getItem("projectDriveLink") || "";
+      const input = document.getElementById("projectDriveLink");
+      if (input) {
+        input.value = savedLink;
+        if (window.updateDriveActionButtons) window.updateDriveActionButtons();
+      }
+      el.style.display = "flex";
+    } else {
+      const input = document.getElementById("projectDriveLink");
+      if (input) {
+        localStorage.setItem("projectDriveLink", input.value.trim());
+      }
+      el.style.display = "none";
+    }
   }
-  const hidden = panel.style.display === "none" || !panel.style.display;
-  panel.style.display = hidden ? "flex" : "none";
+};
+document.addEventListener("DOMContentLoaded", () => {
+  const savedLink = localStorage.getItem("projectDriveLink") || "";
+  const input = document.getElementById("projectDriveLink");
+  if (input) {
+    input.value = savedLink;
+    if (window.updateDriveActionButtons) window.updateDriveActionButtons();
+  }
+});
+window.toggleTeamPanel = function() {
+  const el = document.getElementById("teamOverlay");
+  if (el) {
+    const open = el.style.display !== "none";
+    el.style.display = open ? "none" : "flex";
+  }
+};
+window.toggleInvitePanel = function() {
+  const el = document.getElementById("inviteOverlay");
+  if (el) {
+    const open = el.style.display !== "none";
+    el.style.display = open ? "none" : "flex";
+  }
+};
+window.setInviteTier = function(tier) {
+  const btnM = document.getElementById("btnTierMember");
+  const btnG = document.getElementById("btnTierGuest");
+  const warning = document.getElementById("guestWarning");
+  if (!btnM || !btnG || !warning) return;
+  if (tier === "member") {
+    btnM.style.background = "#fff";
+    btnM.style.fontWeight = "700";
+    btnM.style.color = "#009668";
+    btnG.style.background = "transparent";
+    btnG.style.fontWeight = "500";
+    btnG.style.color = "#8590a6";
+    warning.style.display = "none";
+  } else {
+    btnG.style.background = "#fff";
+    btnG.style.fontWeight = "700";
+    btnG.style.color = "#b75a00";
+    btnM.style.background = "transparent";
+    btnM.style.fontWeight = "500";
+    btnM.style.color = "#8590a6";
+    warning.style.display = "block";
+  }
+};
+window.toggleNotifMenu = function() {
+  const el = document.getElementById("notifMenuDrop");
+  const bg = document.getElementById("notifMenuBg");
+  if (el && bg) {
+    const open = el.style.display !== "none";
+    el.style.display = open ? "none" : "block";
+    bg.style.display = open ? "none" : "block";
+    const badge = document.getElementById("notifBadge");
+    if (badge) badge.style.display = "none";
+  }
+};
+window.toggleHelpMenu = function() {
+  const el = document.getElementById("helpMenuDrop");
+  const bg = document.getElementById("helpMenuBg");
+  if (el && bg) {
+    const open = el.style.display !== "none";
+    el.style.display = open ? "none" : "block";
+    bg.style.display = open ? "none" : "block";
+  }
+};
+window.clearNotifs = function() {
+  const list = document.getElementById("notifList");
+  if (list) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#8590a6;font-size:11px">No new notifications</div>';
+  }
+  const badge = document.getElementById("notifBadge");
+  if (badge) badge.style.display = "none";
 };

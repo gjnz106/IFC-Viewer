@@ -1,11 +1,12 @@
 # Kiến trúc IFC Delta
 
 > Web-based BIM viewer (xem · so sánh · clash · validate · AI) — Three.js + web-ifc,
-> chạy hoàn toàn trong trình duyệt, deploy trên GitHub Pages (không build server).
+> chạy hoàn toàn trong trình duyệt, deploy trên Vercel và Firebase Hosting tại
+> https://ifc.t3lab.space.
 
 > ⚠️ Repo có **2 codebase song song**:
 > - **Bản standalone (deploy)** — `index.html` ở root, **inline toàn bộ** CSS + 2 module
->   (auth + app). Đây là bản chạy production (GitHub Pages + Vercel `build:standalone`).
+>   (auth + app). Đây là bản chạy production (Vercel `build:standalone` + Firebase Hosting tĩnh).
 > - **`frontend/` (Vite + TS)** — bản component-hoá, chạy dev, **chưa deploy**.
 >
 > Tài liệu này mô tả **bản standalone**.
@@ -36,7 +37,7 @@ biên tập được trong `src/app/`; `build.mjs` ghép lại thành `js/app.js
 với code đang chạy production. Lợi ích:
 
 - Tách module ngay, an toàn tuyệt đối (hành vi runtime không đổi — đã chứng minh bằng so byte).
-- GitHub Pages vẫn serve file tĩnh, không cần build server.
+- Firebase Hosting vẫn serve file tĩnh trực tiếp, không cần build server riêng (Vercel build qua `build:standalone`).
 - Lộ trình tiến hoá lên ESM thật theo từng module có kiểm chứng — xem `IMPLEMENTATION_PLAN.md` › Giai đoạn R.
 
 > ⚠️ Các file trong `src/app/*.js` **không** phải module độc lập — chúng là mảnh
@@ -47,28 +48,29 @@ với code đang chạy production. Lợi ích:
 
 | File | Vai trò |
 |------|---------|
-| `01-imports-state.js` | `import` three/web-ifc; toàn bộ biến state top-level; bảng tên IFC |
-| `02-ifc-category.js` | Map IFC class → Revit Category (tên thân thiện) |
-| `03-viewer-core.js` | `initThree`, camera/controls, wheel-zoom, pinch, resize, context-menu |
-| `04-viewcube.js` | ViewCube điều hướng kiểu Revit |
-| `05-colorize.js` | Tô màu theo thuộc tính (Dalux-style) + rule CRUD |
-| `06-color-schemes.js` | Lưu/khôi phục color scheme (LocalStorage) |
-| `07-section-visibility.js` | Section box/plane, clipping, hide/isolate, opacity, wireframe |
-| `08-federation-load.js` | Nạp IFC, N-file federation (đa bộ môn) |
-| `09-compare.js` | Engine so sánh 2 phiên bản (GlobalId + smart match + geometry hash) |
-| `10-properties.js` | Panel Properties / Property Sets (accordion) |
-| `11-measure.js` | Đo khoảng cách & cao độ |
-| `12-focus-highlight.js` | Zoom-to-element, highlight, section theo cấu kiện |
-| `13-clash.js` | Clash detection kiểu Navisworks (bbox + mesh BVH) + export BCF |
-| `14-walk.js` | First-person Walk mode |
-| `15-plan-overlay.js` | Lớp phủ mặt bằng 2D (top-down ortho) |
-| `16-validator-rules.js` | CORENET X / IFC-SG — Phase 1 (~35 rule built-in) |
-| `17-validator-json-loader.js` | Phase 2 — nạp rule JSON + ~100 rule mở rộng |
-| `18-validator-export.js` | Validator export PDF / BCF (BCF còn stub) |
-| `19-drive.js` | Tích hợp Google Drive |
-| `20-search.js` | Tìm kiếm & lọc cấu kiện |
-| `21-fieldmode.js` | Field mode (tablet/công trường): touch, joystick, storey, plan 2D |
-| `22-ai.js` | Trợ lý AI: data index · query tools (count/sum) · chat UI |
+| `01-imports-state.ts` | `import` three/web-ifc; toàn bộ biến state top-level; bảng tên IFC |
+| `02-ifc-category.ts` | Map IFC class → Revit Category (tên thân thiện) |
+| `03-viewer-core.ts` | `initThree`, camera/controls, wheel-zoom, pinch, resize, context-menu |
+| `04-viewcube.ts` | ViewCube điều hướng kiểu Revit |
+| `05-colorize.ts` | Tô màu theo thuộc tính (Dalux-style) + rule CRUD |
+| `06-color-schemes.ts` | Lưu/khôi phục color scheme (LocalStorage) |
+| `07-section-visibility.ts` | Section box/plane, clipping, hide/isolate, opacity, wireframe |
+| `08-federation-load.ts` | Nạp IFC, N-file federation (đa bộ môn) |
+| `09-compare.ts` | Engine so sánh 2 phiên bản (GlobalId + smart match + geometry hash) |
+| `10-properties.ts` | Panel Properties / Property Sets (accordion) |
+| `11-measure.ts` | Đo khoảng cách & cao độ |
+| `12-focus-highlight.ts` | Zoom-to-element, highlight, section theo cấu kiện |
+| `13-clash.ts` | Clash detection kiểu Navisworks (bbox + mesh BVH) + export BCF |
+| `14-walk.ts` | First-person Walk mode |
+| `15-plan-overlay.ts` | Lớp phủ mặt bằng 2D (top-down ortho) |
+| `16-validator-rules.ts` | CORENET X / IFC-SG — Phase 1 (~35 rule built-in) |
+| `17-validator-json-loader.ts` | Phase 2 — nạp rule JSON + ~100 rule mở rộng |
+| `18-validator-export.ts` | Validator export PDF / BCF (BCF còn stub) |
+| `19-drive.ts` | Tích hợp Google Drive |
+| `20-search.ts` | Tìm kiếm & lọc cấu kiện |
+| `21-fieldmode.ts` | Field mode (tablet/công trường): touch, joystick, storey, plan 2D |
+| `22-ai.ts` | Trợ lý AI: data index · query tools (count/sum) · chat UI |
+| `23-router.ts` | Router hash-based phía client (viewer/compare/clash/validate/field) |
 
 ## Phụ thuộc ngoài (CDN, qua importmap)
 
