@@ -474,7 +474,7 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
   /* rainbow ring logo inside FAB — gentle continuous rotation, like a voice/breathing indicator */
   @keyframes aic-ring-rotate{to{transform:rotate(360deg)}}
   .aic-fab-icon{
-    width:46px;height:46px;
+    width:56px;height:56px;
     border-radius:50%;
     background:#fff url('/icons/t3lab-assistant.png') center/cover no-repeat;
     animation:aic-ring-rotate 8s linear infinite;
@@ -530,19 +530,12 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
   .aic-panel.busy .aic-head::after{animation:aic-shimmer 2s linear infinite;opacity:1}
   /* ── Head content ── */
   .aic-head-logo{
-    width:22px;height:22px;border-radius:50%;flex-shrink:0;
-    background:conic-gradient(
-      #FF6B6B 0%,#FF8E53 12%,#FFD93D 25%,
-      #6BCB77 38%,#4D96FF 51%,#C77DFF 64%,
-      #FF6B9D 77%,#FF6B6B 100%
-    );
-    mask:radial-gradient(circle, transparent 36%, #000 37%);
-    -webkit-mask:radial-gradient(circle, transparent 36%, #000 37%);
+    width:26px;height:26px;border-radius:50%;flex-shrink:0;
+    background:#fff url('/icons/t3lab-assistant.png') center/cover no-repeat;
   }
   .aic-panel.busy .aic-head-logo{animation:aic-spin .9s linear infinite}
   .aic-head-title{flex:1;display:flex;flex-direction:column;gap:1px}
   .aic-head-title b{font-size:13.5px;font-weight:700;color:#18181B;line-height:1}
-  .aic-head-title span{font-size:10px;color:var(--text-muted,#8590a6);line-height:1;font-family:'JetBrains Mono',monospace}
   .aic-iconbtn{
     background:none;border:none;cursor:pointer;
     color:var(--text-dim,#4a5068);font-size:15px;
@@ -649,7 +642,6 @@ if(window.DEBUG)console.log('      await sumQuantity({category:"Floors"}, "volum
       <div class="aic-head-logo"></div>
       <div class="aic-head-title">
         <b>T3Lab Assistant</b>
-        <span>IFC AI Copilot</span>
       </div>
       <button class="aic-iconbtn" data-act="clear" title="Xoá hội thoại / Reset">↻</button>
       <button class="aic-iconbtn" data-act="close" title="Đóng">✕</button>
