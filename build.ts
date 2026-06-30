@@ -113,6 +113,17 @@ async function main(): Promise<void> {
   copyFileSync(cssSrc, cssDest);
   console.log(`Copied CSS to ${cssDest} (${statSync(cssSrc).size} bytes).`);
 
+  // 3b. Icons: frontend/public/icons/* → icons/*
+  const iconsSrcDir = join(ROOT, 'frontend', 'public', 'icons');
+  if (existsSync(iconsSrcDir)) {
+    const iconsDestDir = join(ROOT, 'icons');
+    if (!existsSync(iconsDestDir)) mkdirSync(iconsDestDir, { recursive: true });
+    for (const f of readdirSync(iconsSrcDir)) {
+      copyFileSync(join(iconsSrcDir, f), join(iconsDestDir, f));
+    }
+    console.log(`Copied icons to ${iconsDestDir}.`);
+  }
+
   // 4. HTML: generate root index.html from frontend/index.html
   // The frontend HTML targets the Vite dev server (CSS at /css/styles.css,
   // entry at /src/main.ts). For standalone deploy we:

@@ -1443,6 +1443,21 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 }
 .nav-spacer{flex:1}
 
+/* ── Responsive: #leftPanel / #rightPanel as overlay drawers ────────
+   Below 760px, #leftPanel (312px) + the 60px rail leave almost no room
+   for the 3D viewport (<main>, flex:1). Taking the panels out of the
+   .body-row flex flow lets <main> reclaim the full width; the existing
+   toggleLeftPanel()/toggleRightPanel() handlers (ui-shell.ts) keep
+   working unchanged since they only ever touch `display`. */
+@media(max-width:760px){
+  #leftPanel,#rightPanel{
+    position:fixed;top:48px;bottom:0;z-index:150;
+    box-shadow:0 8px 30px -8px rgba(44,36,32,.35);
+  }
+  #leftPanel{left:60px;width:calc(100vw - 60px);max-width:340px}
+  #rightPanel{right:0;width:min(340px,calc(100vw - 60px))}
+}
+
 /* ── Upload card ─────────────────────────────────────────────────── */
 .uc-card{
   position:relative;display:block;

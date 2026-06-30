@@ -476,13 +476,7 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   .aic-fab-icon{
     width:46px;height:46px;
     border-radius:50%;
-    background:conic-gradient(
-      #FF6B6B 0%,#FF8E53 12%,#FFD93D 25%,
-      #6BCB77 38%,#4D96FF 51%,#C77DFF 64%,
-      #FF6B9D 77%,#FF6B6B 100%
-    );
-    mask:radial-gradient(circle, transparent 64%, #000 68%);
-    -webkit-mask:radial-gradient(circle, transparent 64%, #000 68%);
+    background:#fff url('/icons/t3lab-assistant.png') center/cover no-repeat;
     animation:aic-ring-rotate 8s linear infinite;
   }
   .aic-fab-wrap.busy .aic-fab-icon{
@@ -846,9 +840,12 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
       let guard = 0;
       while (guard++ < 6) {
         // Call backend proxy instead of Anthropic API directly
+        const authToken = window.getAuthToken ? await window.getAuthToken() : null;
         const res = await fetch(AI_CONFIG.proxyUrl, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: authToken
+            ? { 'content-type': 'application/json', authorization: 'Bearer ' + authToken }
+            : { 'content-type': 'application/json' },
           body: JSON.stringify({
             provider: AI_CONFIG.provider,
             model: effectiveModel(),
@@ -897,13 +894,19 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   inputEl.addEventListener('compositionstart', () => { composing = true; });
   inputEl.addEventListener('compositionend', () => { composing = false; });
 
+  // Provider/model picker is admin-only — it picks which billable AI
+  // backend gets called, the only shared/costed resource this app has.
+  // window.isAdmin resolves asynchronously (Firebase auth state), so this
+  // is re-checked on every FAB open rather than once at panel creation.
+  const settingsBtn = panel.querySelector('[data-act=settings]') as HTMLButtonElement;
   fab.onclick = () => {
     panel.classList.add('open'); fab.style.display = 'none'; inputEl.focus();
+    settingsBtn.style.display = window.isAdmin ? '' : 'none';
     buildAIIndex().catch(() => {});   // warm cache để lần gửi đầu không bị khựng
   };
   panel.querySelector('[data-act=close]')!.addEventListener('click', () => { panel.classList.remove('open'); fab.style.display = 'flex'; });
   panel.querySelector('[data-act=clear]')!.addEventListener('click', () => { history.length = 0; msgs.innerHTML = ''; });
-  panel.querySelector('[data-act=settings]')!.addEventListener('click', () => { settingsEl.classList.toggle('open'); });
+  settingsBtn.addEventListener('click', () => { settingsEl.classList.toggle('open'); });
   providerSel.addEventListener('change', () => { AI_CONFIG.provider = providerSel.value; persistConfig(); updateProvHint(); });
   modelInput.addEventListener('input', () => { AI_CONFIG.model = modelInput.value; persistConfig(); });
   function autoGrow() { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 90) + 'px'; }

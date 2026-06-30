@@ -10497,13 +10497,7 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
   .aic-fab-icon{
     width:46px;height:46px;
     border-radius:50%;
-    background:conic-gradient(
-      #FF6B6B 0%,#FF8E53 12%,#FFD93D 25%,
-      #6BCB77 38%,#4D96FF 51%,#C77DFF 64%,
-      #FF6B9D 77%,#FF6B6B 100%
-    );
-    mask:radial-gradient(circle, transparent 64%, #000 68%);
-    -webkit-mask:radial-gradient(circle, transparent 64%, #000 68%);
+    background:#fff url('/icons/t3lab-assistant.png') center/cover no-repeat;
     animation:aic-ring-rotate 8s linear infinite;
   }
   .aic-fab-wrap.busy .aic-fab-icon{
@@ -10765,8 +10759,11 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
   function endpoint() {
     return AI_CONFIG.proxyUrl;
   }
-  function headers() {
-    return { "content-type": "application/json" };
+  async function headers() {
+    const h = { "content-type": "application/json" };
+    const token = window.getAuthToken ? await window.getAuthToken() : null;
+    if (token) h["authorization"] = "Bearer " + token;
+    return h;
   }
   const CAP_LIST = 40, CAP_STOREY = 60;
   function capNames(items, n) {
@@ -10826,7 +10823,7 @@ if (window.DEBUG) console.log('      await sumQuantity({category:"Floors"}, "vol
       while (guard++ < 6) {
         const res = await fetch(endpoint(), {
           method: "POST",
-          headers: headers(),
+          headers: await headers(),
           body: JSON.stringify({
             model: AI_CONFIG.model,
             max_tokens: AI_CONFIG.maxTokens,

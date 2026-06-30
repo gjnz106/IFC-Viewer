@@ -6,13 +6,13 @@ import { appState } from '../../store/index.js';
 declare const THREE: any;
 
 // ── Compound angle measure → decimal degrees ───────────────────────
-function compoundToDeg(v: any): number {
+export function compoundToDeg(v: any): number {
   if (!Array.isArray(v)) return Number(v);
   const sign = v[0] < 0 ? -1 : 1;
   return sign * (Math.abs(v[0]) + (v[1] || 0) / 60 + (v[2] || 0) / 3600 + (v[3] || 0) / 3600000000);
 }
 
-function sgReadParam(entity: any, paramName: string, psetNameHint?: string): any {
+export function sgReadParam(entity: any, paramName: string, psetNameHint?: string): any {
   if (!entity || !entity.psets) return null;
   for (const ps of entity.psets) {
     if (psetNameHint && ps.Name?.value !== psetNameHint) continue;
@@ -48,13 +48,13 @@ function sgReadParam(entity: any, paramName: string, psetNameHint?: string): any
   return null;
 }
 
-function sgHasParam(entity: any, paramName: string): boolean {
+export function sgHasParam(entity: any, paramName: string): boolean {
   const r = sgReadParam(entity, paramName);
   if (!r) return false;
   return r.value !== null && r.value !== undefined && r.value !== '';
 }
 
-function sgReadNumeric(entity: any, paramName: string, psetNameHint?: string): number | null {
+export function sgReadNumeric(entity: any, paramName: string, psetNameHint?: string): number | null {
   const r = sgReadParam(entity, paramName, psetNameHint);
   if (!r || r.value === null || r.value === undefined) return null;
   const n = Number(r.value);

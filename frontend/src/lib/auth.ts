@@ -128,6 +128,7 @@ if (auth) {
 
     if (!user) {
       clearAuth();
+      (window as any).isAdmin = false;
       overlay.classList.remove('hidden');
       showView('login');
       $('userBadge').style.display = 'none';
@@ -138,6 +139,7 @@ if (auth) {
       return;
     }
     setAuth(user);
+    (window as any).isAdmin = !!(user.email && ADMIN_EMAILS.has(user.email.toLowerCase()));
 
     if (!user.emailVerified) {
       overlay.classList.remove('hidden');
@@ -234,6 +236,26 @@ window.signOutFromVerify = async function () {
   try { await signOut(auth); } catch (e) { }
   sessionStorage.clear();
 };
+
+// Used by the AI chat proxy call (src/app/22-ai.ts and
+// frontend/.../integrations/ai.ts) to authenticate POST /api/ai/chat.
+// Firebase SDK caches the token and silently refreshes it ~5 min before
+// expiry, so this is cheap to call before every request.
+(window as any).getAuthToken = async function (): Promise<string | null> {
+  if (!auth?.currentUser) return null;
+  try { return await auth.currentUser.getIdToken(); } catch { return null; }
+};
+
+// ── Minimal role gate ────────────────────────────────────────────────────
+// No backend persistence/Firestore in this app today, so there is no shared
+// resource for a full RBAC system to protect — every viewer/export/delete
+// action only touches the user's own loaded model, locally. The one real
+// shared/billable resource is the AI proxy's provider+model choice, so that
+// is the only thing gated here. `window.isAdmin` is read by the AI chat
+// settings UI (src/app/22-ai.ts and frontend/.../integrations/ai.ts) to hide
+// the provider/model picker from non-admins.
+const ADMIN_EMAILS = new Set(['trantienthanh909@gmail.com']);
+(window as any).isAdmin = false;
 
 // ── PASSWORD-RESET view ─────────────────────────────────────────────────
 (window as any).showResetView = function () {

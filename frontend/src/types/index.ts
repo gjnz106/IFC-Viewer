@@ -254,6 +254,8 @@ declare global {
     showResetView?: () => void;
     toggleUserMenu?: () => void;
     doLogout?: () => void;
+    getAuthToken?: () => Promise<string | null>;
+    isAdmin?: boolean;
 
     // Properties
     showProps?: (expressId: number, modelId: number) => void;
