@@ -919,24 +919,22 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
    Activated via 📱 Field button or auto on touch + screen ≤ 1200px
    ══════════════════════════════════════════════════════════════════ */
 
-/* Field mode toggle button in header (always visible, before Compare) */
-.field-toggle{padding:6px 12px;border-radius:6px;border:1.5px solid var(--green);background:none;cursor:pointer;font-size:13px;font-family:'Hanken Grotesk';color:var(--green);transition:all var(--t);flex-shrink:0;white-space:nowrap}
+/* Field mode toggle button in header — dedicated, always-visible entry point */
+.field-toggle{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;border:1.5px solid var(--green);background:none;cursor:pointer;font-size:13px;font-family:'Hanken Grotesk';font-weight:600;color:var(--green);transition:all var(--t);flex-shrink:0;white-space:nowrap}
 .field-toggle:hover{background:var(--green);color:#fff}
 body.field-mode .field-toggle{background:var(--green);color:#fff;border-color:var(--green)}
-/* On touch devices, make Field button bigger */
-@media(pointer:coarse){.field-toggle{padding:8px 14px;font-size:14px;font-weight:600}}
+/* On touch devices, make Field button bigger (easier to hit with a finger) */
+@media(pointer:coarse){.field-toggle{padding:8px 14px;font-size:14px}}
+/* On narrow phones, collapse to icon-only to keep the header from overflowing */
+@media(max-width:480px){.field-toggle{padding:7px;gap:0}.field-toggle-label{display:none}}
 
 /* ── Field mode overrides ── */
-body.field-mode .app{
-  grid-template-columns:0 0 1fr 0 0 !important;
-  grid-template-rows:0 1fr !important; /* hide header row */
-}
-body.field-mode .header{display:none !important}
-body.field-mode .left-panel{display:none !important}
-body.field-mode .right-panel{display:none !important}
-body.field-mode .col-resize{display:none !important}
+body.field-mode .topbar{display:none !important}
+body.field-mode .sidebar{display:none !important}
+body.field-mode .body-row{padding-left:0 !important}
+body.field-mode #leftPanel{display:none !important}
+body.field-mode #rightPanel{display:none !important}
 body.field-mode .sg-panel{display:none !important}
-body.field-mode .viewport-area{grid-column:1/-1 !important;grid-row:1/-1 !important}
 body.field-mode .empty-vp .ev-title{font-size:18px}
 body.field-mode .empty-vp .ev-hint{font-size:13px}
 

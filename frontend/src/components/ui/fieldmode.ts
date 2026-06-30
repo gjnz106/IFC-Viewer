@@ -66,6 +66,9 @@ window.fieldExitMode = function(){
   (window as any).fieldCloseSheet();
   document.getElementById('fieldStoreys')!.classList.remove('show');
   fieldResizeViewport();
+  // Keep the router/hash/localStorage in sync so a reload doesn't bounce
+  // straight back into Field Mode (router persists 'ifc.page' on navigateTo).
+  (window as any).navigateTo?.('viewer');
   log('Field mode deactivated');
 };
 

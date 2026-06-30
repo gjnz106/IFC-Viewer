@@ -100,7 +100,7 @@
           <div class="auth-msg" id="verifyMsg"></div>
           <div class="auth-verify-actions">
             <button type="button" class="auth-submit" id="verifyResend"><span class="auth-spinner"></span><span class="auth-submit-label">Resend verification email</span></button>
-            <button type="button" class="auth-inline-link" style="text-align:center;margin-top:8px" onclick="checkVerifiedNow()">I've verified — refresh</button>
+            <button type="button" class="auth-inline-link" id="verifyCheck" style="text-align:center;margin-top:8px">I've verified — refresh</button>
             <button type="button" class="auth-inline-link" style="text-align:center;margin-top:4px;color:var(--text-muted)" onclick="signOutFromVerify()">Use a different account</button>
           </div>
         </div>
@@ -167,6 +167,14 @@
       </button>
       <button onclick="toggleRightPanel()" id="btnToggleRight" class="tb-icon-btn hdr-panel-btn" title="Properties panel">
         <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="15" y1="4.5" x2="15" y2="19.5"/><rect x="16.4" y="6" width="3.2" height="12" rx="1" fill="currentColor" stroke="none"/></svg>
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <!-- Field Mode – dedicated standalone toggle, always visible -->
+      <button id="fieldModeBtn" onclick="navigateTo('field')" class="field-toggle" title="Field Mode — on-site BIM review">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>
+        <span class="field-toggle-label">Field</span>
       </button>
 
       <div class="tb-sep"></div>
@@ -288,7 +296,6 @@
     <div style="display:none">
       <button id="btnCompare" disabled onclick="runCompare()">Compare</button>
       <button id="btnClash" onclick="toggleClashMode()">Clash</button>
-      <button id="fieldModeBtn" onclick="fieldEnterMode()">Field</button>
       <button id="btnRunClash" disabled onclick="runClashDetection()">Run Clash</button>
       <button id="btnExitClash" onclick="exitClashMode()">Exit Clash</button>
       <button id="btnExitCompare" onclick="exitCompare()">Exit Compare</button>
@@ -335,14 +342,6 @@
           </span>
           <span class="sb-label">SG Validate</span>
         </button>
-        <!-- Field mode -->
-        <button class="sb-item" data-page="field" onclick="navigateTo('field')" title="Field Mode">
-          <span class="sb-icon-box">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>
-          </span>
-          <span class="sb-label">Field Mode</span>
-        </button>
-
         <div class="sb-divider"></div>
 
         <!-- Team -->
