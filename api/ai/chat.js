@@ -11,8 +11,19 @@
      - DEEPSEEK_API_KEY     (BẮT BUỘC)  — key DeepSeek, KHÔNG commit vào repo
      - DEEPSEEK_MODEL       (tuỳ chọn)  — mặc định "deepseek-chat"
      - DEEPSEEK_BASE_URL    (tuỳ chọn)  — mặc định "https://api.deepseek.com"
+     - FIREBASE_API_KEY     (tuỳ chọn)  — Web API key (công khai) để xác thực ID token;
+                                          mặc định khớp frontend/src/lib/auth.ts
+     - AI_RATE_LIMIT_MAX        (tuỳ chọn) — mặc định 20 request / cửa sổ
+     - AI_RATE_LIMIT_WINDOW_MS  (tuỳ chọn) — mặc định 600000 (10 phút)
 
    Bảo mật & phạm vi:
+     - XÁC THỰC: mỗi request phải kèm `Authorization: Bearer <Firebase ID token>`;
+       token được xác minh qua REST accounts:lookup (không cần Admin SDK). Thiếu/sai
+       token → 401. Đây là lớp bảo vệ CHÍNH cho key & chi phí (khớp backend Express).
+     - GIỚI HẠN TẦN SUẤT: theo uid, in-memory. LƯU Ý: serverless Vercel stateless —
+       mỗi instance có Map riêng và bị reclaim sau thời gian rảnh, nên đây là best-effort
+       (không enforce toàn cục). Vẫn chặn được lạm dụng dồn dập trên một instance ấm;
+       muốn cứng hơn cần đặt hard cap chi tiêu ở Console DeepSeek hoặc dùng store ngoài.
      - Hàm TỰ CHÈN một guardrail hệ thống (GUARDRAIL) lên trước mọi system prompt
        của client → kể cả khi ai đó gọi thẳng endpoint này, trợ lý vẫn chỉ trả
        lời về mô hình IFC đang mở, từ chối thông tin ngoài.
@@ -20,6 +31,54 @@
 
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+
+// ── Xác thực Firebase ID token qua REST (không cần service-account) ──
+// Web API key vốn công khai (đã có trong bundle frontend) nên dùng accounts:lookup
+// để xác minh token. Khớp với frontend/src/lib/auth.ts + backend/src/routes/ai.ts.
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyCrqJiIxlahcHZuwa7xS7KMX8Z5c6Ky3Oo';
+
+async function verifyFirebaseToken(idToken) {
+  try {
+    const resp = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      }
+    );
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const user = data && data.users && data.users[0];
+    if (!user || !user.localId) return null;
+    // Chỉ chấp nhận tài khoản đã xác minh email — khớp gate ở frontend (auth.ts).
+    if (!user.emailVerified) return null;
+    return { uid: user.localId, email: user.email };
+  } catch (err) {
+    console.error('[ai] Firebase token verification failed:', err);
+    return null;
+  }
+}
+
+// ── Giới hạn tần suất theo uid (in-memory, best-effort trên serverless) ──
+const RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 20);
+const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000); // 10 phút
+const rateBuckets = new Map();
+
+// Trả null nếu được phép; trả số giây Retry-After nếu vượt giới hạn.
+function rateLimitRetryAfter(uid) {
+  const now = Date.now();
+  const bucket = rateBuckets.get(uid);
+  if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    rateBuckets.set(uid, { count: 1, windowStart: now });
+    return null;
+  }
+  if (bucket.count >= RATE_LIMIT_MAX) {
+    return Math.ceil((bucket.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000);
+  }
+  bucket.count++;
+  return null;
+}
 
 // Guardrail bắt buộc — luôn đứng trước system prompt của client.
 const GUARDRAIL = [
@@ -103,9 +162,39 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  // ── Xác thực: bắt buộc Firebase ID token hợp lệ (đã xác minh email) ──
+  const header = req.headers.authorization || '';
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!idToken) {
+    res.status(401).json({ error: 'Thiếu Authorization: Bearer <Firebase ID token>.' });
+    return;
+  }
+  const user = await verifyFirebaseToken(idToken);
+  if (!user) {
+    res.status(401).json({ error: 'Token không hợp lệ hoặc đã hết hạn.' });
+    return;
+  }
+
+  // ── Giới hạn tần suất theo uid (best-effort trên serverless) ──
+  const retryAfter = rateLimitRetryAfter(user.uid);
+  if (retryAfter !== null) {
+    res.setHeader('Retry-After', String(retryAfter));
+    res.status(429).json({
+      error: `Vượt giới hạn ${RATE_LIMIT_MAX} yêu cầu AI / ${RATE_LIMIT_WINDOW_MS / 60000} phút. Thử lại sau ${retryAfter}s.`,
+    });
+    return;
+  }
+
+  // Audit tối thiểu: chỉ metadata (uid/email/status), KHÔNG ghi nội dung chat.
+  const audit = (status, extra = {}) => console.log(JSON.stringify({
+    audit: 'ai_chat', uid: user.uid, email: user.email, provider: 'deepseek',
+    model: DEEPSEEK_MODEL, status, ts: new Date().toISOString(), ...extra,
+  }));
+
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
   if (!body || !Array.isArray(body.messages)) {
+    audit(400, { reason: 'missing_messages' });
     res.status(400).json({ error: 'messages array is required' });
     return;
   }
@@ -138,13 +227,17 @@ module.exports = async function handler(req, res) {
     if (!upstream.ok) {
       const detail = (await upstream.text().catch(() => '')).slice(0, 300);
       console.error('[ai] DeepSeek error', upstream.status, detail);
+      audit(upstream.status, { reason: 'provider_error' });
       res.status(upstream.status).json({ error: `AI provider error (${upstream.status})`, detail });
       return;
     }
 
-    res.status(200).json(fromOpenAIResponse(await upstream.json()));
+    const data = fromOpenAIResponse(await upstream.json());
+    audit(200, { usage: data.usage });
+    res.status(200).json(data);
   } catch (err) {
     console.error('[ai] proxy error', err);
+    audit(500, { reason: 'exception' });
     res.status(500).json({ error: 'Internal server error' });
   }
 };

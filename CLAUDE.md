@@ -4,6 +4,13 @@ Web-based BIM viewer (xem · so sánh · clash · validate · AI) cho team BIM n
 Three.js + web-ifc (WASM), chạy 100% trong trình duyệt, deploy trên cả Vercel và Firebase Hosting tại https://ifc.t3lab.space.
 Giao diện tiếng Anh. Assistant có thể trả lời bằng tiếng Anh hoặc tiếng Việt và xử lý được thông tin tiếng Việt từ model.
 
+> ⚠️ **Repo có HAI codebase song song.** Bản **đang deploy production** là `src/app/*.ts`
+> (build qua `build.ts`/esbuild → `js/app.js`, phục vụ bởi `index.html` ở root). Bản
+> `frontend/` (Vite) mô tả dưới đây là **đích migrate, CHƯA deploy** (xem
+> `.claude/IMPLEMENTATION_PLAN.md` › Giai đoạn R). Mọi fix hành vi quan trọng phải áp
+> dụng ở **cả hai nơi** cho tới khi cắt deploy. Xem `.claude/ARCHITECTURE.md` để có bản
+> đồ module của bản standalone `src/app/`.
+
 ## Cấu trúc dự án
 
 ```
@@ -18,7 +25,7 @@ IFC-Viewer/
 │   │   │   └── index.ts        # appState — trạng thái dùng chung toàn app
 │   │   ├── types/
 │   │   │   └── index.ts        # TypeScript interfaces + Window declarations
-│   │   └── components/         # 22 component tính năng, gom nhóm theo vai trò (tương tự modules của IDD)
+│   │   └── components/         # component tính năng (25 file .ts), gom nhóm theo vai trò
 │   │       ├── core/           # nền tảng Three.js + IFC
 │   │       │   ├── viewer-core.ts
 │   │       │   ├── viewcube.ts
@@ -84,16 +91,17 @@ IFC-Viewer/
 - **Dev:** `cd backend && npm run dev` (tsx watch, port 3000)
 - **Môi trường:** copy `backend/.env.example` → `backend/.env`, điền `ANTHROPIC_API_KEY`
 - **AI proxy:** Frontend gọi `POST /api/ai/chat` thay vì gọi Anthropic trực tiếp
-- **Đa provider:** proxy hỗ trợ thử nghiệm nhiều nhà cung cấp qua field `provider` (`anthropic` | `openai` | `google`). Backend dịch request/response sang định dạng Anthropic để vòng lặp tool-use ở client không đổi. Key đặt trong `.env`; `GET /api/ai/status` liệt kê provider đã cấu hình. UI chat có nút ⚙ để chọn provider/model.
+- **Đa provider:** proxy hỗ trợ thử nghiệm nhiều nhà cung cấp qua field `provider` (`anthropic` | `openai` | `deepseek` | `google`). Backend dịch request/response sang định dạng Anthropic để vòng lặp tool-use ở client không đổi. Key đặt trong `.env`; `GET /api/ai/status` liệt kê provider đã cấu hình. UI chat có nút ⚙ để chọn provider/model.
+- **Lưu ý:** đây là proxy **Express** (`backend/`), CHƯA deploy. Production trên Vercel dùng serverless `api/ai/chat.js` (provider DeepSeek). Cả hai đều yêu cầu Firebase ID token + rate-limit theo uid.
 
 ### Module Pattern
-- Mỗi module: `import { appState } from '../state/index.js';`
+- Mỗi module: `import { appState } from '../store/index.js';`
 - Thay biến global bằng `appState.xxx` (scene → appState.scene, camera → appState.camera, v.v.)
 - Handler HTML (`onclick`) vẫn dùng `window.*`
 - Hàm dùng chung giữa module: export từ module định nghĩa, import ở module dùng
 
 ### appState (trạng thái dùng chung)
-Xem `frontend/src/state/index.ts`. Quan trọng nhất:
+Xem `frontend/src/store/index.ts`. Quan trọng nhất:
 - `appState.scene`, `.camera`, `.renderer`, `.controls`, `.ifcLoader` — Three.js core
 - `appState.files`, `.loadedModels` — file/model slots (index 0,1 = A/B; 2+ = federation)
 - `appState.compareResult`, `.clashMode`, `.sgState` — tính năng so sánh/clash/validate
@@ -101,9 +109,9 @@ Xem `frontend/src/state/index.ts`. Quan trọng nhất:
 
 ## Lưu ý bảo mật
 - **Không bao giờ** đưa API key vào bundle frontend
-- AI (`frontend/src/modules/ai.ts`) gọi qua backend proxy `/api/ai/chat`
-- Backend lấy `ANTHROPIC_API_KEY` từ biến môi trường (`backend/.env`)
-- `frontend/src/auth.ts` chứa Firebase config (public theo thiết kế Firebase)
+- AI gọi qua proxy `/api/ai/chat` (client: `frontend/src/components/integrations/ai.ts` cho bản Vite, `src/app/22-ai.ts` cho bản đang deploy)
+- Proxy lấy API key từ biến môi trường (`backend/.env` cho Express; Vercel env cho `api/ai/chat.js`)
+- `frontend/src/lib/auth.ts` chứa Firebase config (public theo thiết kế Firebase)
 
 ## Lưu ý Deploy & Tối ưu hóa (Vercel & Firebase)
 - Web được deploy trên cả **Vercel** và **Firebase Hosting**. Khi update project, cần đặc biệt chú ý tương thích và optimize cho cả 2 bên.
