@@ -9,6 +9,7 @@ import {
 } from 'web-ifc';
 import { appState } from '../../store/index.js';
 import { FED_COLORS, IFC_NAMES } from '../../lib/constants.js';
+import { runCompare as computeDiff } from './compare.js';
 
 // ══ Federation file management (slots 2+) ══════════════════════════
 let _fedPendingSlot = -1;
@@ -150,7 +151,7 @@ window.runCompare=async function(){
     }
 
     lt.textContent='Comparing...';(lf as HTMLElement).style.width='70%';await new Promise(r=>setTimeout(r,50));
-    appState.compareResult=(window as any).doCompare(filteredA,filteredB);
+    appState.compareResult=computeDiff(filteredA,filteredB);
     lt.textContent=`Done! ${(appState.compareResult as any).added.length+(appState.compareResult as any).removed.length+(appState.compareResult as any).modified.length} changes`;(lf as HTMLElement).style.width='100%';
     await new Promise(r=>setTimeout(r,300));
 
@@ -455,10 +456,4 @@ export function computeGeometryHashes(modelIdx: number): Record<number, any> {
   });
 
   return hashes;
-}
-
-export function doCompare(a: Record<string, any>, b: Record<string, any>): any {
-  const added: any[]=[],removed: any[]=[],modified: any[]=[],unchanged: any[]=[];
-
-  // NOTE: doCompare() body continues in a later source file (08-federation-load.js ends here)
 }
