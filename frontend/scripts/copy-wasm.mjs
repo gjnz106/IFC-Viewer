@@ -16,15 +16,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const frontendDir = join(here, '..');
 const require = createRequire(join(frontendDir, 'package.json'));
 
-// Resolve web-ifc exactly as web-ifc-three resolves it (its nested copy wins over
-// the hoisted one), so the wasm matches the glue that instantiates it at runtime.
-let webIfcDir;
-try {
-  const w3req = createRequire(require.resolve('web-ifc-three/package.json'));
-  webIfcDir = dirname(w3req.resolve('web-ifc/package.json'));
-} catch {
-  webIfcDir = dirname(require.resolve('web-ifc/package.json'));
-}
+// Resolve web-ifc from the app root — the same instance Vite bundles after
+// resolve.dedupe(['web-ifc']) collapses web-ifc-three's nested copy onto it. Shipping
+// this wasm guarantees it matches the glue the build actually instantiates.
+// web-ifc restricts its package.json via "exports", so resolve the main entry and
+// take its directory (the wasm files sit next to it at the package root).
+const webIfcDir = dirname(require.resolve('web-ifc'));
 
 const outDir = join(frontendDir, 'public', 'vendor', 'web-ifc');
 mkdirSync(outDir, { recursive: true });
