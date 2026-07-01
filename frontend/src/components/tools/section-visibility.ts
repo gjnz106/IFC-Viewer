@@ -589,6 +589,7 @@ function applyCategoryVisibilityViewMode(){
   // Remove old view subsets
   viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
   viewSubsets=[];
+  (window as any).viewSubsets=viewSubsets; // mirrored (same ref — later .push() stays in sync): compare.ts/measure.ts read this to hide/show category-filter subsets when toggling model A/B visibility
 
   for(let idx=0;idx<2;idx++){
     if(!appState.loadedModels[idx])continue;
@@ -652,6 +653,7 @@ window.exitCompare=function(){
   // Remove view subsets
   viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
   viewSubsets=[];
+  (window as any).viewSubsets=viewSubsets; // mirrored (same ref — later .push() stays in sync): compare.ts/measure.ts read this to hide/show category-filter subsets when toggling model A/B visibility
 
   // Clear compare result
   appState.compareResult=null;
@@ -1032,4 +1034,13 @@ window.handleFile=async function(idx: number){
 Object.assign(window as any, {
   clearHighlight, createSectionBox3D, initIFC, loadIFC,
   sectionPlanParallelToFace, updateSectionHandleSizes, zoomToElement,
+  // These three were previously only reachable as window.X() from other
+  // modules (main.ts, compare.ts, color-schemes.ts, clash.ts, focus-highlight.ts)
+  // but were never actually attached to window, so those call sites silently
+  // no-op'd: main.ts's post-init `initSectionDrag()` call never ran at all
+  // (section-box arrow-handle dragging was completely non-functional), and
+  // applyCategoryVisibilityViewMode/updateSectionFromSliders never re-synced
+  // section clipping / category-filter subsets after Compare/Colorize/focus
+  // changes in other modules.
+  initSectionDrag, applyCategoryVisibilityViewMode, updateSectionFromSliders,
 });

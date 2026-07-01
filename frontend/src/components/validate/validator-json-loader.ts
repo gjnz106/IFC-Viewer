@@ -13,6 +13,8 @@ import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from './snapshots.js';
+import { SG_RULES } from './validator-rules.js';
+import { IFC_NAMES } from '../../lib/constants.js';
 
 // ── Active rule set — starts as the built-in Phase 1 rules ──────────
 let SG_ACTIVE_RULES: any[] = [];
@@ -435,7 +437,6 @@ function sgApplyJsonRules(jsonRows: any[], sourceName: string): void {
   }
 
   // Merge: keep Phase 1 built-in rules + append JSON rules
-  const SG_RULES = (window as any).SG_RULES || [];
   SG_ACTIVE_RULES = [...SG_RULES, ...compiled];
 
   // Count by agency
@@ -479,7 +480,6 @@ function sgApplyJsonRules(jsonRows: any[], sourceName: string): void {
 
 function sgUpdateSourceBadge(): void {
   const srcEl = document.getElementById('sgRuleSrc') as HTMLElement;
-  const SG_RULES = (window as any).SG_RULES || [];
   if (!sgJsonLoaded) {
     srcEl.innerHTML = 'Built-in rules';
     return;
@@ -498,7 +498,6 @@ window.sgLoadBuiltinRules = function () {
 };
 
 window.sgResetToBuiltin = function () {
-  const SG_RULES = (window as any).SG_RULES || [];
   SG_ACTIVE_RULES = [...SG_RULES];
   sgJsonLoaded = null;
   sgUpdateSourceBadge();
@@ -672,7 +671,6 @@ async function sgBuildContext(): Promise<any> {
 
 // Map IFC type code → class name.
 function sgIfcCodeToClass(code: number): string {
-  const IFC_NAMES = (window as any).IFC_NAMES || {};
   // Primary map uses constants from the global scope if available
   const w = window as any;
   const MAP: Record<number, string> = {};
