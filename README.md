@@ -10,50 +10,44 @@ tại https://ifc.t3lab.space.
 - **Xem mô hình IFC**: load, xoay, cắt lớp (section), đo đạc, walk-through, plan overlay.
 - **So sánh (Compare)**: federation nhiều model, phát hiện thay đổi giữa các phiên bản.
 - **Clash detection**: phát hiện va chạm giữa các discipline.
-- **Validate**: kiểm tra mô hình theo bộ quy tắc IFC-SG, export báo cáo.
+- **Validate**: kiểm tra mô hình theo bộ quy tắc IFC-SG, export báo cáo (PDF/BCF).
 - **AI Assistant**: trợ lý chat trả lời câu hỏi về mô hình (đếm, tổng hợp số liệu, tra cứu thuộc tính), hỗ trợ tiếng Anh và tiếng Việt.
 
 ## Cấu trúc dự án
 
-Repo hiện có **hai codebase song song** triển khai cùng một ứng dụng:
+Một codebase duy nhất ở `frontend/` (Vite + TypeScript). Bản standalone `src/app/` cũ
+đã được hợp nhất và xoá — production build trực tiếp từ `frontend/`.
 
 ```
 t3lab-ifc/
-├── src/app/                # ⚠️ ĐANG ĐƯỢC DEPLOY — 23 file TypeScript, build qua build.ts/esbuild
-│                            #    thành js/app.js, phục vụ bởi index.html ở root.
-├── frontend/                # Vite + TypeScript, componentized theo feature (core/, tools/,
-│                            #    compare/, validate/, inspect/, integrations/, ui/).
-│                            #    Chưa được wire vào pipeline deploy nào (xem .claude/IMPLEMENTATION_PLAN.md
-│                            #    phần "Giai đoạn R" — kế hoạch migrate dần sang codebase này).
-├── backend/                 # Node.js + Express + TypeScript — proxy AI (POST /api/ai/chat)
-├── api/                     # Vercel serverless functions
-├── js/, css/, vendor/       # Build output + assets phục vụ bởi bản standalone (src/app/)
-├── index.html                # Shell HTML cho bản standalone
-├── build.ts                  # Build script: gộp src/app/*.ts (+ frontend/src/lib/auth.ts) → js/app.js
-├── vercel.json                # buildCommand: npm run build:standalone
-└── firebase.json              # Hosting tĩnh, serve trực tiếp js/app.js đã build sẵn
+├── frontend/                # ỨNG DỤNG CHÍNH — Vite + TypeScript, componentized theo feature
+│   ├── src/components/      #   core/ · tools/ · compare/ · validate/ · inspect/ · integrations/ · ui/
+│   ├── src/store/index.ts   #   appState — shared state
+│   ├── src/types/index.ts   #   TypeScript interfaces
+│   ├── public/              #   css/ · icons/ · vendor/web-ifc (wasm copy lúc build)
+│   └── index.html           #   Shell HTML (Vite)
+├── backend/                 # Node.js + Express — proxy AI dev (POST /api/ai/chat), CHƯA deploy
+├── api/ai/chat.js           # Vercel serverless — proxy AI ĐANG DEPLOY (provider DeepSeek)
+├── vercel.json              # buildCommand: build frontend → frontend/dist
+├── firebase.json            # Hosting: public = frontend/dist (predeploy build frontend)
+└── package.json             # Root workspace (npm workspaces: frontend + backend)
 ```
 
 Xem `.claude/ARCHITECTURE.md` để có bản đồ module chi tiết và
-`.claude/IMPLEMENTATION_PLAN.md` để biết roadmap, các bug đang theo dõi, và kế
-hoạch hợp nhất hai codebase.
+`.claude/IMPLEMENTATION_PLAN.md` để biết roadmap + các bug đang theo dõi.
 
 ## Phát triển
 
-### Bản đang deploy (`src/app/`)
-
-```bash
-npm run build:standalone     # build js/app.js từ src/app/*.ts
-npm run typecheck:standalone
-npm run verify:standalone
-```
-
-### Frontend (Vite, đang migrate dần sang đây)
+### Frontend (ứng dụng chính)
 
 ```bash
 cd frontend && npm run dev      # Vite dev server, port 5173
-cd frontend && npm run build
+cd frontend && npm run build    # tsc && vite build → frontend/dist
+cd frontend && npm run typecheck
+cd frontend && npm test         # Vitest
 ```
+
+Hoặc từ root (chạy frontend + backend cùng lúc): `npm run dev`.
 
 ### Backend
 
@@ -67,5 +61,6 @@ key của provider khác — xem `CLAUDE.md` phần "Đa provider").
 ## Quy ước làm việc & bảo mật
 
 Xem `CLAUDE.md` để biết quy tắc chi tiết: shared state (`appState`), module
-pattern, lưu ý bảo mật (không đưa API key vào bundle frontend), và lưu ý khi
-deploy đồng thời lên Vercel + Firebase Hosting.
+pattern (ESM), lưu ý bảo mật (không đưa API key vào bundle frontend; AI qua proxy
+có xác thực Firebase + rate-limit), và lưu ý khi deploy đồng thời lên Vercel +
+Firebase Hosting.

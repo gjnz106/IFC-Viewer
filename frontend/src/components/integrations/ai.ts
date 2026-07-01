@@ -10,6 +10,17 @@
 
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import {
+  aiNorm as _aiNorm,
+  aiApplyFilter as _aiApplyFilter,
+  aiGroupCount as _aiGroupCount,
+  resolveQuantityKey,
+  quantityUnit,
+  quantityTakeoff,
+  takeoffToMarkdown,
+  takeoffToCsv,
+  listElements,
+} from './ai-query.js';
 
 // Đọc giá trị thô từ wrapper của web-ifc ({value:x} hoặc primitive)
 function aiRaw(v: any): any {
@@ -246,40 +257,8 @@ window.buildAIIndex = buildAIIndex;
    IFC DELTA — AI QUERY TOOLS  (bước 2: tool chạy trên data index)
 ═══════════════════════════════════════════════════════════════════════ */
 
-// — chuẩn hoá chuỗi để so khớp không phân biệt hoa thường / khoảng trắng —
-function _aiNorm(s: any): string { return (s == null ? '' : String(s)).toLowerCase().trim(); }
-
-// — lọc danh sách element theo bộ lọc —
-function _aiApplyFilter(elements: any[], f: Record<string, any> = {}): any[] {
-  const cat = f.category != null ? _aiNorm(f.category) : null;
-  const sto = f.storey != null ? _aiNorm(f.storey) : null;
-  const cls = f.ifcClass != null ? _aiNorm(f.ifcClass) : null;
-  const mat = f.material != null ? _aiNorm(f.material) : null;
-  const nm = f.nameContains != null ? _aiNorm(f.nameContains) : null;
-  const mi = (f.modelIdx != null && f.modelIdx !== '') ? Number(f.modelIdx) : null;
-  return elements.filter(e => {
-    if (cat != null && !_aiNorm(e.category).includes(cat)) return false;
-    if (sto != null) {
-      const es = e.storey == null ? '' : _aiNorm(e.storey);
-      if (!es.includes(sto)) return false;
-    }
-    if (cls != null && !_aiNorm(e.ifcClass).includes(cls)) return false;
-    if (mat != null && !(e.materials || []).some((m: string) => _aiNorm(m).includes(mat!))) return false;
-    if (nm != null && !_aiNorm(e.name).includes(nm)) return false;
-    if (mi != null && e.modelIdx !== mi) return false;
-    return true;
-  });
-}
-
-// — phân nhóm + đếm, sắp giảm dần —
-function _aiGroupCount(els: any[], key: string): { name: string; count: number }[] {
-  const o: Record<string, number> = {};
-  for (const e of els) {
-    const k = (e[key] == null || e[key] === '') ? '(không xác định)' : e[key];
-    o[k] = (o[k] || 0) + 1;
-  }
-  return Object.entries(o).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
-}
+// Logic thuần (_aiNorm, _aiApplyFilter, _aiGroupCount, resolveQuantityKey,
+// quantityUnit, quantityTakeoff, listElements…) nằm ở ./ai-query.ts để unit-test được.
 
 // ── TOOL 1: đếm element ──
 async function countElements(filter: Record<string, any> = {}): Promise<any> {
@@ -296,12 +275,7 @@ async function countElements(filter: Record<string, any> = {}): Promise<any> {
 // ── TOOL 2: cộng khối lượng ──
 async function sumQuantity(filter: Record<string, any> = {}, quantity = 'volume'): Promise<any> {
   const idx = await buildAIIndex();
-  const q = _aiNorm(quantity);
-  const keyMap: Record<string, string> = {
-    volume: 'volume', 'thể tích': 'volume', area: 'area', 'diện tích': 'area',
-    length: 'length', 'chiều dài': 'length', count: 'count', 'số lượng': 'count'
-  };
-  const key = keyMap[q] || 'volume';
+  const key = resolveQuantityKey(quantity);
   const els = _aiApplyFilter((idx && idx.elements) || [], filter);
   let total = 0, withQty = 0, missing = 0;
   for (const e of els) {
@@ -309,7 +283,7 @@ async function sumQuantity(filter: Record<string, any> = {}, quantity = 'volume'
     if (typeof v === 'number' && isFinite(v)) { total += v; withQty++; }
     else missing++;
   }
-  const unit = key === 'volume' ? 'm³' : key === 'area' ? 'm²' : key === 'length' ? 'mm' : 'cái';
+  const unit = quantityUnit(key);
   return {
     quantity: key,
     total: Math.round(total * 1000) / 1000,
@@ -319,6 +293,21 @@ async function sumQuantity(filter: Record<string, any> = {}, quantity = 'volume'
     elementsMissing: missing,
     filter,
   };
+}
+
+// ── TOOL 3: bảng khối lượng (quantity takeoff) ──
+async function quantityTakeoffTool(input: Record<string, any> = {}): Promise<any> {
+  const idx = await buildAIIndex();
+  const { groupBy, quantity, ...filter } = input || {};
+  const r = quantityTakeoff((idx && idx.elements) || [], { groupBy, quantity, filter });
+  return { ...r, markdown: takeoffToMarkdown(r), csv: takeoffToCsv(r) };
+}
+
+// ── TOOL 4: liệt kê element ──
+async function listElementsTool(input: Record<string, any> = {}): Promise<any> {
+  const idx = await buildAIIndex();
+  const { limit, ...filter } = input || {};
+  return listElements((idx && idx.elements) || [], filter, limit != null ? Number(limit) : 50);
 }
 
 // — định nghĩa tool chuẩn Anthropic Tool Use —
@@ -352,6 +341,38 @@ const AI_TOOLS = [
       },
       required: ['quantity']
     }
+  },
+  {
+    name: 'quantity_takeoff',
+    description: 'Lập BẢNG khối lượng (quantity takeoff): cộng một đại lượng (volume/area/length/count) và phân nhóm theo category, tầng (storey), lớp IFC hoặc vật liệu. Trả về từng dòng {nhóm, số element, tổng, thiếu} kèm bảng markdown + CSV sẵn để trình bày. Dùng cho "bảng khối lượng bê tông theo tầng", "thống kê thể tích sàn theo vật liệu".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        quantity: { type: 'string', enum: ['volume', 'area', 'length', 'count'], description: 'Đại lượng cần cộng cho mỗi nhóm.' },
+        groupBy: { type: 'string', enum: ['category', 'storey', 'ifcClass', 'material'], description: 'Trường để phân nhóm (mặc định category).' },
+        category: { type: 'string', description: 'Category Revit để lọc trước khi lập bảng.' },
+        storey: { type: 'string', description: 'Tầng để lọc.' },
+        ifcClass: { type: 'string', description: 'Lớp IFC để lọc.' },
+        material: { type: 'string', description: 'Vật liệu để lọc.' },
+        nameContains: { type: 'string', description: 'Chuỗi con trong tên.' }
+      },
+      required: ['quantity']
+    }
+  },
+  {
+    name: 'list_elements',
+    description: 'Liệt kê DANH SÁCH element khớp bộ lọc (không chỉ con số): trả về expressID, globalId, tên, category, lớp IFC, tầng, vật liệu, khối lượng. Cắt bớt theo limit (mặc định 50, tối đa 500) kèm cờ truncated. Dùng cho "liệt kê các cột tầng L3", "cho tôi danh sách cửa ở basement".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', description: 'Category Revit để lọc.' },
+        storey: { type: 'string', description: 'Tầng để lọc.' },
+        ifcClass: { type: 'string', description: 'Lớp IFC để lọc.' },
+        material: { type: 'string', description: 'Vật liệu để lọc.' },
+        nameContains: { type: 'string', description: 'Chuỗi con trong tên.' },
+        limit: { type: 'number', description: 'Số element tối đa trả về (mặc định 50, tối đa 500).' }
+      }
+    }
   }
 ];
 
@@ -363,18 +384,24 @@ async function runAITool(name: string, input: any): Promise<any> {
     const { quantity, ...f } = input;
     return await sumQuantity(f, quantity || 'volume');
   }
+  if (name === 'quantity_takeoff') return await quantityTakeoffTool(input);
+  if (name === 'list_elements') return await listElementsTool(input);
   throw new Error('Unknown AI tool: ' + name);
 }
 
 // expose để test trong console + dùng ở bước chat
 window.countElements = countElements;
 window.sumQuantity = sumQuantity;
+(window as any).quantityTakeoff = quantityTakeoffTool;
+(window as any).listElements = listElementsTool;
 window.runAITool = runAITool;
 window.AI_TOOLS = AI_TOOLS;
 
 console.log('%c═══ AI QUERY TOOLS sẵn sàng ═══', 'color:#16a34a;font-weight:700');
 console.log('Thử:  await countElements({category:"Columns"})');
 console.log('      await sumQuantity({category:"Floors"}, "volume")');
+console.log('      await quantityTakeoff({quantity:"volume", groupBy:"storey"})');
+console.log('      await listElements({category:"Columns", storey:"L3"})');
 
 /* ═══════════════════════════════════════════════════════════════════════
    IFC DELTA — AI CHAT UI  (bước 3a: ô chat + vòng lặp tool-use)
@@ -417,9 +444,14 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
 
   // ── styles (scoped .aic-) ──
   const css = `
-  /* ── FAB wrapper ── */
+  /* ── FAB wrapper ──
+     Snug to the corner, respecting notch/gesture-bar safe areas so it never
+     sits under an OS overlay on phones. */
   .aic-fab-wrap{
-    position:fixed;right:20px;bottom:20px;z-index:9998;
+    position:fixed;
+    right:max(14px, env(safe-area-inset-right));
+    bottom:max(14px, env(safe-area-inset-bottom));
+    z-index:9998;
     width:56px;height:56px;
     will-change:transform;
     transition:transform .08s cubic-bezier(.22,.68,0,1.2);
@@ -483,21 +515,36 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   .aic-fab-wrap.busy .aic-fab-icon{
     animation:aic-ring-rotate 1.3s linear infinite;
   }
-  /* ── Panel ── */
+  /* ── Panel ──
+     Snug to the same corner as the FAB (same right offset, sitting directly
+     above it), compact size, and a "liquid glass" look: translucent + blurred
+     background so the 3D viewport shows through softly, with a thin bright
+     top-edge highlight for the glass-rim feel. dvh (not vh) tracks the
+     browser's actual visible area, so opening the on-screen keyboard on a
+     phone resizes the cap smoothly instead of the panel appearing to "jump"
+     when the layout viewport and visual viewport disagree. */
   .aic-panel{
-    position:fixed;right:20px;bottom:86px;z-index:9999;
-    width:390px;max-width:calc(100vw - 40px);
-    height:570px;max-height:calc(100vh - 110px);
-    background:var(--bg-panel,#fff);
-    border:1px solid var(--border,#d5d9e2);
-    border-radius:16px;
-    box-shadow:0 16px 48px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.06);
+    position:fixed;
+    right:max(14px, env(safe-area-inset-right));
+    bottom:calc(56px + max(14px, env(safe-area-inset-bottom)) + 8px);
+    z-index:9999;
+    width:352px;max-width:calc(100vw - 28px);
+    height:500px;max-height:min(calc(100vh - 96px), calc(100dvh - 96px));
+    background:rgba(255,255,255,.62);
+    backdrop-filter:blur(22px) saturate(180%);
+    -webkit-backdrop-filter:blur(22px) saturate(180%);
+    border:1px solid rgba(255,255,255,.55);
+    border-radius:20px;
+    box-shadow:0 16px 48px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.07),inset 0 1px 0 rgba(255,255,255,.8);
     display:none;flex-direction:column;overflow:hidden;
     font-family:'Hanken Grotesk',Inter,system-ui,sans-serif;
     color:var(--text,#1a1d26);
     transform-origin:bottom right;
     will-change:transform;
     transition:transform .08s ease;
+  }
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .aic-panel{background:var(--bg-panel,#fff)}
   }
   /* panel open animation — subtle fade/rise, no overshoot */
   @keyframes aic-panel-in{
@@ -508,12 +555,15 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   /* ── Head with live gradient shimmer when busy ── */
   .aic-head{
     display:flex;align-items:center;gap:9px;
-    padding:12px 14px;
-    border-bottom:1px solid var(--border,#d5d9e2);
-    background:var(--bg-card,#f0f1f4);
+    padding:11px 12px 11px 14px;
+    border-bottom:1px solid rgba(255,255,255,.5);
+    background:rgba(255,255,255,.28);
     position:relative;overflow:hidden;
     transition:background .3s ease;
   }
+  .aic-head b{flex:1;font-size:13px}
+  /* Icon buttons grouped tightly at the end, close always last/rightmost */
+  .aic-head-actions{display:flex;align-items:center;gap:1px;flex-shrink:0}
   @keyframes aic-shimmer{
     0%{transform:translateX(-100%)}
     100%{transform:translateX(260%)}
@@ -527,7 +577,7 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
     pointer-events:none;
     transition:opacity .3s;
   }
-  .aic-panel.busy .aic-head{background:linear-gradient(135deg,#f8f8ff,#f0f1f4 60%,#f5f3ff)}
+  .aic-panel.busy .aic-head{background:linear-gradient(135deg,rgba(248,248,255,.4),rgba(240,241,244,.4) 60%,rgba(245,243,255,.4))}
   .aic-panel.busy .aic-head::after{animation:aic-shimmer 2s linear infinite;opacity:1}
   /* ── Head content ── */
   .aic-head-logo{
@@ -542,25 +592,25 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
     transition:background .12s ease,color .12s ease;
   }
   .aic-iconbtn:hover{background:var(--bg-hover,#e8eaef);color:#18181B}
-  /* ── Messages ── */
-  .aic-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--bg,#f5f6f8)}
+  /* ── Messages (transparent so the glass panel shows through) ── */
+  .aic-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:9px;background:transparent}
   .aic-msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
   .aic-msg.user{
     align-self:flex-end;background:#18181B;color:#fff;
     border-bottom-right-radius:4px;
   }
   .aic-msg.assistant{
-    align-self:flex-start;background:var(--bg-panel,#fff);
-    border:1px solid var(--border,#d5d9e2);border-bottom-left-radius:4px;
+    align-self:flex-start;background:rgba(255,255,255,.55);
+    border:1px solid rgba(255,255,255,.6);border-bottom-left-radius:4px;
   }
   .aic-msg.error{align-self:stretch;background:var(--red-bg,#fdeaea);color:var(--red,#dc2626);border:1px solid var(--red,#dc2626);font-size:12px;max-width:100%}
-  .aic-tool{align-self:flex-start;font-size:11px;color:var(--text-muted,#8590a6);background:var(--bg-card,#f0f1f4);
-    border:1px solid var(--border,#d5d9e2);border-radius:8px;padding:5px 9px;font-family:'JetBrains Mono',monospace}
+  .aic-tool{align-self:flex-start;font-size:11px;color:var(--text-muted,#8590a6);background:rgba(255,255,255,.4);
+    border:1px solid rgba(255,255,255,.6);border-radius:8px;padding:5px 9px;font-family:'JetBrains Mono',monospace}
   /* animated thinking dots */
   .aic-think{
     align-self:flex-start;display:flex;align-items:center;gap:5px;
-    padding:9px 14px;background:var(--bg-panel,#fff);
-    border:1px solid var(--border,#d5d9e2);border-radius:12px;border-bottom-left-radius:4px;
+    padding:9px 14px;background:rgba(255,255,255,.55);
+    border:1px solid rgba(255,255,255,.6);border-radius:12px;border-bottom-left-radius:4px;
   }
   @keyframes aic-dot-bounce{
     0%,80%,100%{transform:translateY(0);opacity:.4}
@@ -575,11 +625,12 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   /* ── Footer ── */
   .aic-foot{
     display:flex;gap:8px;padding:10px;
-    border-top:1px solid var(--border,#d5d9e2);
-    background:var(--bg-panel,#fff);
+    border-top:1px solid rgba(255,255,255,.5);
+    background:rgba(255,255,255,.28);
   }
   .aic-foot textarea{
-    flex:1;resize:none;border:1px solid var(--border,#d5d9e2);
+    flex:1;resize:none;border:1px solid rgba(255,255,255,.7);
+    background:rgba(255,255,255,.55);
     border-radius:10px;padding:9px 11px;font-size:13px;
     font-family:inherit;max-height:90px;min-height:38px;box-sizing:border-box;
     transition:border-color .15s ease,box-shadow .15s ease;
@@ -599,13 +650,6 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   .aic-send:hover{background:#000;transform:scale(1.05)}
   .aic-send:active{transform:scale(.95)}
   .aic-send:disabled{opacity:.4;cursor:default;transform:none}
-  /* ── Settings ── */
-  .aic-settings{display:none;flex-direction:column;gap:7px;padding:10px 14px;border-bottom:1px solid var(--border,#d5d9e2);background:var(--bg-card,#f0f1f4)}
-  .aic-settings.open{display:flex}
-  .aic-settings label{font-size:11px;color:var(--text-dim,#4a5068);display:flex;flex-direction:column;gap:3px}
-  .aic-settings select,.aic-settings input{border:1px solid var(--border,#d5d9e2);border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;background:var(--bg-panel,#fff);color:var(--text,#1a1d26)}
-  .aic-settings .aic-hint{font-size:10px;color:var(--text-muted,#8590a6);font-style:italic}
-  .aic-settings option:disabled{color:var(--text-muted,#8590a6)}
   /* ── Markdown ── */
   .aic-msg.assistant strong{font-weight:700}
   .aic-msg.assistant em{font-style:italic}
@@ -647,18 +691,10 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   panel.innerHTML = `
     <div class="aic-head">
       <div class="aic-head-logo"></div><b>Trợ lý AI · IFC Delta</b>
-      <button class="aic-iconbtn" data-act="settings" title="Cài đặt provider/model">⚙</button>
-      <button class="aic-iconbtn" data-act="clear" title="Xoá hội thoại / Reset">↻</button>
-      <button class="aic-iconbtn" data-act="close" title="Đóng">✕</button>
-    </div>
-    <div class="aic-settings">
-      <label>Nhà cung cấp (provider)
-        <select class="aic-provider"></select>
-      </label>
-      <label>Model <span class="aic-hint">(để trống = mặc định của provider)</span>
-        <input class="aic-model" type="text" placeholder="vd: gpt-4o-mini, gemini-2.0-flash, claude-…">
-      </label>
-      <div class="aic-hint aic-provhint"></div>
+      <div class="aic-head-actions">
+        <button class="aic-iconbtn" data-act="clear" title="Xoá hội thoại / Reset">↻</button>
+        <button class="aic-iconbtn" data-act="close" title="Đóng">✕</button>
+      </div>
     </div>
     <div class="aic-msgs"></div>
     <div class="aic-foot">
@@ -670,42 +706,10 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   const $ = (s: string) => panel.querySelector(s) as HTMLElement;
   const msgs = $('.aic-msgs') as HTMLElement,
     inputEl = $('.aic-in') as HTMLTextAreaElement,
-    sendBtn = $('.aic-send') as HTMLButtonElement,
-    settingsEl = $('.aic-settings') as HTMLElement,
-    providerSel = $('.aic-provider') as HTMLSelectElement,
-    modelInput = $('.aic-model') as HTMLInputElement,
-    provHint = $('.aic-provhint') as HTMLElement;
+    sendBtn = $('.aic-send') as HTMLButtonElement;
 
-  // ── nạp danh sách provider từ backend, đánh dấu cái chưa cấu hình ──
-  let providersMeta: any[] = [];
-  function fillProviders(): void {
-    providerSel.innerHTML = '';
-    const list = providersMeta.length ? providersMeta : [
-      { id: 'anthropic', label: 'Anthropic (Claude)', configured: true },
-      { id: 'openai', label: 'OpenAI (& tương thích)', configured: true },
-      { id: 'google', label: 'Google (Gemini)', configured: true },
-    ];
-    for (const p of list) {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.label + (p.configured ? '' : ' — chưa cấu hình');
-      opt.disabled = providersMeta.length ? !p.configured : false;
-      providerSel.appendChild(opt);
-    }
-    providerSel.value = AI_CONFIG.provider;
-    modelInput.value = AI_CONFIG.model;
-    updateProvHint();
-  }
-  function updateProvHint(): void {
-    const def = PROVIDER_DEFAULT_MODEL[AI_CONFIG.provider] || '(không rõ)';
-    const meta = providersMeta.find(p => p.id === AI_CONFIG.provider);
-    const note = meta && !meta.configured ? ' ⚠ provider này chưa có API key ở backend.' : '';
-    provHint.textContent = `Model mặc định: ${def}.${note}`;
-  }
-  fetch(AI_CONFIG.statusUrl)
-    .then(r => r.json())
-    .then(d => { providersMeta = d.providers || []; fillProviders(); })
-    .catch(() => fillProviders());
+  // Provider/model do backend Vercel quyết định (env key). Không còn UI chọn
+  // provider/model ở client — AI_CONFIG giữ mặc định (deepseek) là đủ.
 
   // ── Markdown TỐI GIẢN → HTML (escape trước, chỉ sinh thẻ an toàn) ──
   function aicEsc(s: any): string { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -886,21 +890,17 @@ console.log('      await sumQuantity({category:"Floors"}, "volume")');
   inputEl.addEventListener('compositionstart', () => { composing = true; });
   inputEl.addEventListener('compositionend', () => { composing = false; });
 
-  // Provider/model picker is admin-only — it picks which billable AI
-  // backend gets called, the only shared/costed resource this app has.
-  // window.isAdmin resolves asynchronously (Firebase auth state), so this
-  // is re-checked on every FAB open rather than once at panel creation.
-  const settingsBtn = panel.querySelector('[data-act=settings]') as HTMLButtonElement;
   fab.onclick = () => {
-    panel.classList.add('open'); fab.style.display = 'none'; inputEl.focus();
-    settingsBtn.style.display = window.isAdmin ? '' : 'none';
+    panel.classList.add('open'); fab.style.display = 'none';
+    // Auto-focus only on devices with a real pointer (desktop). On touch
+    // devices, focusing immediately opens the on-screen keyboard, which
+    // resizes the visual viewport and made this fixed-position panel appear
+    // to "jump"/fly up right as it opened.
+    if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) inputEl.focus();
     buildAIIndex().catch(() => {});   // warm cache để lần gửi đầu không bị khựng
   };
   panel.querySelector('[data-act=close]')!.addEventListener('click', () => { panel.classList.remove('open'); fab.style.display = 'flex'; });
   panel.querySelector('[data-act=clear]')!.addEventListener('click', () => { history.length = 0; msgs.innerHTML = ''; });
-  settingsBtn.addEventListener('click', () => { settingsEl.classList.toggle('open'); });
-  providerSel.addEventListener('change', () => { AI_CONFIG.provider = providerSel.value; persistConfig(); updateProvHint(); });
-  modelInput.addEventListener('input', () => { AI_CONFIG.model = modelInput.value; persistConfig(); });
   function autoGrow() { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 90) + 'px'; }
   inputEl.oninput = autoGrow;
   function submit() {

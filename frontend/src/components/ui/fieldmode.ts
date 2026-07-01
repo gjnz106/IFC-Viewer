@@ -52,6 +52,7 @@ function fieldResizeViewport(){
 
 window.fieldEnterMode = function(){
   fieldActive = true;
+  (window as any).fieldActive = true; // mirrored: viewer-core's pick handler reads this to switch to tap-only (no properties/highlight) behavior
   document.body.classList.add('field-mode');
   fieldResizeViewport();
   fieldToast('Field Mode — tap elements to inspect');
@@ -62,6 +63,7 @@ window.fieldEnterMode = function(){
 
 window.fieldExitMode = function(){
   fieldActive = false;
+  (window as any).fieldActive = false;
   document.body.classList.remove('field-mode');
   (window as any).fieldCloseSheet();
   document.getElementById('fieldStoreys')!.classList.remove('show');

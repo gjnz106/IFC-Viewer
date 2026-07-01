@@ -589,6 +589,7 @@ function applyCategoryVisibilityViewMode(){
   // Remove old view subsets
   viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
   viewSubsets=[];
+  (window as any).viewSubsets=viewSubsets; // mirrored (same ref — later .push() stays in sync): compare.ts/measure.ts read this to hide/show category-filter subsets when toggling model A/B visibility
 
   for(let idx=0;idx<2;idx++){
     if(!appState.loadedModels[idx])continue;
@@ -652,6 +653,7 @@ window.exitCompare=function(){
   // Remove view subsets
   viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
   viewSubsets=[];
+  (window as any).viewSubsets=viewSubsets; // mirrored (same ref — later .push() stays in sync): compare.ts/measure.ts read this to hide/show category-filter subsets when toggling model A/B visibility
 
   // Clear compare result
   appState.compareResult=null;
@@ -927,6 +929,7 @@ function initSectionDrag(){
     if(hits.length>0){
       const hitObj=hits[0].object;
       dragHandle={obj:hitObj,faceIdx:hitObj.userData.faceIdx,axis:hitObj.userData.axis,dir:hitObj.userData.dir};
+      (window as any).dragHandle=dragHandle; // mirrored: viewer-core's pick handler reads this to skip a click right after a handle drag
       const camDir=new THREE.Vector3();appState.camera.getWorldDirection(camDir);
       const axis=dragHandle.axis;
       let pn: THREE.Vector3;
@@ -953,7 +956,7 @@ function initSectionDrag(){
     dragStart.copy(pt);updateSectionFromSliders();
   });
 
-  window.addEventListener('pointerup',()=>{if(dragHandle){dragHandle=null;dragPlane=null;dragStart=null;appState.controls.enabled=true}});
+  window.addEventListener('pointerup',()=>{if(dragHandle){dragHandle=null;(window as any).dragHandle=null;dragPlane=null;dragStart=null;appState.controls.enabled=true}});
 
   // Hover — only arrows
   let lastH: any=null;
@@ -1031,4 +1034,13 @@ window.handleFile=async function(idx: number){
 Object.assign(window as any, {
   clearHighlight, createSectionBox3D, initIFC, loadIFC,
   sectionPlanParallelToFace, updateSectionHandleSizes, zoomToElement,
+  // These three were previously only reachable as window.X() from other
+  // modules (main.ts, compare.ts, color-schemes.ts, clash.ts, focus-highlight.ts)
+  // but were never actually attached to window, so those call sites silently
+  // no-op'd: main.ts's post-init `initSectionDrag()` call never ran at all
+  // (section-box arrow-handle dragging was completely non-functional), and
+  // applyCategoryVisibilityViewMode/updateSectionFromSliders never re-synced
+  // section clipping / category-filter subsets after Compare/Colorize/focus
+  // changes in other modules.
+  initSectionDrag, applyCategoryVisibilityViewMode, updateSectionFromSliders,
 });

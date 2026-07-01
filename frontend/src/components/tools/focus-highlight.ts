@@ -26,6 +26,18 @@ function focusIssueGeometry(idx: number): void {
 
   appState.scene.traverse((c: any) => {
     if (!c.isMesh || !c.geometry?.attributes?.expressID || !c.geometry?.attributes?.position) return;
+    // Only scan meshes belonging to the issue's model. expressIDs are unique
+    // ONLY within a model, so with two models loaded (compare A/B) or a
+    // federation the same eid in another model would otherwise merge into the
+    // bbox and pull the camera to the wrong element.
+    if (targetModelIdx >= 0) {
+      let mIdx: number | undefined | null = c.userData?.srcModelIdx;
+      if (mIdx === undefined || mIdx === null) {
+        const f = (window as any).findModelIdx;
+        mIdx = typeof f === 'function' ? f(c) : -1;
+      }
+      if (mIdx! >= 0 && mIdx !== targetModelIdx) return;
+    }
     scanCount++;
     const eidArr: ArrayLike<number> = c.geometry.attributes.expressID.array;
     const posArr: ArrayLike<number> = c.geometry.attributes.position.array;
@@ -193,6 +205,12 @@ function showIssueProps(iss: any): void {
 
   (document.getElementById('propArea') as HTMLElement).innerHTML = h;
 }
+
+// Clicking an issue card (onclick="focusIssue(i)") must run the SAME full
+// focus flow as the ◀/▶ nav arrows. Point window.focusIssue at the real
+// geometry-focusing implementation here (this module loads after measure.ts,
+// which previously registered a stub that only highlighted the card).
+window.focusIssue = focusIssueGeometry;
 
 window.navIssue = function (dir: number): void {
   if (appState.issuesList.length === 0) return;

@@ -11,8 +11,10 @@ window.toggleSGCheckPanel = function(){
   btn!.classList.toggle('active', sgState.open);
 
   if(sgState.open){
-    // Close other bottom panels (clash) to avoid stacking
-    if((window as any).clashMode)(window as any).toggleClashMode();
+    // Close other bottom panels (clash) to avoid stacking. (Was reading
+    // window.clashMode, which is never set — the real flag is appState.clashMode,
+    // set in clash.ts's toggleClashMode — so this never actually closed Clash.)
+    if(appState.clashMode)(window as any).toggleClashMode();
     panel!.classList.add('show');
     const br = document.getElementById('bresize');
     if(br) br.style.display = '';
@@ -20,7 +22,7 @@ window.toggleSGCheckPanel = function(){
   }else{
     panel!.classList.remove('show');
     // If neither bottom panel is open, hide the resize handle
-    if(!(window as any).clashMode){
+    if(!appState.clashMode){
       const br = document.getElementById('bresize');
       if(br) br.style.display = 'none';
     }

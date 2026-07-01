@@ -44,13 +44,14 @@ Khoá API key ở server trước khi mở AI cho team. Không bao giờ deploy 
 
 > ⚠️ **Hai proxy song song — phân biệt cái nào đang chạy production:**
 > - **`api/ai/chat.js` (Vercel serverless) — ĐANG DEPLOY.** Provider **DeepSeek**
->   (`DEEPSEEK_API_KEY`). Đây là endpoint `/api/ai/chat` mà bản `src/app/` (production)
->   thực sự gọi. Client gửi `provider` rỗng + `model` rỗng → proxy luôn dùng DeepSeek.
-> - **`backend/src/routes/ai.ts` (Express) — CHƯA DEPLOY.** Đa provider
->   (anthropic mặc định / openai / deepseek / google), có UI chọn `⚙` ở bản `frontend/`
->   (Vite). Dùng cho dev/thử nghiệm; chỉ lên production khi cắt deploy sang `frontend/`
->   (Giai đoạn R) hoặc host backend riêng. **Lưu ý:** "Haiku/Anthropic" trong báo cáo gốc
->   là ý định ban đầu — bản đang chạy production là **DeepSeek**, không phải Anthropic.
+>   (`DEEPSEEK_API_KEY`, cấu hình sẵn trên Vercel env). Client gửi `provider` rỗng +
+>   `model` rỗng → proxy luôn dùng DeepSeek.
+> - **`backend/src/routes/ai.ts` (Express) — CHƯA DEPLOY.** Đa provider (anthropic mặc
+>   định / openai / deepseek / google). Dùng cho dev/thử nghiệm cục bộ; chỉ lên production
+>   nếu host backend riêng.
+> - **UI chọn provider/model (nút `⚙`) đã bị GỠ khỏi panel AI** (2026-07-01) — vì key đã
+>   cấu hình sẵn trên Vercel, không cần người dùng chọn provider/model ở client nữa.
+>   `AI_CONFIG` giữ mặc định `deepseek` khi gọi proxy.
 
 - [x] Xác thực Firebase ID token qua REST `accounts:lookup` (không cần Admin SDK/service-account
       — Web API key vốn công khai). Từ chối 401 nếu thiếu/sai token hoặc email chưa xác minh.
@@ -74,21 +75,29 @@ Khoá API key ở server trước khi mở AI cho team. Không bao giờ deploy 
   ✅ Đạt — proxy production (`api/ai/chat.js`) đã có auth + rate-limit + audit từ 2026-06-30;
   chỉ còn giới hạn chi tiêu ở Console provider là tuỳ chọn bổ sung.
 
-### 1.2 Mở rộng tool AI
-- [ ] `src/app/22-ai.js`: thêm lọc đa điều kiện (category + tầng + vật liệu + lớp IFC).
-- [ ] Tool liệt kê cấu kiện (trả danh sách, không chỉ con số).
-- [ ] Tool xuất bảng khối lượng (quantity takeoff) → CSV/markdown.
-- **Done khi:** trả lời được "liệt kê cột tầng L3 kèm khối lượng" và xuất bảng.
+### 1.2 Mở rộng tool AI ✅ Đã xong
+- [x] Lọc đa điều kiện (category + tầng + vật liệu + lớp IFC + tên + modelIdx) — `count_elements`/
+      `sum_quantity` và cả tool mới đều dùng chung `aiApplyFilter` trong
+      `frontend/src/components/integrations/ai-query.ts`.
+- [x] Tool `list_elements`: liệt kê cấu kiện (expressID/globalId/tên/category/lớp IFC/tầng/vật
+      liệu/khối lượng), cắt theo `limit` (mặc định 50, tối đa 500) + cờ `truncated`.
+- [x] Tool `quantity_takeoff`: bảng khối lượng nhóm theo category/storey/ifcClass/material,
+      cộng volume/area/length/count, kèm chuỗi **markdown** + **CSV** sẵn để trình bày.
+- [x] Logic thuần tách sang `ai-query.ts` (không side-effect) + unit test `ai-query.test.ts`
+      (17 test). Tool đăng ký trong `AI_TOOLS` + dispatch `runAITool`; expose `window.quantityTakeoff`,
+      `window.listElements` để thử trong console.
+- **Done khi:** trả lời được "liệt kê cột tầng L3 kèm khối lượng" và xuất bảng. ✅ Đạt.
 
 ---
 
 ## Giai đoạn 2 — Trung bình (báo cáo §4)
 
-### 2.1 Cross-discipline checks
-- [ ] Căn chỉnh geo-reference giữa các bộ môn (so IfcSite/MapConversion).
-- [ ] Kiểm tra quy ước đặt tên tầng (storey) nhất quán giữa file.
-- [ ] Phát hiện xung đột GUID trùng giữa các bộ môn.
-- Liên quan: `src/app/08-federation-load.js`, `09-compare.js`.
+### 2.1 Cross-discipline checks ✅ Đã xong
+- [x] Căn chỉnh geo-reference giữa các bộ môn (so IfcSite RefLat/RefLon/RefElev, dung sai).
+- [x] Kiểm tra quy ước đặt tên tầng (storey) nhất quán giữa file (tầng nào thiếu ở model nào).
+- [x] Phát hiện xung đột GUID trùng giữa các bộ môn (GlobalId xuất hiện ở ≥2 model).
+- `compare/cross-discipline.ts` (thuần, 10 test) + `compare/cross-discipline-run.ts` (runner,
+  đọc AI index + spatial) → `window.crossDisciplineChecks()`.
 
 ### 2.2 BCF export cho Validator ✅ Đã xong (không còn là stub)
 - [x] `src/app/18-validator-export.ts:110-324`: export BCF 2.1 (zip) đầy đủ — markup/
@@ -96,32 +105,52 @@ Khoá API key ở server trước khi mở AI cho team. Không bao giờ deploy 
       PDF export (`:27-108`, qua jsPDF) cũng đã đầy đủ. Mục này từng bị ghi nhầm là "stub" —
       đã rà soát lại code thực tế (2026-06-30) và xác nhận hoàn thiện.
 
-### 2.3 Đào sâu thuộc tính vật liệu
-- [ ] `src/app/10-properties.js`: đọc `IfcMaterialLayerSet`, hiển thị cấp độ/lớp vật liệu.
+### 2.3 Đào sâu thuộc tính vật liệu ✅ Đã xong
+- [x] `inspect/material-layers.ts` (thuần, 5 test): đọc `IfcMaterialLayerSet`, hiển thị từng
+      lớp + độ dày + tổng độ dày trong panel Properties (`properties.ts`).
 
-### 2.4 Snapshot kiểm tra theo thời gian
-- [ ] Lưu kết quả validate/clash theo mốc thời gian để theo dõi thay đổi.
+### 2.4 Snapshot kiểm tra theo thời gian ✅ Đã xong (validate; clash chưa làm)
+- [x] `validate/snapshots.ts` (4 test): tự lưu snapshot sau mỗi lần Validate (LocalStorage,
+      tối đa 50 bản) + so delta (findings/fail/warn/pass) với lần chạy trước.
+      `window.sgListSnapshots()`.
+- [ ] Snapshot cho **Clash** (chỉ Validate đã có) — làm sau nếu cần.
 
 ---
 
 ## Giai đoạn 3 — Khi có thời gian (báo cáo §4)
 
-- [ ] Chế độ so sánh dạng thanh trượt side-by-side (`09-compare.js`).
+- [x] Chế độ so sánh dạng thanh trượt side-by-side ✅ Đã xong — `compare/compare-slider.ts`,
+      nút ⟺ trên vp-toolbar, render 2 lần/frame bằng scissor theo `srcModelIdx`.
+      **Cần verify trực quan trên web** (chưa test được trên trình duyệt thật).
 - [x] Phân quyền tối thiểu (2026-06-30): app không có Firestore/DB nên không có tài
       nguyên dùng chung để bảo vệ bằng RBAC đầy đủ — mọi thao tác export/delete chỉ tác
-      động dữ liệu cục bộ của chính người dùng. Tài nguyên dùng chung thật sự duy nhất là
-      proxy AI (chi phí), nên chỉ phần đó được gate: ô chọn provider/model trong AI chat
-      (`⚙`) chỉ hiện cho admin (`window.isAdmin`, allowlist email trong
-      `frontend/src/lib/auth.ts`, dùng chung cho cả 2 codebase). Nếu sau này có dữ liệu
-      dùng chung qua backend/Firestore, cần thiết kế RBAC đầy đủ hơn lúc đó.
-- [ ] Tối ưu hiệu năng mô hình lớn; responsive di động (đã làm Field Mode — xem mục dưới); tinh chỉnh UI.
+      động dữ liệu cục bộ của chính người dùng. `window.isAdmin` (allowlist email trong
+      `frontend/src/lib/auth.ts`) vẫn còn dùng cho các chỗ khác cần phân quyền sau này.
+      *(Cập nhật 2026-07-01: ô chọn provider/model `⚙` từng được gate qua `isAdmin` đã bị
+      GỠ khỏi UI — xem ghi chú AI proxy ở trên — nên phần RBAC này hiện không còn gate gì.)*
+- [x] Tách vendor chunks — bundle app 5.5MB → 450KB (`frontend/vite.config.ts`, `manualChunks`).
+- [ ] Tối ưu hiệu năng mô hình lớn (>200MB); responsive di động (đã làm Field Mode); tinh chỉnh UI thêm.
 
 ---
 
 ## Bug đang theo dõi (báo cáo §5)
 
-- [ ] Chọn cấu kiện sau khi chạy Compare đôi khi không nhận → `09-compare.js` + `12-focus-highlight.js`.
-- [ ] Xoay theo TrueNorth cho mặt bằng 2D → `15-plan-overlay.js`.
+- [x] (Đã sửa) Chọn cấu kiện sau khi chạy Compare đôi khi không nhận — fallback expressID
+      giờ dò cả 3 đỉnh của face thay vì chỉ đỉnh đầu (`core/viewer-core.ts`).
+      **Cần verify trực quan** (không reproduce được không có browser/model thật).
+- [x] (Đã sửa) Nhấp vào issue-card không nhảy tới đúng element — `window.focusIssue` trước
+      đây trỏ vào một stub chỉ tô sáng card; giờ trỏ đúng `focusIssueGeometry`, quét lọc
+      theo đúng `modelIdx` của issue (`tools/focus-highlight.ts`).
+- [x] (Đã sửa) Xoay bị nhảy/giật khi click chọn cấu kiện — bỏ hẳn cơ chế dời tâm xoay tới
+      cấu kiện vừa click (giới hạn cấu trúc của OrbitControls: `update()` gọi
+      `camera.lookAt()` mỗi frame nên bất kỳ cách dời `target` nào cũng gây snap/teleport).
+      Camera giờ luôn xoay quanh tâm ổn định. **Cần verify trực quan.**
+- [x] (Đã sửa) Mất mặt công trình khi xoay (z-fighting) — bật `logarithmicDepthBuffer` +
+      nâng near-plane 0.01→0.05 (`core/viewer-core.ts`). **Cần verify trực quan.**
+- [ ] Xoay theo TrueNorth cho mặt bằng 2D → `frontend/src/components/tools/plan-overlay.ts`.
+      *(Đã khảo sát: hiện tại thiết kế là giữ trục màn hình cố định + chỉ xoay mũi tên Bắc —
+      là lựa chọn hợp lệ, không phải bug. Xoay cả bản vẽ cần viết lại `worldToPx` + mọi
+      overlay theo góc trueNorth — làm nếu người dùng xác nhận muốn kiểu này.)*
 - [x] (Đã sửa) Crash listener phím ở Walk mode.
 
 ---
@@ -137,98 +166,29 @@ Khoá API key ở server trước khi mở AI cho team. Không bao giờ deploy 
 
 ---
 
-## Giai đoạn R — Migrate sang `frontend/` (Vite), nghỉ hưu `src/app/`
+## Giai đoạn R — Hợp nhất về một codebase `frontend/` ✅ ĐÃ XONG
 
-**Quyết định (2026-06-30):** thay vì chỉ tách module trong `src/app/` (kế hoạch cũ bên dưới,
-nay đã lỗi thời), hướng đi đã chọn là **hoàn thiện `frontend/` rồi cắt deploy sang đó**, cuối
-cùng xoá hẳn `src/app/*.ts` + `build.ts` + root `index.html`/`js/`/`css/`.
+**Hoàn tất (2026-06-30):** dự án chưa release nên đã quyết định hợp nhất **một lần duy nhất**
+(big-bang) thay vì migrate từng module qua nhiều PR. Trạng thái cuối:
 
-### Phát hiện quan trọng: `frontend/` đã là app hoàn chỉnh, KHÔNG phải code rời rạc cần "wire"
+- **Codebase duy nhất: `frontend/` (Vite + TypeScript, ESM thật).** Production build trực
+  tiếp từ đây — `vercel.json` (`buildCommand: npm run build --workspace=frontend`,
+  `outputDirectory: frontend/dist`) và `firebase.json` (`public: frontend/dist`, predeploy
+  build) **đã trỏ sẵn vào `frontend/`** từ trước; bản standalone thực chất đã là code chết.
+- **Đã xoá hẳn bản standalone:** `src/app/`, `build.ts`, root `index.html`/`js/`/`css/`/
+  `icons/`/`vendor/`, `scripts/*` (fetch-vendor/verify-build/typecheck-standalone), root
+  `tsconfig.json`, `.gitattributes`, CI `verify-standalone.yml`, và `.claude/REFACTOR_MAP.md`.
+- **Dọn root `package.json`:** bỏ script `fetch:vendor`/`build:standalone`/`verify:standalone`/
+  `typecheck:standalone` và devDep chỉ phục vụ standalone (`esbuild`, `tsx`, `typescript`,
+  `@types/node`) — giữ `concurrently` cho script `dev`.
+- **Đối chiếu hành vi:** `frontend/` đã là bản đang được deploy + sửa lỗi gần đây (các commit
+  web-ifc WASM, fix auth AI `getAuthToken`/`Authorization: Bearer` đã có trong `frontend/`),
+  nên nó là nguồn sự thật. Lịch sử git còn giữ `src/app/` nếu cần tra cứu hành vi cũ.
 
-`frontend/src/main.ts` đã import + khởi tạo **toàn bộ 23 module** theo đúng thứ tự phụ thuộc
-(auth → core → tools → compare → validate → integrations → ui), và `frontend/index.html` +
-`vite.config.ts` đã là một Vite app build được, chạy được (`npm run dev`/`npm run build`).
-→ Việc còn thiếu **không phải "wiring"**, mà là **đối chiếu hành vi (behavioral parity)**:
-hai codebase đã phát triển tách rời nhau một thời gian và lệch nhau theo **cả hai hướng**
-(không chỉ frontend "chậm hơn" — có module frontend còn *nhiều* hơn, có module *ít* hơn).
-
-### Mức độ lệch thực tế (đo `wc -l` + `git log --oneline` từng file, 2026-06-30)
-
-| Module (`src/app/NN-*.ts` → `frontend/.../*.ts`) | Dòng (src/app) | Dòng (frontend) | Lệch | Commit (src/app) | Commit (frontend) |
-|---|---:|---:|---:|---:|---:|
-| 22-ai → integrations/ai.ts | 908 | 927 | +19 | **12** | 3 |
-| 23-router → ui/router.ts | 242 | 111 | **−131** | 4 | 3 |
-| 07-section-visibility → tools/section-visibility.ts | 981 | 1018 | +37 | 3 | 1 |
-| 03-viewer-core → core/viewer-core.ts | 615 | 800 | **+185** | 3 | 1 |
-| 09-compare → compare/compare.ts | 346 | 754 | **+408** | 1 | 1 |
-| 19-drive → integrations/drive.ts | 295 | 362 | +67 | 2 | 3 |
-| 16-validator-rules → validate/validator-rules.ts | 980 | 887 | **−93** | 1 | 1 |
-| 06-color-schemes → tools/color-schemes.ts | 465 | 307 | **−158** | 2 | 1 |
-| 15-plan-overlay → tools/plan-overlay.ts | 663 | 564 | −99 | 2 | 1 |
-| 05-colorize → tools/colorize.ts | 651 | 835 | +184 | 1 | 1 |
-| 10-properties → inspect/properties.ts | 532 | 449 | −83 | 1 | 1 |
-| 21-fieldmode → ui/fieldmode.ts | 770 | 788 | +18 | 1 | 1 |
-| 14-walk → tools/walk.ts | 144 | 196 | +52 | 1 | 1 |
-| 02/04/08/11/12/13/17/18/20 (còn lại) | — | — | lệch nhỏ (<10%) | 1 | 1 |
-| *(frontend-only, không có trong src/app)* ui/state-persist.ts | — | 118 | n/a | — | 1 |
-
-Kết luận: **mọi cặp module đều lệch**, không có cặp nào "giống hệt". `09-compare` và
-`03-viewer-core` lệch lớn nhất theo hướng frontend *nhiều hơn* (có thể chứa tính năng/refactor
-chưa đưa ngược vào `src/app`); `16-validator-rules` và `06-color-schemes` lệch theo hướng
-frontend *ít hơn* (nghi thiếu rule/tính năng so với bản đang chạy production). `22-ai` đáng lo
-nhất vì là module được sửa nhiều nhất trên `src/app` (12 commit, gần nhất chính là fix icon FAB
-vừa làm) — khả năng cao còn fix khác chưa đưa sang `frontend/`.
-
-### Nguyên tắc
-
-- **`src/app/*.ts` là nguồn sự thật về hành vi** (đó là code đang chạy production) cho tới khi
-  từng module ở `frontend/` được xác minh tương đương hoặc tốt hơn.
-- Đi **từng module một**, không "big-bang" — đúng tinh thần cảnh báo cũ của tài liệu này: không
-  có test tự động, phải kiểm chứng bằng tay trên trình duyệt sau mỗi bước.
-- **Không cắt deploy production sang `frontend/` cho tới khi toàn bộ 23 module đã đối chiếu xong.**
-  Trước đó hai codebase tiếp tục tồn tại song song; mọi fix hành vi quan trọng (như fix AI gần
-  đây) vẫn cần áp dụng ở **cả hai nơi** cho tới lúc cắt hẳn.
-
-### Quy trình cho mỗi module
-
-1. Diff `src/app/NN-x.ts` và `frontend/.../x.ts` theo hàm — liệt kê: (a) hành vi chỉ có ở
-   `src/app` (cần port sang frontend), (b) hành vi chỉ có ở `frontend` (đánh giá: giữ lại hay là
-   code thừa/dở dang?), (c) khác biệt khiến hành vi không tương đương.
-2. Sửa `frontend/.../x.ts` cho tới khi tương đương (hoặc tốt hơn có chủ đích) so với `src/app`.
-3. Kiểm chứng trên trình duyệt: `cd frontend && npm run dev`, test golden path + 1-2 edge case
-   của module đó (theo route/tính năng tương ứng).
-4. Đánh dấu module "đã đối chiếu" trong bảng trên (cập nhật file này); **chưa xoá `src/app/NN-x.ts`**
-   — chỉ xoá sau bước cắt deploy ở cuối.
-
-### Thứ tự đề xuất (rủi ro thấp → cao, dựa trên độ lệch + tần suất sửa)
-
-1. **Lệch nhỏ, ít sửa** — làm trước để kiểm chứng quy trình: `02-ifc-category`, `04-viewcube`,
-   `12-focus-highlight`, `14-walk`, `18-validator-export`, `20-search`.
-2. **Lệch vừa**: `08-federation-load`, `10-properties`, `11-measure`, `17-validator-json-loader`,
-   `19-drive`, `21-fieldmode`.
-3. **Lệch lớn, cần đối chiếu kỹ**: `05-colorize`, `06-color-schemes`, `09-compare`,
-   `13-clash`, `15-plan-overlay`, `16-validator-rules`, `23-router`.
-4. **Rủi ro cao nhất, làm cuối** (sửa nhiều nhất trên production → nhiều khả năng frontend thiếu
-   fix mới nhất): `03-viewer-core`, `07-section-visibility`, `22-ai`.
-5. **Trước bước 4**: hợp nhất state — `01-imports-state.ts` (biến global trong `src/app`) vs
-   `frontend/src/store/index.ts` (`appState`, 92 dòng) cần đối chiếu xong trước, vì mọi module
-   khác phụ thuộc vào nó.
-
-### Bước cắt deploy (chỉ làm sau khi cả 23 module đã đối chiếu xong)
-
-1. Lập checklist smoke-test thủ công cho toàn bộ tính năng (không có test tự động) — chạy trên
-   `frontend/` build production (`npm run build` + serve `dist/`).
-2. Đổi `vercel.json`: `buildCommand` từ `npm run build:standalone` sang build `frontend/`,
-   `outputDirectory` trỏ vào `frontend/dist`.
-3. Đổi `firebase.json`: bỏ exclude `frontend/**`, trỏ `public` vào `frontend/dist`, build trước
-   khi deploy (Firebase hiện không có build step riêng — cần thêm bước build vào quy trình deploy).
-4. Deploy thử lên preview, kiểm chứng đầy đủ checklist, rồi mới deploy production.
-5. Sau khi production ổn định trên `frontend/` (theo dõi ít nhất vài ngày sử dụng thực tế): xoá
-   `src/app/`, `build.ts`, root `index.html`/`js/`/`css/`, các script `*:standalone` trong
-   `package.json`, và cập nhật `.claude/ARCHITECTURE.md`/`README.md` để chỉ còn mô tả một codebase.
-
-> Đây là việc nhiều phiên làm việc (22+ module cần đối chiếu thủ công), không làm trong 1 PR.
-> Mỗi module nên là 1 PR riêng để dễ review/rollback.
+> ⚠️ **Còn lại (kiểm chứng thủ công, vì chưa có test tự động đầy đủ):** chạy smoke-test toàn bộ
+> tính năng trên build production `frontend/` (`npm run build` + serve `dist/`) theo từng route
+> (viewer/compare/clash/validate/field) trước lần deploy production kế tiếp. Nếu phát hiện tính
+> năng nào ở bản standalone cũ tốt hơn, tra `git show <commit>:src/app/NN-x.ts` để port lại.
 
 ---
 

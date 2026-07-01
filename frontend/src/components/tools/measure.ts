@@ -533,18 +533,10 @@ function buildIssues(): void {
   window.switchTab!('issues');
 }
 
-window.focusIssue = function (idx: number): void {
-  if (idx < 0 || idx >= appState.issuesList.length) { log('focusIssue: bad idx', idx); return; }
-  appState.currentIssueIdx = idx;
-  const iss = appState.issuesList[idx];
-  const targetEID = iss.expressID;
-  const targetModelIdx = iss.modelIdx;
-  log(`focusIssue #${iss.num}: eid=${targetEID} model=${targetModelIdx} status=${iss.status}`);
-
-  // Highlight active card
-  document.querySelectorAll('.issue-card').forEach((c: any, i) => c.classList.toggle('active', i === idx));
-  (document.getElementById('issueNavInfo') as HTMLElement).textContent = `${idx + 1} / ${appState.issuesList.length}`;
-};
+// NOTE: window.focusIssue (clicking an issue card) is registered in
+// focus-highlight.ts, which points it at the full geometry-focus flow. An
+// earlier stub here only highlighted the card without moving the camera, so
+// clicks appeared to "do nothing" — removed to avoid shadowing the real one.
 
 export { buildIssues, handleMeasurePoint, applyCatVis, buildCatDropdown, updateCatTags, filterIssuesList };
 

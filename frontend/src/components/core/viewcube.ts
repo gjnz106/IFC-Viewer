@@ -153,9 +153,11 @@ export function animateCameraTo(endPos: THREE.Vector3, endTarget: THREE.Vector3,
   step();
 }
 
-// Called every frame from the main render loop — syncs cube orientation with
-// main camera and renders the cube's own scene. The cube rotates INVERSELY to
-// the main camera so it always shows "which face you're currently looking at".
+// Called every frame from the main render loop (viewer-core.ts calls it via
+// window.updateViewCube — that assignment is below). Syncs cube orientation
+// with the main camera and renders the cube's own scene. The cube rotates
+// INVERSELY to the main camera so it always shows "which face you're
+// currently looking at".
 export function updateViewCube(): void {
   if(!viewCube.mesh||!viewCube.renderer||!appState.camera||!appState.controls)return;
   // Orientation: the cube face nearest the main camera should face the viewer.
@@ -169,3 +171,10 @@ export function updateViewCube(): void {
   viewCube.mesh.quaternion.copy(q.invert());
   viewCube.renderer.render(viewCube.scene!,viewCube.cam!);
 }
+
+// The render loop (viewer-core.ts) looks this up on `window` every frame —
+// this assignment was missing when the module was ported from the old
+// single-scope standalone build (where every function shared one scope) to
+// this ESM module, so the ViewCube was created but never actually rendered
+// after the first (blank) frame. Fixes the ViewCube appearing to be gone.
+(window as any).updateViewCube = updateViewCube;
