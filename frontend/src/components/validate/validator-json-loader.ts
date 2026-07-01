@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { recordSnapshot, loadSnapshots } from './snapshots.js';
 
 // ── Active rule set — starts as the built-in Phase 1 rules ──────────
 let SG_ACTIVE_RULES: any[] = [];
@@ -758,6 +759,13 @@ async function sgRunValidation(): Promise<void> {
       gateway: appState.sgState.gateway
     };
     appState.sgState.results = { rules: ruleResults, stats };
+    // Snapshot theo thời gian (plan 2.4): lưu stats + so với lần chạy trước.
+    try {
+      const { delta } = recordSnapshot('validate', stats, stats.gateway ? ('Gateway: ' + stats.gateway) : undefined);
+      const f = delta.find(d => d.key === 'findings');
+      if (f && f.delta !== 0) log(`SG snapshot đã lưu — findings ${f.prev}→${f.curr} (${f.delta > 0 ? '+' : ''}${f.delta} so với lần trước).`);
+      else log('SG snapshot đã lưu.');
+    } catch (e: any) { log('Snapshot err:', e?.message); }
     sgRenderResults();
   } catch (err: any) {
     log('SG validation error:', err?.message);
@@ -768,6 +776,8 @@ async function sgRunValidation(): Promise<void> {
   }
 }
 window.sgRunValidation = sgRunValidation;
+// Lịch sử snapshot validate (plan 2.4) — xem trong console: sgListSnapshots()
+(window as any).sgListSnapshots = loadSnapshots;
 
 // Render the validation results into the three columns.
 function sgRenderResults(): void {
