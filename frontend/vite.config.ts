@@ -23,13 +23,20 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
+    // Split large, rarely-changing vendors into their own chunks so the main
+    // app bundle shrinks and vendors stay cached across app deploys. (web-ifc
+    // is excluded from optimizeDeps + deduped above; letting Rollup emit it as
+    // its own chunk keeps the WASM glue isolated from app code.)
     rollupOptions: {
       output: {
         manualChunks: {
-          three: ['three'],
+          three: ['three', 'three-mesh-bvh'],
+          'web-ifc': ['web-ifc', 'web-ifc-three'],
+          firebase: ['firebase/app', 'firebase/auth'],
         },
       },
     },
+    chunkSizeWarningLimit: 3000,
   },
   server: {
     port: 5173,
