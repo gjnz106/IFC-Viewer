@@ -443,16 +443,22 @@ export function initThree(): void {
       if(eid>0)foundEid=eid;
     }catch(e){}
 
-    // Fallback: expressID attribute (works on both base and subset geometry)
+    // Fallback: expressID attribute (works on both base and subset geometry).
+    // Check ALL THREE vertices of the hit face, not just the first: in merged
+    // compare/diff subsets a face can start on a vertex whose expressID is 0
+    // (degenerate/boundary), which made selection "sometimes not register"
+    // after running Compare. Any vertex with a valid id resolves the element.
     if(!foundEid&&(hit.object as THREE.Mesh).geometry.attributes.expressID){
       try{
         const geom = (hit.object as THREE.Mesh).geometry;
-        const idx2=geom.index
-          ? geom.index.array[hit.faceIndex!*3]
-          : hit.faceIndex!*3;
-        if(idx2 >= 0 && idx2 < geom.attributes.expressID.array.length){
-          const eid=(geom.attributes.expressID.array as any)[idx2];
-          if(eid>0)foundEid=eid;
+        const eidArr = geom.attributes.expressID.array as any;
+        const base = hit.faceIndex!*3;
+        for(let k=0;k<3;k++){
+          const vi = geom.index ? geom.index.array[base+k] : (base+k);
+          if(vi >= 0 && vi < eidArr.length){
+            const eid = eidArr[vi];
+            if(eid>0){foundEid=eid;break}
+          }
         }
       }catch(e){}
     }
