@@ -626,13 +626,6 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   .aic-send:hover{background:#000;transform:scale(1.05)}
   .aic-send:active{transform:scale(.95)}
   .aic-send:disabled{opacity:.4;cursor:default;transform:none}
-  /* ── Settings ── */
-  .aic-settings{display:none;flex-direction:column;gap:7px;padding:10px 14px;border-bottom:1px solid var(--border,#d5d9e2);background:var(--bg-card,#f0f1f4)}
-  .aic-settings.open{display:flex}
-  .aic-settings label{font-size:11px;color:var(--text-dim,#4a5068);display:flex;flex-direction:column;gap:3px}
-  .aic-settings select,.aic-settings input{border:1px solid var(--border,#d5d9e2);border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;background:var(--bg-panel,#fff);color:var(--text,#1a1d26)}
-  .aic-settings .aic-hint{font-size:10px;color:var(--text-muted,#8590a6);font-style:italic}
-  .aic-settings option:disabled{color:var(--text-muted,#8590a6)}
   /* ── Markdown ── */
   .aic-msg.assistant strong{font-weight:700}
   .aic-msg.assistant em{font-style:italic}
@@ -674,18 +667,8 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   panel.innerHTML = `
     <div class="aic-head">
       <div class="aic-head-logo"></div><b>Trợ lý AI · IFC Delta</b>
-      <button class="aic-iconbtn" data-act="settings" title="Cài đặt provider/model">⚙</button>
       <button class="aic-iconbtn" data-act="clear" title="Xoá hội thoại / Reset">↻</button>
       <button class="aic-iconbtn" data-act="close" title="Đóng">✕</button>
-    </div>
-    <div class="aic-settings">
-      <label>Nhà cung cấp (provider)
-        <select class="aic-provider"></select>
-      </label>
-      <label>Model <span class="aic-hint">(để trống = mặc định của provider)</span>
-        <input class="aic-model" type="text" placeholder="vd: gpt-4o-mini, gemini-2.0-flash, claude-…">
-      </label>
-      <div class="aic-hint aic-provhint"></div>
     </div>
     <div class="aic-msgs"></div>
     <div class="aic-foot">
@@ -697,42 +680,10 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   const $ = (s: string) => panel.querySelector(s) as HTMLElement;
   const msgs = $('.aic-msgs') as HTMLElement,
     inputEl = $('.aic-in') as HTMLTextAreaElement,
-    sendBtn = $('.aic-send') as HTMLButtonElement,
-    settingsEl = $('.aic-settings') as HTMLElement,
-    providerSel = $('.aic-provider') as HTMLSelectElement,
-    modelInput = $('.aic-model') as HTMLInputElement,
-    provHint = $('.aic-provhint') as HTMLElement;
+    sendBtn = $('.aic-send') as HTMLButtonElement;
 
-  // ── nạp danh sách provider từ backend, đánh dấu cái chưa cấu hình ──
-  let providersMeta: any[] = [];
-  function fillProviders(): void {
-    providerSel.innerHTML = '';
-    const list = providersMeta.length ? providersMeta : [
-      { id: 'anthropic', label: 'Anthropic (Claude)', configured: true },
-      { id: 'openai', label: 'OpenAI (& tương thích)', configured: true },
-      { id: 'google', label: 'Google (Gemini)', configured: true },
-    ];
-    for (const p of list) {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.label + (p.configured ? '' : ' — chưa cấu hình');
-      opt.disabled = providersMeta.length ? !p.configured : false;
-      providerSel.appendChild(opt);
-    }
-    providerSel.value = AI_CONFIG.provider;
-    modelInput.value = AI_CONFIG.model;
-    updateProvHint();
-  }
-  function updateProvHint(): void {
-    const def = PROVIDER_DEFAULT_MODEL[AI_CONFIG.provider] || '(không rõ)';
-    const meta = providersMeta.find(p => p.id === AI_CONFIG.provider);
-    const note = meta && !meta.configured ? ' ⚠ provider này chưa có API key ở backend.' : '';
-    provHint.textContent = `Model mặc định: ${def}.${note}`;
-  }
-  fetch(AI_CONFIG.statusUrl)
-    .then(r => r.json())
-    .then(d => { providersMeta = d.providers || []; fillProviders(); })
-    .catch(() => fillProviders());
+  // Provider/model do backend Vercel quyết định (env key). Không còn UI chọn
+  // provider/model ở client — AI_CONFIG giữ mặc định (deepseek) là đủ.
 
   // ── Markdown TỐI GIẢN → HTML (escape trước, chỉ sinh thẻ an toàn) ──
   function aicEsc(s: any): string { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -913,21 +864,12 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   inputEl.addEventListener('compositionstart', () => { composing = true; });
   inputEl.addEventListener('compositionend', () => { composing = false; });
 
-  // Provider/model picker is admin-only — it picks which billable AI
-  // backend gets called, the only shared/costed resource this app has.
-  // window.isAdmin resolves asynchronously (Firebase auth state), so this
-  // is re-checked on every FAB open rather than once at panel creation.
-  const settingsBtn = panel.querySelector('[data-act=settings]') as HTMLButtonElement;
   fab.onclick = () => {
     panel.classList.add('open'); fab.style.display = 'none'; inputEl.focus();
-    settingsBtn.style.display = window.isAdmin ? '' : 'none';
     buildAIIndex().catch(() => {});   // warm cache để lần gửi đầu không bị khựng
   };
   panel.querySelector('[data-act=close]')!.addEventListener('click', () => { panel.classList.remove('open'); fab.style.display = 'flex'; });
   panel.querySelector('[data-act=clear]')!.addEventListener('click', () => { history.length = 0; msgs.innerHTML = ''; });
-  settingsBtn.addEventListener('click', () => { settingsEl.classList.toggle('open'); });
-  providerSel.addEventListener('change', () => { AI_CONFIG.provider = providerSel.value; persistConfig(); updateProvHint(); });
-  modelInput.addEventListener('input', () => { AI_CONFIG.model = modelInput.value; persistConfig(); });
   function autoGrow() { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 90) + 'px'; }
   inputEl.oninput = autoGrow;
   function submit() {
