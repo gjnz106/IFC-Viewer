@@ -15,6 +15,7 @@ import './components/tools/measure.js';
 import './components/tools/coordinates.js';
 import './components/tools/focus-highlight.js';
 import './components/compare/clash.js';
+import './components/compare/cross-discipline-run.js';
 import './components/tools/walk.js';
 import './components/tools/plan-overlay.js';
 import './components/validate/validator-rules.js';
