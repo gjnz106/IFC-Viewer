@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════════════════════
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { planBasis, worldToUV, uvToWorld, rotatedExtent } from './plan-geometry.js';
 
 interface PlanStorey {
   name: string;
@@ -19,6 +20,8 @@ interface PlanView {
   follow: boolean;
   storeyClip: any[];
   dirty: boolean;
+  /** True-north rotation (radians) — 0 when no model provides trueNorthAngle. */
+  tnAngle: number;
 }
 
 interface PlanDragState {
@@ -35,6 +38,38 @@ interface PlanDragState {
 let planView: PlanView | null = null;
 let planStoreys: PlanStorey[] = [];
 let planDragState: PlanDragState | null = null;
+
+// ── True-north rotation ──────────────────────────────────────────────
+// The whole plan is aligned to True North (not just an indicator arrow):
+// the orthographic camera's `up` is rotated by tnAngle and re-applied via
+// lookAt(), and every world↔pixel conversion below uses the SAME rotated
+// basis (planBasis/worldToUV/uvToWorld/rotatedExtent, unit-tested in
+// ./plan-geometry.test.ts) — so the render, the camera-heading marker, the
+// section rect, and click-to-pick/click-to-jump all agree pixel-for-pixel.
+// At tnAngle=0 (no IfcMapConversion / trueNorthAngle on any loaded model)
+// this basis reduces EXACTLY to the previous axis-aligned math, so models
+// without geo-referencing render identically to before.
+function computeTrueNorthAngle(): number {
+  for (let i = 0; i < appState.loadedModels.length; i++) {
+    const m: any = appState.loadedModels[i];
+    if (m?.spatial?.trueNorthAngle) return m.spatial.trueNorthAngle;
+  }
+  return 0;
+}
+
+// World (x,z) → normalized screen fraction (u,v ∈ 0..1, v=0 at camera.top).
+function planWorldToUV(wx: number, wz: number): [number, number] {
+  const cam = planView!.camera;
+  return worldToUV(wx, wz, { x: cam.position.x, z: cam.position.z },
+    { left: cam.left, right: cam.right, top: cam.top, bottom: cam.bottom }, planView!.tnAngle);
+}
+
+// Normalized screen fraction (u,v) → world (x,z) — inverse of planWorldToUV.
+function planUVToWorld(u: number, v: number): [number, number] {
+  const cam = planView!.camera;
+  return uvToWorld(u, v, { x: cam.position.x, z: cam.position.z },
+    { left: cam.left, right: cam.right, top: cam.top, bottom: cam.bottom }, planView!.tnAngle);
+}
 
 declare const THREE: any;
 declare const FED_LABELS: string[];
@@ -62,6 +97,7 @@ window.togglePlanOverlay = function(): void {
 };
 
 function rebuildPlanStoreyList(): void {
+  if (planView) planView.tnAngle = computeTrueNorthAngle();
   planStoreys = [];
   const multiModel = appState.loadedModels.filter((m: any) => m?.spatial?.storeys?.length).length > 1;
   for (let mi = 0; mi < appState.loadedModels.length; mi++) {
@@ -109,6 +145,11 @@ function rebuildPlanStoreyList(): void {
     });
     sel.value = String(bestI);
     planSelectStorey(bestI);
+  } else if (planView) {
+    // A storey was already selected — re-apply planFit() so a tnAngle that
+    // changed (e.g. federation model added/removed) is picked up immediately
+    // instead of staying stale until the next manual storey/resize action.
+    planFit();
   }
 }
 
@@ -138,7 +179,8 @@ function initPlanView(): void {
     storey: null,
     follow: false,
     storeyClip,
-    dirty: true
+    dirty: true,
+    tnAngle: 0
   };
 
   setupPlanInteraction();
@@ -165,8 +207,14 @@ window.planFit = function(): void {
   if (!b || !b.min || !b.max) return;
   const cx = (b.min.x + b.max.x) / 2;
   const cz = (b.min.z + b.max.z) / 2;
-  const sx = (b.max.x - b.min.x);
-  const sz = (b.max.z - b.min.z);
+
+  // Extent of the model's axis-aligned bbox AS SEEN from the (possibly
+  // true-north-rotated) plan camera. At tnAngle=0 this reduces exactly to the
+  // plain (sx, sz) axis-aligned extent used before — so unrotated plans are
+  // framed identically to before this change.
+  const { sx, sz } = rotatedExtent(
+    { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z }, planView.tnAngle);
+
   const w = planView.canvas.clientWidth || 320;
   const h = planView.canvas.clientHeight || 240;
   const canvasAspect = w / h;
@@ -182,6 +230,11 @@ window.planFit = function(): void {
   const cam = planView.camera;
   cam.left = -halfW; cam.right = halfW;
   cam.top = halfH; cam.bottom = -halfH;
+  // Set `up` BEFORE lookAt() — THREE only bakes `up` into the camera's actual
+  // rotation when lookAt() runs, so this is what makes the true-north
+  // rotation actually visible in the render (not just in the overlay math).
+  const bas = planBasis(planView.tnAngle);
+  cam.up.set(bas.ux, 0, bas.uz);
   cam.position.set(cx, b.max.y + 100, cz);
   cam.lookAt(cx, 0, cz);
   cam.updateProjectionMatrix();
@@ -254,11 +307,11 @@ function drawPlanCameraMarker(): void {
     svg.setAttribute('viewBox', `0 0 ${cw} ${ch}`);
   }
 
+  // Same rotated basis the render + planFit() use (planWorldToUV) — every
+  // overlay element below (camera fan, section rect, scale bar) is placed
+  // through this one function, so they always agree with what's rendered.
   const worldToPx = (wx: number, wz: number): [number, number] => {
-    const relX = wx - pcam.position.x;
-    const relZup = pcam.position.z - wz;
-    const u = (relX - pcam.left) / fw;
-    const v = 1 - (relZup - pcam.bottom) / fh;
+    const [u, v] = planWorldToUV(wx, wz);
     return [u * cw, v * ch];
   };
 
@@ -335,21 +388,14 @@ function drawPlanCameraMarker(): void {
       fill="rgba(245,158,11,0.07)" stroke="#f59e0b" stroke-width="1.4" stroke-dasharray="6 3"/>`;
   }
 
-  let tnAngle = 0;
-  for (let i = 0; i < appState.loadedModels.length; i++) {
-    if (appState.loadedModels[i]?.spatial?.trueNorthAngle) {
-      tnAngle = appState.loadedModels[i].spatial.trueNorthAngle;
-      break;
-    }
-  }
-  if (planView && planView.camera) {
-    planView.camera.up.set(-Math.sin(tnAngle), 0, -Math.cos(tnAngle));
-    planView.camera.updateProjectionMatrix();
-  }
-  const tnDeg = tnAngle * 180 / Math.PI;
+  // The plan itself is now rotated to True North (camera.up + lookAt in
+  // planFit()), so "up on screen" IS True North by construction — the arrow
+  // stays fixed pointing up as a "this view is True-North-aligned" indicator,
+  // instead of rotating to point at it (that was the old, purely-cosmetic
+  // behavior from when the render itself never actually rotated).
   const NORTH_X = cw - 22, NORTH_Y = 22;
   const northArrow = `
-    <g transform="translate(${NORTH_X},${NORTH_Y}) rotate(${(-tnDeg).toFixed(1)})">
+    <g transform="translate(${NORTH_X},${NORTH_Y})">
       <circle cx="0" cy="0" r="14" fill="white" opacity="0.9" stroke="#374151" stroke-width="0.8"/>
       <polygon points="0,-9 -4,7 0,4 4,7" fill="#dc2626" stroke="white" stroke-width="0.5"/>
       <text x="0" y="-2" text-anchor="middle" font-family="Inter" font-size="9" font-weight="700" fill="#dc2626" stroke="white" stroke-width="2.5" paint-order="stroke">N</text>
@@ -459,12 +505,10 @@ function setupPlanInteraction(): void {
     const u = (e.clientX - rect.left) / rect.width;
     const v = (e.clientY - rect.top)  / rect.height;
     const pcam = planView.camera;
-    const fw = pcam.right - pcam.left;
-    const fh = pcam.top - pcam.bottom;
-    const relX   = u * fw + pcam.left;
-    const relZup = (1 - v) * fh + pcam.bottom;
-    const wx = pcam.position.x + relX;
-    const wz = pcam.position.z - relZup;
+    // Same rotated basis as the render (planFit sets camera.up/lookAt from
+    // planView.tnAngle) — this stays correct whether or not the plan is
+    // aligned to True North.
+    const [wx, wz] = planUVToWorld(u, v);
 
     if (e.shiftKey) {
       const ray = new THREE.Raycaster();
