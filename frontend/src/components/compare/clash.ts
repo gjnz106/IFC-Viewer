@@ -3,6 +3,10 @@
 // ══════════════════════════════════════════════════════════════
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
+import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
+
+// Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
+(window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
 
 // Module-level variables (not in appState)
 let clashSubsets: THREE.Group[] = [];
@@ -775,6 +779,15 @@ function showClashResults(): void {
   document.getElementById('clashTotal')!.textContent = String(appState.clashResults.length);
   document.getElementById('clashHard')!.textContent = String(hard);
   document.getElementById('clashNear')!.textContent = String(near);
+
+  // Snapshot theo thời gian (plan 2.4, giống Validate): lưu + so với lần chạy trước.
+  try {
+    const stats = { total: appState.clashResults.length, hard, near };
+    const { delta } = recordSnapshot('clash', stats);
+    const d = delta.find(x => x.key === 'total');
+    if (d && d.delta !== 0) (window as any).log(`Clash snapshot đã lưu — total ${d.prev}→${d.curr} (${d.delta > 0 ? '+' : ''}${d.delta} so với lần trước).`);
+    else (window as any).log('Clash snapshot đã lưu.');
+  } catch (e: any) { (window as any).log('Clash snapshot err:', e?.message); }
 
   // Render clash cards
   let html = '';

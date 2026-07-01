@@ -1,0 +1,30 @@
+# Cổng kiểm tra cho codebase frontend/ (thay cho verify-standalone cũ đã bỏ).
+# Cài sạch rồi chạy typecheck + test + build để chặn hồi quy trước khi merge.
+name: frontend-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck --workspace=frontend
+      - name: Test
+        run: npm test --workspace=frontend
+      - name: Build
+        run: npm run build --workspace=frontend

@@ -4,85 +4,78 @@
 > chạy hoàn toàn trong trình duyệt, deploy trên Vercel và Firebase Hosting tại
 > https://ifc.t3lab.space.
 
-> ⚠️ Repo có **2 codebase song song**:
-> - **Bản standalone (deploy)** — `index.html` ở root, **inline toàn bộ** CSS + 2 module
->   (auth + app). Đây là bản chạy production (Vercel `build:standalone` + Firebase Hosting tĩnh).
-> - **`frontend/` (Vite + TS)** — bản component-hoá, chạy dev, **chưa deploy**.
->
-> Tài liệu này mô tả **bản standalone**.
+> ℹ️ **Một codebase duy nhất:** `frontend/` (Vite + TypeScript, ESM thật). Bản standalone
+> `src/app/` (ghép byte qua `build.ts`, từng phục vụ `index.html` ở root) đã được hợp nhất
+> và xoá. Production build trực tiếp từ `frontend/` → `frontend/dist`, deploy lên cả Vercel
+> (`vercel.json`) và Firebase Hosting (`firebase.json`).
 
-## Tổng quan runtime (bản standalone)
+## Tổng quan runtime
 
 ```
-index.html (self-contained)
- ├─ <style>…</style>                         ← toàn bộ giao diện (inline)
- ├─ <script importmap>                       ← three, web-ifc, three-mesh-bvh (CDN)
- ├─ <script type=module> Firebase Auth       ← inline (≙ js/auth.ts → js/auth.js)
- └─ <script type=module> ứng dụng chính      ← inline (≙ src/app/*.ts → js/app.js)
+frontend/index.html (Vite shell)
+ ├─ <link> public/css/styles.css            ← toàn bộ giao diện
+ ├─ <script> Google Identity + GAPI (CDN)   ← Drive
+ └─ <script type=module> src/main.ts        ← entry: import auth + 23 module theo thứ tự
+        │
+        ├─ lib/auth.ts        Firebase Auth (window.getAuthToken, window.isAdmin)
+        ├─ store/index.ts     appState — shared state (thay cho ~90 biến global cũ)
+        ├─ types/index.ts     TypeScript interfaces + Window declarations
+        └─ components/…        các module tính năng (ESM import/export)
 ```
 
-- Hai module (auth + app) **không** chia sẻ lexical scope — giao tiếp qua `window.*` + DOM.
-- `js/app.js` là **artifact build** (esbuild) ghép từ `src/app/*.ts` (TypeScript). Xem
-  `build.ts` + `npm run build:standalone`; nguồn đã chuyển sang TS (`src/app/globals.d.ts`).
+- Các module giao tiếp qua **ESM import/export** + `appState` (shared state) + `window.*`
+  (chỉ cho handler `onclick` trong HTML).
+- Build bằng **Vite**: tách CSS/JS, asset hash + cache, tree-shake, HMR khi dev.
+  WASM của web-ifc được `frontend/scripts/copy-wasm.mjs` đồng bộ vào
+  `frontend/public/vendor/web-ifc/` lúc prebuild/predev để khớp đúng glue đang bundle.
 
-## Vì sao split bằng concatenation (không phải ESM import/export)?
+## Bản đồ module (`frontend/src/components/`)
 
-Bản gốc là một `<script type="module">` ~11.500 dòng với ~90 biến state có thể gán lại
-và 153 hàm dùng chung lexical scope. Tách thành ESM thật (import/export giữa các file)
-buộc phải định tuyến **mọi** phép gán lại state qua setter — rủi ro hồi quy rất cao khi
-không có test/trình duyệt để kiểm chứng.
+| Nhóm | File | Vai trò |
+|------|------|---------|
+| core | `core/viewer-core.ts` | `initThree`, camera/controls, wheel-zoom, pinch, resize, context-menu |
+| core | `core/viewcube.ts` | ViewCube điều hướng kiểu Revit |
+| core | `core/ifc-category.ts` | Map IFC class → Revit Category (tên thân thiện) |
+| tools | `tools/colorize.ts` | Tô màu theo thuộc tính (Dalux-style) + rule CRUD |
+| tools | `tools/color-schemes.ts` | Lưu/khôi phục color scheme (LocalStorage) |
+| tools | `tools/section-visibility.ts` | Section box/plane, clipping, hide/isolate, opacity, wireframe |
+| tools | `tools/measure.ts` | Đo khoảng cách & cao độ |
+| tools | `tools/coordinates.ts` | Toạ độ / geo-reference helper |
+| tools | `tools/walk.ts` | First-person Walk mode |
+| tools | `tools/plan-overlay.ts` | Lớp phủ mặt bằng 2D (top-down ortho) |
+| tools | `tools/focus-highlight.ts` | Zoom-to-element, highlight, section theo cấu kiện |
+| compare | `compare/federation-load.ts` | Nạp IFC, N-file federation (đa bộ môn) |
+| compare | `compare/compare.ts` | So sánh 2 phiên bản (GlobalId + smart match + geometry hash) |
+| compare | `compare/clash.ts` | Clash detection kiểu Navisworks (bbox + mesh BVH) + export BCF |
+| validate | `validate/validator-rules.ts` | CORENET X / IFC-SG — Phase 1 (~35 rule built-in) |
+| validate | `validate/validator-json-loader.ts` | Phase 2 — nạp rule JSON + ~100 rule mở rộng |
+| validate | `validate/validator-export.ts` | Export PDF (jsPDF) / BCF 2.1 (zip) |
+| inspect | `inspect/properties.ts` | Panel Properties / Property Sets (accordion) |
+| inspect | `inspect/search.ts` | Tìm kiếm & lọc cấu kiện |
+| integrations | `integrations/drive.ts` | Tích hợp Google Drive |
+| integrations | `integrations/ai.ts` | Trợ lý AI: data index · query tools (count/sum) · chat UI |
+| ui | `ui/ui-shell.ts` | Vỏ UI: topbar, sidebar, panel toggles, menu |
+| ui | `ui/fieldmode.ts` | Field mode (tablet/công trường): touch, joystick, storey, plan 2D |
+| ui | `ui/router.ts` | Router hash-based (viewer/compare/clash/validate/field) |
+| ui | `ui/state-persist.ts` | Lưu/khôi phục UI prefs qua LocalStorage |
 
-Giải pháp đã chọn: **source partials + build ghép file**. Mỗi tính năng là một file
-biên tập được trong `src/app/`; `build.mjs` ghép lại thành `js/app.js` **byte-identical**
-với code đang chạy production. Lợi ích:
+Thứ tự khởi tạo: `frontend/src/main.ts` (auth → core → tools → compare → validate →
+integrations → ui → router/persist).
 
-- Tách module ngay, an toàn tuyệt đối (hành vi runtime không đổi — đã chứng minh bằng so byte).
-- Firebase Hosting vẫn serve file tĩnh trực tiếp, không cần build server riêng (Vercel build qua `build:standalone`).
-- Lộ trình tiến hoá lên ESM thật theo từng module có kiểm chứng — xem `IMPLEMENTATION_PLAN.md` › Giai đoạn R.
-
-> ⚠️ Các file trong `src/app/*.js` **không** phải module độc lập — chúng là mảnh
-> ghép của một scope chung. Editor có thể báo "biến chưa định nghĩa"; đó là bình thường.
-> Đừng thêm `import`/`export` giữa chúng cho tới khi thực hiện Giai đoạn R.
-
-## Bản đồ module (`src/app/`)
-
-| File | Vai trò |
-|------|---------|
-| `01-imports-state.ts` | `import` three/web-ifc; toàn bộ biến state top-level; bảng tên IFC |
-| `02-ifc-category.ts` | Map IFC class → Revit Category (tên thân thiện) |
-| `03-viewer-core.ts` | `initThree`, camera/controls, wheel-zoom, pinch, resize, context-menu |
-| `04-viewcube.ts` | ViewCube điều hướng kiểu Revit |
-| `05-colorize.ts` | Tô màu theo thuộc tính (Dalux-style) + rule CRUD |
-| `06-color-schemes.ts` | Lưu/khôi phục color scheme (LocalStorage) |
-| `07-section-visibility.ts` | Section box/plane, clipping, hide/isolate, opacity, wireframe |
-| `08-federation-load.ts` | Nạp IFC, N-file federation (đa bộ môn) |
-| `09-compare.ts` | Engine so sánh 2 phiên bản (GlobalId + smart match + geometry hash) |
-| `10-properties.ts` | Panel Properties / Property Sets (accordion) |
-| `11-measure.ts` | Đo khoảng cách & cao độ |
-| `12-focus-highlight.ts` | Zoom-to-element, highlight, section theo cấu kiện |
-| `13-clash.ts` | Clash detection kiểu Navisworks (bbox + mesh BVH) + export BCF |
-| `14-walk.ts` | First-person Walk mode |
-| `15-plan-overlay.ts` | Lớp phủ mặt bằng 2D (top-down ortho) |
-| `16-validator-rules.ts` | CORENET X / IFC-SG — Phase 1 (~35 rule built-in) |
-| `17-validator-json-loader.ts` | Phase 2 — nạp rule JSON + ~100 rule mở rộng |
-| `18-validator-export.ts` | Validator export PDF (jsPDF) / BCF 2.1 (zip qua JSZip) — đầy đủ |
-| `19-drive.ts` | Tích hợp Google Drive |
-| `20-search.ts` | Tìm kiếm & lọc cấu kiện |
-| `21-fieldmode.ts` | Field mode (tablet/công trường): touch, joystick, storey, plan 2D |
-| `22-ai.ts` | Trợ lý AI: data index · query tools (count/sum) · chat UI |
-| `23-router.ts` | Router hash-based phía client (viewer/compare/clash/validate/field) |
-
-## Phụ thuộc ngoài (CDN, qua importmap)
+## Phụ thuộc ngoài
 
 - `three@0.160.0`, `three/addons` (OrbitControls, BufferGeometryUtils)
-- `web-ifc@0.0.57` (WASM), `web-ifc-three@0.0.126` (IFCLoader)
+- `web-ifc@0.0.57` (WASM), `web-ifc-three@0.0.126` (IFCLoader) — Vite `resolve.dedupe`
+  ép một bản web-ifc duy nhất để wasm khớp glue
 - `three-mesh-bvh@0.5.23` (clash)
-- Firebase `12.12.0` (auth), Google Identity Services + GAPI (Drive)
-- jsPDF (dynamic `import` khi xuất báo cáo)
+- Firebase (auth), Google Identity Services + GAPI (Drive)
+- `jspdf` (export báo cáo / BCF zip)
 
 ## Quy ước giao tiếp
 
 - Handler gọi từ HTML `onclick` được gắn lên `window.*` (vd `window.sgRunValidation`,
-  `window.fieldEnterMode`). Khi tách module sau này, các symbol này **phải** giữ trên `window`.
-- State dùng chung (scene, camera, loadedModels, activeFilter, …) khai báo ở
-  `01-imports-state.js`.
+  `window.fieldEnterMode`) trong module định nghĩa.
+- State dùng chung (scene, camera, loadedModels, activeFilter, …) đọc/ghi qua
+  `appState` (`frontend/src/store/index.ts`).
+- Backend proxy AI: dev ở `backend/` (Express, đa provider), production ở
+  `api/ai/chat.js` (Vercel serverless, DeepSeek). Cả hai xác thực Firebase ID token + rate-limit.

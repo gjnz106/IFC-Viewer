@@ -9,17 +9,9 @@
     "dev": "concurrently \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\"",
     "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
     "frontend": "npm run dev --workspace=frontend",
-    "backend": "npm run dev --workspace=backend",
-    "fetch:vendor": "node scripts/fetch-vendor.mjs",
-    "build:standalone": "node scripts/fetch-vendor.mjs && node --import tsx build.ts",
-    "verify:standalone": "node --import tsx scripts/verify-build.ts",
-    "typecheck:standalone": "node --import tsx scripts/typecheck-standalone.ts"
+    "backend": "npm run dev --workspace=backend"
   },
   "devDependencies": {
-    "@types/node": "^20.14.0",
-    "concurrently": "^8.2.2",
-    "esbuild": "^0.21.5",
-    "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "concurrently": "^8.2.2"
   }
 }

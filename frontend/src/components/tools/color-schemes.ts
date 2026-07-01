@@ -135,6 +135,7 @@ export function rebuildModelSubset(mi: number): void {
     if((s as any).userData?.srcModelIdx===mi){if(s.parent)s.parent.remove(s);return false}
     return true;
   });
+  (window as any).visSubsets=visSubsets; // mirrored (.filter() makes a NEW array — must re-mirror; later .push() then stays in sync): compare.ts/measure.ts read this to hide/show colorize subsets when toggling model A/B visibility
 
   // Hide base model
   appState.loadedModels[mi]!.visible=false;
@@ -200,6 +201,7 @@ export function showAllHidden(): void {
 
   visSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
   visSubsets=[];
+  (window as any).visSubsets=visSubsets;
 
   const visA=(document.getElementById('visA') as HTMLInputElement|null)?.checked??true;
   const visB=(document.getElementById('visB') as HTMLInputElement|null)?.checked??true;

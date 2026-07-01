@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log, ifcClassToRevitCategory } from '../core/ifc-category.js';
 import { IFC_NAMES } from '../../lib/constants.js';
+import { parseMaterialLayers, type MaterialLayerSet } from './material-layers.js';
 
 function renderPropertiesAccordion(elementHeader: string, groups: any[]): void {
   const esc=(s: any)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -253,10 +254,12 @@ async function showProps(props: any, modelIdx: number): Promise<void> {
 
   // ── Material (HasAssociations → IfcRelAssociatesMaterial) ──
   let materialLabel='';
+  let materialLayers: MaterialLayerSet|null=null;
   try{
     if(mgr.getMaterialsProperties){
       const mats=await (mgr as any).getMaterialsProperties(mid, eid, true, true);
       if(Array.isArray(mats)&&mats.length>0){
+        materialLayers=parseMaterialLayers(mats);
         const names: string[]=[];
         const walk=(m: any)=>{
           if(!m)return;
@@ -373,6 +376,15 @@ async function showProps(props: any, modelIdx: number): Promise<void> {
     if(gY!==null)addRow('Global Y', fmtLength(gY));
     if(gZ!==null)addRow('Global Z', fmtLength(gZ));
     if(botY!==null)addRow('Elevation', fmtLength(botY));
+  }
+
+  // ── Material Layers (IfcMaterialLayerSet) — từng lớp + độ dày ──
+  if(materialLayers && materialLayers.layers.length){
+    beginGroup('Material Layers'+(materialLayers.setName?' — '+materialLayers.setName:''));
+    materialLayers.layers.forEach((l,i)=>
+      addRow(`${i+1}. ${l.name}`, l.thickness!=null?fmtLength(l.thickness):'—'));
+    if(materialLayers.totalThickness!=null)
+      addRow('Total thickness', fmtLength(materialLayers.totalThickness));
   }
 
   // ── All Property Sets (instance + type, merged by web-ifc) ──
