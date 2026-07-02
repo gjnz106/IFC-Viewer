@@ -921,7 +921,7 @@
   <div class="walk-joy walk-joy-left" id="walkJoy"><div class="walk-joy-bg"></div><div class="walk-joy-knob" id="walkJoyKnob"></div><div class="walk-joy-label">MOVE</div></div>
   <div class="walk-center-btns">
     <button class="walk-ud-btn" ontouchstart="walkTouchUD('up',true)" ontouchend="walkTouchUD('up',false)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="18 15 12 9 6 15"/></svg><span class="walk-ud-label">Up</span></button>
-    <div class="walk-speed-pill" id="walkSpeedPill">1.0×</div>
+    <button class="walk-speed-pill" id="walkSpeedPill" onclick="walkCycleSpeed()" ontouchend="event.preventDefault();walkCycleSpeed()" title="Tap to change move speed">1×</button>
     <button class="walk-ud-btn" ontouchstart="walkTouchUD('down',true)" ontouchend="walkTouchUD('down',false)"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="6 9 12 15 18 9"/></svg><span class="walk-ud-label">Down</span></button>
   </div>
   <div class="walk-joy walk-joy-right" id="walkLookJoy"><div class="walk-joy-bg"></div><div class="walk-joy-knob" id="walkLookKnob"></div><div class="walk-joy-label">LOOK</div></div>

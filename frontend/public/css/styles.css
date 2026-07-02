@@ -1108,7 +1108,9 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .walk-ud-btn{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.18);color:rgba(255,255,255,.65);font-size:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);gap:1px}
 .walk-ud-btn:active{background:rgba(255,255,255,.25)}
 .walk-ud-label{font-size:8px;font-family:'JetBrains Mono';letter-spacing:.5px;opacity:.6}
-.walk-speed-pill{background:rgba(255,255,255,.1);color:rgba(255,255,255,.5);font-family:'JetBrains Mono';font-size:10px;padding:4px 10px;border-radius:12px;pointer-events:none;white-space:nowrap}
+.walk-speed-pill{background:rgba(255,255,255,.14);color:#fff;font-family:'JetBrains Mono';font-size:12px;font-weight:600;padding:5px 12px;border-radius:12px;white-space:nowrap;border:1px solid rgba(255,255,255,.25);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+.walk-speed-pill:hover{background:rgba(255,255,255,.22)}
+.walk-speed-pill:active{background:rgba(255,255,255,.32);transform:scale(.95)}
 
 /* ── Auth UI — Two-panel IDD-style layout ───────────────────────── */
 /* Full-page overlay: left dark brand panel + right light form panel. */
