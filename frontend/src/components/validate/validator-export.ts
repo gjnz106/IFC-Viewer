@@ -2,32 +2,32 @@ import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 
-// ── Toggle panel ──
-window.toggleSGCheckPanel = function(){
+// ── SG panel open/close primitive ──
+// The router reconciles the page's desired state through this (validate page
+// = open, everything else = closed). It no longer closes the clash panel
+// itself — ordering between the two bottom panels is the router's job.
+export function sgSetPanel(open: boolean){
+  const sgState = appState.sgState;
+  if(!!sgState.open === open) return;
+  sgState.open = open;
+  document.getElementById('btnSGCheck')?.classList.toggle('active', open);
   const panel = document.getElementById('sgPanel');
-  const btn = document.getElementById('btnSGCheck');
-  const sgState = appState.sgState as any;
-  sgState.open = !sgState.open;
-  btn!.classList.toggle('active', sgState.open);
-
-  if(sgState.open){
-    // Close other bottom panels (clash) to avoid stacking. (Was reading
-    // window.clashMode, which is never set — the real flag is appState.clashMode,
-    // set in clash.ts's toggleClashMode — so this never actually closed Clash.)
-    if(appState.clashMode)(window as any).toggleClashMode();
-    panel!.classList.add('show');
-    const br = document.getElementById('bresize');
+  const br = document.getElementById('bresize');
+  if(open){
+    panel?.classList.add('show');
     if(br) br.style.display = '';
-    if(window._vpResize) window._vpResize();
   }else{
-    panel!.classList.remove('show');
+    panel?.classList.remove('show');
     // If neither bottom panel is open, hide the resize handle
-    if(!appState.clashMode){
-      const br = document.getElementById('bresize');
-      if(br) br.style.display = 'none';
-    }
-    if(window._vpResize) window._vpResize();
+    if(!appState.clashMode && br) br.style.display = 'none';
   }
+  if(window._vpResize) window._vpResize();
+}
+
+// Header CTA + legacy callers: navigation alias so hash/sidebar/persisted
+// page stay in sync with the panel state.
+window.toggleSGCheckPanel = function(){
+  window.navigateTo?.(appState.sgState.open ? 'viewer' : 'validate');
 };
 
 // ── PDF export (uses jsPDF via dynamic import — already used by reports elsewhere) ──

@@ -132,8 +132,6 @@ if (auth) {
       overlay.classList.remove('hidden');
       showView('login');
       $('userBadge').style.display = 'none';
-      const menu = document.getElementById('userMenu');
-      if (menu) menu.classList.remove('show');
       const acMenu = document.querySelector('.account-menu') as HTMLElement;
       if (acMenu) acMenu.style.display = 'none';
       const profileOverlay = document.getElementById('profileOverlay');
@@ -171,11 +169,7 @@ function showLoggedInUser(user: User) {
   const initials = (local.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2) || 'U').toUpperCase();
   $('userAvatar').textContent = initials;
   $('userBadge').style.display = '';
-  const oldName = document.getElementById('userMenuName');
-  if (oldName) oldName.textContent = local;
-  const oldEmail = document.getElementById('userMenuEmail');
-  if (oldEmail) oldEmail.textContent = email;
-  // Also populate the topbar account-menu avatar if it exists (new UI design)
+  // Populate the topbar account-menu avatar/name/status (current UI design)
   const acMenuAv = document.getElementById('acMenuAv');
   if (acMenuAv) acMenuAv.textContent = initials;
   const acName = document.querySelector('.account-menu-name');

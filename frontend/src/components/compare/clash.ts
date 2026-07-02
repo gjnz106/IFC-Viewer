@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════════════
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
+import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
@@ -255,7 +256,7 @@ const CLASH_PRESETS: Record<string, { A: string[] | '*'; B: string[] | '*' }> = 
 
 window.applyClashPreset = function(presetKey: string): void {
   const preset = CLASH_PRESETS[presetKey];
-  if (!preset) { (window as any).log('Unknown clash preset: ' + presetKey); return; }
+  if (!preset) { log('Unknown clash preset: ' + presetKey); return; }
   ['A', 'B'].forEach(side => {
     const list = preset[side as 'A' | 'B'];
     let categories: string[]; // final list of Revit category labels for this side
@@ -283,7 +284,7 @@ window.applyClashPreset = function(presetKey: string): void {
   const nameMap: Record<string, string> = { 'struct-mep': 'Structure ↔ MEP', 'arch-mep': 'Architecture ↔ MEP', 'struct-arch': 'Structure ↔ Architecture', 'all-all': 'All ↔ All' };
   const nameEl = document.getElementById('clashRuleName') as HTMLInputElement | null;
   if (nameEl && nameMap[presetKey]) nameEl.value = nameMap[presetKey];
-  (window as any).log('Applied clash preset: ' + presetKey);
+  log('Applied clash preset: ' + presetKey);
 };
 
 window.swapClashSets = function(): void {
@@ -296,7 +297,7 @@ window.swapClashSets = function(): void {
   clashRuleRows.B = a.filter(r => !r.elementType || availB.has(r.elementType));
   renderClashRules('A');
   renderClashRules('B');
-  (window as any).log('Swapped Source ↔ Target sets');
+  log('Swapped Source ↔ Target sets');
 };
 
 // Compatibility shim — old code referenced these but they're no longer in UI.
@@ -331,36 +332,43 @@ function getClashFilters(side: string): any[] {
   return flat;
 }
 
+// Enter/exit are the primitives the router reconciles page state against.
+// window.toggleClashMode stays only as a navigation alias for legacy callers
+// (hidden #btnClash) — it routes through navigateTo so the hash, sidebar
+// highlight and persisted page can never drift from the real mode.
+export function enterClashMode(): void {
+  if (appState.clashMode) return;
+  // The router exits compare before entering the clash page; this guard only
+  // protects direct programmatic calls.
+  if (appState.compareResult) { log('Clash: exit compare first'); return; }
+  appState.clashMode = true;
+  document.getElementById('btnClash')!.classList.add('active');
+
+  document.getElementById('clashPanel')!.classList.add('show');
+  // Show the bottom panel resize handle (sits between 3D canvas and panel)
+  const br = document.getElementById('bresize'); if (br) br.style.display = '';
+  document.getElementById('eTree')!.style.display = 'none';
+  document.getElementById('issuesList')!.classList.remove('show');
+  document.getElementById('panelTabs')?.classList.remove('show');
+  document.getElementById('issueNav')!.classList.remove('show');
+  document.getElementById('btnRunClash')!.style.display = '';
+  document.getElementById('btnCompare')!.style.display = 'none';
+
+  if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
+  if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
+  (document.getElementById('btnRunClash') as HTMLButtonElement).disabled = !(appState.loadedModels[0] && appState.loadedModels[1]);
+
+  // Initialize default rule rows (reads loaded model categories internally)
+  initClashRulesDefault();
+  // The bottom panel just claimed ~320px of viewport height — reflow 3D
+  if ((window as any)._vpResize) (window as any)._vpResize();
+}
+
 window.toggleClashMode = function(): void {
-  if (appState.compareResult) { (window as any).log('Exit compare first'); return; }
-  appState.clashMode = !appState.clashMode;
-  document.getElementById('btnClash')!.classList.toggle('active', appState.clashMode);
-
-  if (appState.clashMode) {
-    document.getElementById('clashPanel')!.classList.add('show');
-    // Show the bottom panel resize handle (sits between 3D canvas and panel)
-    const br = document.getElementById('bresize'); if (br) br.style.display = '';
-    document.getElementById('eTree')!.style.display = 'none';
-    document.getElementById('issuesList')!.classList.remove('show');
-    document.getElementById('panelTabs')?.classList.remove('show');
-    document.getElementById('issueNav')!.classList.remove('show');
-    document.getElementById('btnRunClash')!.style.display = '';
-    document.getElementById('btnCompare')!.style.display = 'none';
-
-    if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
-    if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
-    (document.getElementById('btnRunClash') as HTMLButtonElement).disabled = !(appState.loadedModels[0] && appState.loadedModels[1]);
-
-    // Initialize default rule rows (reads loaded model categories internally)
-    initClashRulesDefault();
-    // The bottom panel just claimed ~320px of viewport height — reflow 3D
-    if ((window as any)._vpResize) (window as any)._vpResize();
-  } else {
-    window.exitClashMode();
-  }
+  window.navigateTo?.(appState.clashMode ? 'viewer' : 'clash');
 };
 
-window.exitClashMode = function(): void {
+export function exitClashMode(): void {
   appState.clashMode = false;
   document.getElementById('btnClash')!.classList.remove('active');
   document.getElementById('clashPanel')!.classList.remove('show');
@@ -401,12 +409,14 @@ window.exitClashMode = function(): void {
 
   document.getElementById('clashStats')!.style.display = 'none';
   document.getElementById('clashList')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div>';
-  document.getElementById('clashFiltersA')!.innerHTML = '';
-  document.getElementById('clashFiltersB')!.innerHTML = '';
+  // (Formerly wiped #clashFiltersA/B here — those IDs died with the pre-rule-row
+  // clash UI, so the two lines threw every exit and aborted the reflow below.
+  // Rule rows persist in clashRuleRows and re-render on the next enter.)
   // Bottom panel just released its height back to the canvas — reflow 3D
   if ((window as any)._vpResize) (window as any)._vpResize();
-  (window as any).log('Exited clash mode');
-};
+  log('Exited clash mode');
+}
+window.exitClashMode = exitClashMode;
 
 // ── Build per-element bounding boxes for a model ──
 function buildElementBBoxes(modelIdx: number): Record<number, any> {
@@ -543,7 +553,7 @@ window.runClashDetection = async function(): Promise<void> {
     return;
   }
 
-  (window as any).log('Clash config: Source types=' + catsA.size + ', Target types=' + catsB.size + ', filtersA=' + filtersA.length + ', filtersB=' + filtersB.length + ', tolerance=' + tolerance + 'm, type=' + clashTypeFilter);
+  log('Clash config: Source types=' + catsA.size + ', Target types=' + catsB.size + ', filtersA=' + filtersA.length + ', filtersB=' + filtersB.length + ', tolerance=' + tolerance + 'm, type=' + clashTypeFilter);
 
   // ── Phase 1: Build filtered element sets ──
   lt.textContent = 'Building Source Set (Model A)...'; lf.style.width = '5%';
@@ -597,7 +607,7 @@ window.runClashDetection = async function(): Promise<void> {
   const sourceEids = new Set(Object.keys(setA.elements).map(Number));
   const targetEids = new Set(Object.keys(setB.elements).map(Number));
 
-  (window as any).log(`Filtered sets: Source=${sourceEids.size} elements, Target=${targetEids.size} elements`);
+  log(`Filtered sets: Source=${sourceEids.size} elements, Target=${targetEids.size} elements`);
 
   // ── Phase 2: Build BBoxes only for filtered elements ──
   lt.textContent = 'Computing bounding boxes...'; lf.style.width = '20%';
@@ -610,7 +620,7 @@ window.runClashDetection = async function(): Promise<void> {
   const arrA = Object.values(allBBoxA).filter(e => sourceEids.has(e.eid));
   const arrB = Object.values(allBBoxB).filter(e => targetEids.has(e.eid));
 
-  (window as any).log(`BBoxes: Source=${arrA.length}, Target=${arrB.length}`);
+  log(`BBoxes: Source=${arrA.length}, Target=${arrB.length}`);
   lt.textContent = `BBox pre-filter (${arrA.length} × ${arrB.length})...`; lf.style.width = '30%';
   await new Promise(r => setTimeout(r, 20));
 
@@ -634,7 +644,7 @@ window.runClashDetection = async function(): Promise<void> {
     }
   }
 
-  (window as any).log(`BBox pre-filter: ${candidates.length} candidates`);
+  log(`BBox pre-filter: ${candidates.length} candidates`);
   lt.textContent = `Mesh intersection (${candidates.length} pairs)...`; lf.style.width = '60%';
   await new Promise(r => setTimeout(r, 20));
 
@@ -684,7 +694,7 @@ window.runClashDetection = async function(): Promise<void> {
     }
   }
 
-  (window as any).log(`Clash detection complete: ${appState.clashResults.length} clashes found`);
+  log(`Clash detection complete: ${appState.clashResults.length} clashes found`);
   lt.textContent = `Done! ${appState.clashResults.length} clashes`; lf.style.width = '100%';
   await new Promise(r => setTimeout(r, 300));
   lo.classList.remove('on');
@@ -770,7 +780,7 @@ function showClashResults(): void {
 
   appState.scene.add(clashGroup);
   clashSubsets.push(clashGroup);
-  (window as any).log('Created ' + appState.clashResults.length + ' clash zone markers');
+  log('Created ' + appState.clashResults.length + ' clash zone markers');
 
   // Stats
   const hard = appState.clashResults.filter((c: any) => c.isHard).length;
@@ -785,9 +795,9 @@ function showClashResults(): void {
     const stats = { total: appState.clashResults.length, hard, near };
     const { delta } = recordSnapshot('clash', stats);
     const d = delta.find(x => x.key === 'total');
-    if (d && d.delta !== 0) (window as any).log(`Clash snapshot đã lưu — total ${d.prev}→${d.curr} (${d.delta > 0 ? '+' : ''}${d.delta} so với lần trước).`);
-    else (window as any).log('Clash snapshot đã lưu.');
-  } catch (e: any) { (window as any).log('Clash snapshot err:', e?.message); }
+    if (d && d.delta !== 0) log(`Clash snapshot đã lưu — total ${d.prev}→${d.curr} (${d.delta > 0 ? '+' : ''}${d.delta} so với lần trước).`);
+    else log('Clash snapshot đã lưu.');
+  } catch (e: any) { log('Clash snapshot err:', e?.message); }
 
   // Render clash cards
   let html = '';
@@ -991,7 +1001,7 @@ window.focusClash = function(idx: number): void {
   </div>`;
   document.getElementById('propArea')!.innerHTML = h;
 
-  (window as any).log(`Focused clash #${idx + 1}: ${cl.elA.name} vs ${cl.elB.name} (${penMM}mm)`);
+  log(`Focused clash #${idx + 1}: ${cl.elA.name} vs ${cl.elB.name} (${penMM}mm)`);
 };
 
 window.exportClashCSV = function(): void {
@@ -1001,12 +1011,12 @@ window.exportClashCSV = function(): void {
     csv += `${i + 1},${cl.isHard ? 'Hard' : 'Clearance'},${(cl.penetration * 1000).toFixed(1)},"${cl.elA.name}",${cl.elA.type},${cl.elA.eid},"${cl.elB.name}",${cl.elB.type},${cl.elB.eid},${cl.point.x.toFixed(3)},${cl.point.y.toFixed(3)},${cl.point.z.toFixed(3)}\n`;
   });
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'ifc-clash-report.csv'; a.click();
-  (window as any).log('Clash CSV exported: ' + appState.clashResults.length + ' clashes');
+  log('Clash CSV exported: ' + appState.clashResults.length + ' clashes');
 };
 
 // ══ Clash BCF Export ══
 window.exportClashBCF = async function(): Promise<void> {
-  if (!appState.clashResults.length) { (window as any).log('No clashes to export'); return; }
+  if (!appState.clashResults.length) { log('No clashes to export'); return; }
   if (!(window as any).JSZip) {
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
@@ -1015,7 +1025,7 @@ window.exportClashBCF = async function(): Promise<void> {
   }
 
   (window as any).setStatus('loading', 'Exporting Clash BCF...');
-  (window as any).log('Exporting BCF for ' + appState.clashResults.length + ' clashes...');
+  log('Exporting BCF for ' + appState.clashResults.length + ' clashes...');
   const zip = new (window as any).JSZip();
   const now = new Date().toISOString();
   const pid = crypto.randomUUID();
@@ -1032,7 +1042,7 @@ window.exportClashBCF = async function(): Promise<void> {
     const tx = x - mdlPos.x, ty = y - mdlPos.y, tz = z - mdlPos.z;
     return { x: tx, y: tz, z: -ty };
   };
-  (window as any).log('Clash BCF model offset (three-space): (' + mdlPos.x.toFixed(2) + ', ' + mdlPos.y.toFixed(2) + ', ' + mdlPos.z.toFixed(2) + ')');
+  log('Clash BCF model offset (three-space): (' + mdlPos.x.toFixed(2) + ', ' + mdlPos.y.toFixed(2) + ', ' + mdlPos.z.toFixed(2) + ')');
 
   // Save camera + section box + previous focus state before mutating the scene
   // for snapshot rendering. focusClash() modifies all of these; we restore at end.
@@ -1121,7 +1131,7 @@ window.exportClashBCF = async function(): Promise<void> {
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r as FrameRequestCallback)));
       appState.renderer.render(appState.scene, appState.camera);
       try { snap64 = appState.renderer.domElement.toDataURL('image/png').split(',')[1]; } catch (e) {}
-    } catch (e: any) { (window as any).log('Clash snapshot err #' + (i + 1) + ':', e?.message); }
+    } catch (e: any) { log('Clash snapshot err #' + (i + 1) + ':', e?.message); }
 
     // ── BCF camera in IFC coords ──
     // Position the BCF perspective camera at the same 3/4 angle that
@@ -1273,5 +1283,5 @@ window.exportClashBCF = async function(): Promise<void> {
   const blob = await zip.generateAsync({ type: 'blob' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ifc-delta-clashes.bcf'; a.click();
   (window as any).setStatus('done', 'BCF exported'); setTimeout(() => (window as any).setStatus('', ''), 3000);
-  (window as any).log('Clash BCF exported: ' + appState.clashResults.length + ' issues');
+  log('Clash BCF exported: ' + appState.clashResults.length + ' issues');
 };

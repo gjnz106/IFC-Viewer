@@ -50,29 +50,37 @@ function fieldResizeViewport(){
   appState.camera!.updateProjectionMatrix();
 }
 
-window.fieldEnterMode = function(){
+// Enter/exit are the primitives the router reconciles the 'field' page
+// against. All UI entry points (header Field button, the in-field Desktop
+// button, the touch-device hint below) go through navigateTo instead of
+// calling these directly, so hash/sidebar/persisted page can't drift.
+export function enterFieldMode(){
+  if(fieldActive) return;
   fieldActive = true;
-  (window as any).fieldActive = true; // mirrored: viewer-core's pick handler reads this to switch to tap-only (no properties/highlight) behavior
+  window.fieldActive = true; // mirrored: viewer-core's pick handler reads this to switch to tap-only (no properties/highlight) behavior
   document.body.classList.add('field-mode');
   fieldResizeViewport();
   fieldToast('Field Mode — tap elements to inspect');
   // Setup long-press for context menu on touch devices
   fieldSetupLongPress();
   log('Field mode activated');
-};
+}
 
-window.fieldExitMode = function(){
+export function exitFieldMode(){
+  if(!fieldActive) return;
   fieldActive = false;
-  (window as any).fieldActive = false;
+  window.fieldActive = false;
   document.body.classList.remove('field-mode');
   (window as any).fieldCloseSheet();
   document.getElementById('fieldStoreys')!.classList.remove('show');
   fieldResizeViewport();
-  // Keep the router/hash/localStorage in sync so a reload doesn't bounce
-  // straight back into Field Mode (router persists 'ifc.page' on navigateTo).
-  (window as any).navigateTo?.('viewer');
   log('Field mode deactivated');
-};
+}
+
+export function isFieldActive(){ return fieldActive; }
+
+window.fieldEnterMode = enterFieldMode;
+window.fieldExitMode = exitFieldMode;
 
 // ── Field toast notification ──
 function fieldToast(msg: string, duration = 2500){
@@ -782,7 +790,7 @@ if('ontouchstart' in window && window.innerWidth <= 1200){
       _fieldHinted = true;
       setTimeout(()=>{
         if(!fieldActive && confirm('Touch device detected. Switch to Field Mode for easier on-site viewing?')){
-          (window as any).fieldEnterMode();
+          window.navigateTo?.('field');
         }
       }, 1500);
     }

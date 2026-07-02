@@ -10,6 +10,7 @@ import {
 import { appState } from '../../store/index.js';
 import { FED_COLORS, IFC_NAMES } from '../../lib/constants.js';
 import { runCompare as computeDiff } from './compare.js';
+import { log } from '../core/ifc-category.js';
 
 // ══ Federation file management (slots 2+) ══════════════════════════
 let _fedPendingSlot = -1;
@@ -147,7 +148,7 @@ window.runCompare=async function(){
       for(const[gid,e]of Object.entries(pB)){
         if(appState.activeCategories.has((e as any).type))filteredB[gid]=e;
       }
-      (window as any).log('Category filter applied: A='+Object.keys(filteredA).length+'/'+Object.keys(pA).length+', B='+Object.keys(filteredB).length+'/'+Object.keys(pB).length);
+      log('Category filter applied: A='+Object.keys(filteredA).length+'/'+Object.keys(pA).length+', B='+Object.keys(filteredB).length+'/'+Object.keys(pB).length);
     }
 
     lt.textContent='Comparing...';(lf as HTMLElement).style.width='70%';await new Promise(r=>setTimeout(r,50));
@@ -158,7 +159,7 @@ window.runCompare=async function(){
     // ── Color-coded subsets per entity status ──
     await applyDiffColors();
     (window as any).showResultsUI();
-  }catch(e: any){(window as any).log('Compare err:',e.message);lt.textContent='Error: '+e.message}
+  }catch(e: any){log('Compare err:',e.message);lt.textContent='Error: '+e.message}
   lo.classList.remove('on');
 };
 
@@ -189,7 +190,7 @@ async function applyDiffColors(): Promise<void> {
   const unchangedIDsA=r.unchanged.map((e: any)=>e.a.expressID);
   const unchangedIDsB=r.unchanged.map((e: any)=>e.b.expressID);
 
-  (window as any).log('Creating subsets: added='+addedIDs.length+', removed='+removedIDs.length+', modified='+modifiedIDsA.length+', unchanged='+unchangedIDsA.length);
+  log('Creating subsets: added='+addedIDs.length+', removed='+removedIDs.length+', modified='+modifiedIDsA.length+', unchanged='+unchangedIDsA.length);
 
   // Helper to create subset and position it
   const makeSub=(modelIdx: number,ids: number[],mat: any,name: string)=>{
@@ -210,12 +211,12 @@ async function applyDiffColors(): Promise<void> {
         sub.userData.srcModelIdx=modelIdx;
         // Propagate srcModelIdx to ALL child meshes for picking
         sub.traverse(ch=>{if((ch as any).isMesh){ch.userData.srcModelIdx=modelIdx;ch.userData.diffSubset=name}});
-        (window as any).log('Subset '+name+': created with '+ids.length+' elements for model '+modelIdx);
+        log('Subset '+name+': created with '+ids.length+' elements for model '+modelIdx);
       }else{
-        (window as any).log('Subset '+name+': createSubset returned null');
+        log('Subset '+name+': createSubset returned null');
       }
       return sub;
-    }catch(e: any){(window as any).log('Subset error ('+name+'):',e.message);return null}
+    }catch(e: any){log('Subset error ('+name+'):',e.message);return null}
   };
 
   // Added: only in model B (green solid)
@@ -346,8 +347,8 @@ async function getAllProps(modelID: number): Promise<Record<string, any>> {
     }catch(e){}
   }
 
-  (window as any).log(`getAllProps method1 (by type): found ${found} entities`);
-  (window as any).log('  Types: '+Object.entries(typeCounts).map(([t,c])=>t+'='+c).join(', '));
+  log(`getAllProps method1 (by type): found ${found} entities`);
+  log('  Types: '+Object.entries(typeCounts).map(([t,c])=>t+'='+c).join(', '));
 
   // METHOD 2: Always scan ALL lines to catch entities with types not in PRODUCT_TYPES
   // This ensures we never miss elements due to unknown IFC type codes
@@ -394,8 +395,8 @@ async function getAllProps(modelID: number): Promise<Record<string, any>> {
         }
       }catch(e){}
     }
-    if(extra>0)(window as any).log(`getAllProps method2 (full scan): found ${extra} additional entities (types not in predefined list)`);
-  }catch(e: any){(window as any).log('getAllProps method2 error:',e.message)}
+    if(extra>0)log(`getAllProps method2 (full scan): found ${extra} additional entities (types not in predefined list)`);
+  }catch(e: any){log('getAllProps method2 error:',e.message)}
 
   return props;
 }

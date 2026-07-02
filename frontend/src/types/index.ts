@@ -34,6 +34,9 @@ export interface ModelBounds {
   max: THREE.Vector3;
 }
 
+// ── Router ─────────────────────────────────────────────────────────────
+export type Page = 'viewer' | 'compare' | 'clash' | 'validate' | 'field';
+
 // ── Compare types ──────────────────────────────────────────────────────
 export type CompareStatus = 'added' | 'removed' | 'changed' | 'unchanged';
 
@@ -143,6 +146,7 @@ export interface SGRule {
 }
 
 export interface SGState {
+  open?: boolean;
   results: { rules: any[]; stats: any } | null;
   gateway: string;
   cachedCtx: SGValidationContext | null;
@@ -234,6 +238,9 @@ export interface ViewCubeState {
 // ── Window interface extensions ───────────────────────────────────────
 declare global {
   interface Window {
+    // Router (hash-based page navigation)
+    navigateTo?: (page: Page) => void;
+
     // Viewer core
     zoomFit?: () => void;
     resetCam?: () => void;
@@ -397,6 +404,7 @@ declare global {
     searchToggleAdvanced?: () => void;
 
     // Field mode
+    fieldActive?: boolean;
     fieldEnterMode?: () => void;
     fieldExitMode?: () => void;
     fieldOpenLoader?: () => void;

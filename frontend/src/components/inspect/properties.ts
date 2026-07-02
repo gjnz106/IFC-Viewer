@@ -75,14 +75,17 @@ window.rpSelect = function(tab: 'props' | 'sg'){
   document.getElementById('rpTabSG')?.classList.toggle('on', tab==='sg');
   const propArea=document.getElementById('propArea') as HTMLElement|null;
   const sgEmpty=document.getElementById('rpSGEmpty') as HTMLElement|null;
-  const sgState=appState.sgState as any;
   if(propArea) propArea.style.display = tab==='props' ? '' : 'none';
   if(tab==='sg'){
-    if(sgEmpty) sgEmpty.style.display = sgState.open ? 'none' : 'flex';
-    if(!sgState.open)(window as any).toggleSGCheckPanel?.();
+    // Entering the SG tab means entering the validate page — go through the
+    // router so the bottom panel, hash and sidebar highlight stay in sync.
+    if(!appState.sgState.open) window.navigateTo?.('validate');
+    if(sgEmpty) sgEmpty.style.display = appState.sgState.open ? 'none' : 'flex';
   }else{
+    // Switching to Properties no longer force-closes the SG bottom panel:
+    // showProps() selects this tab on every element pick, and closing the
+    // panel here dragged the app out of the validate page it was on.
     if(sgEmpty) sgEmpty.style.display = 'none';
-    if(sgState.open)(window as any).toggleSGCheckPanel?.();
   }
 };
 
