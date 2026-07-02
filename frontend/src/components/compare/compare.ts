@@ -534,6 +534,13 @@ export function buildIssues() {
 }
 window.buildIssues = buildIssues;
 
+// ── Expose the category-dropdown helpers on window ──
+// color-schemes.ts and section-visibility.ts call these via window.X() after
+// visibility changes. This module owns the category dropdown / compare-tab UI;
+// the near-identical copies that used to shadow these from measure.ts were
+// removed — compare.ts is the single canonical home.
+Object.assign(window as any, { applyCatVis, buildCatDropdown, updateCatTags });
+
 // ══ Category Dropdown ══
 window.toggleCatDropdown = function () {
   const dd = document.getElementById('catDropdown');

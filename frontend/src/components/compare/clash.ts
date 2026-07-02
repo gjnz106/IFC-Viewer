@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════════════
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
+import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
@@ -331,36 +332,43 @@ function getClashFilters(side: string): any[] {
   return flat;
 }
 
+// Enter/exit are the primitives the router reconciles page state against.
+// window.toggleClashMode stays only as a navigation alias for legacy callers
+// (hidden #btnClash) — it routes through navigateTo so the hash, sidebar
+// highlight and persisted page can never drift from the real mode.
+export function enterClashMode(): void {
+  if (appState.clashMode) return;
+  // The router exits compare before entering the clash page; this guard only
+  // protects direct programmatic calls.
+  if (appState.compareResult) { log('Clash: exit compare first'); return; }
+  appState.clashMode = true;
+  document.getElementById('btnClash')!.classList.add('active');
+
+  document.getElementById('clashPanel')!.classList.add('show');
+  // Show the bottom panel resize handle (sits between 3D canvas and panel)
+  const br = document.getElementById('bresize'); if (br) br.style.display = '';
+  document.getElementById('eTree')!.style.display = 'none';
+  document.getElementById('issuesList')!.classList.remove('show');
+  document.getElementById('panelTabs')?.classList.remove('show');
+  document.getElementById('issueNav')!.classList.remove('show');
+  document.getElementById('btnRunClash')!.style.display = '';
+  document.getElementById('btnCompare')!.style.display = 'none';
+
+  if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
+  if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
+  (document.getElementById('btnRunClash') as HTMLButtonElement).disabled = !(appState.loadedModels[0] && appState.loadedModels[1]);
+
+  // Initialize default rule rows (reads loaded model categories internally)
+  initClashRulesDefault();
+  // The bottom panel just claimed ~320px of viewport height — reflow 3D
+  if ((window as any)._vpResize) (window as any)._vpResize();
+}
+
 window.toggleClashMode = function(): void {
-  if (appState.compareResult) { (window as any).log('Exit compare first'); return; }
-  appState.clashMode = !appState.clashMode;
-  document.getElementById('btnClash')!.classList.toggle('active', appState.clashMode);
-
-  if (appState.clashMode) {
-    document.getElementById('clashPanel')!.classList.add('show');
-    // Show the bottom panel resize handle (sits between 3D canvas and panel)
-    const br = document.getElementById('bresize'); if (br) br.style.display = '';
-    document.getElementById('eTree')!.style.display = 'none';
-    document.getElementById('issuesList')!.classList.remove('show');
-    document.getElementById('panelTabs')?.classList.remove('show');
-    document.getElementById('issueNav')!.classList.remove('show');
-    document.getElementById('btnRunClash')!.style.display = '';
-    document.getElementById('btnCompare')!.style.display = 'none';
-
-    if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
-    if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
-    (document.getElementById('btnRunClash') as HTMLButtonElement).disabled = !(appState.loadedModels[0] && appState.loadedModels[1]);
-
-    // Initialize default rule rows (reads loaded model categories internally)
-    initClashRulesDefault();
-    // The bottom panel just claimed ~320px of viewport height — reflow 3D
-    if ((window as any)._vpResize) (window as any)._vpResize();
-  } else {
-    window.exitClashMode();
-  }
+  window.navigateTo?.(appState.clashMode ? 'viewer' : 'clash');
 };
 
-window.exitClashMode = function(): void {
+export function exitClashMode(): void {
   appState.clashMode = false;
   document.getElementById('btnClash')!.classList.remove('active');
   document.getElementById('clashPanel')!.classList.remove('show');
@@ -401,12 +409,14 @@ window.exitClashMode = function(): void {
 
   document.getElementById('clashStats')!.style.display = 'none';
   document.getElementById('clashList')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div>';
-  document.getElementById('clashFiltersA')!.innerHTML = '';
-  document.getElementById('clashFiltersB')!.innerHTML = '';
+  // (Formerly wiped #clashFiltersA/B here — those IDs died with the pre-rule-row
+  // clash UI, so the two lines threw every exit and aborted the reflow below.
+  // Rule rows persist in clashRuleRows and re-render on the next enter.)
   // Bottom panel just released its height back to the canvas — reflow 3D
   if ((window as any)._vpResize) (window as any)._vpResize();
-  (window as any).log('Exited clash mode');
-};
+  log('Exited clash mode');
+}
+window.exitClashMode = exitClashMode;
 
 // ── Build per-element bounding boxes for a model ──
 function buildElementBBoxes(modelIdx: number): Record<number, any> {

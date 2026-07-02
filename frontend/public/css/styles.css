@@ -1372,6 +1372,12 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 }
 .sb-nav::-webkit-scrollbar { display: none; }
 
+/* Page-scoped workspace sections: the router adds .ws-hide to any
+   [data-pages] element whose list doesn't include the active page.
+   !important so it wins over the inline display toggles that feature
+   modules (compare/clash/drive) still apply on their own axis. */
+.ws-hide { display: none !important; }
+
 /* Nav items — default (collapsed) state */
 .sb-item {
   display: flex;

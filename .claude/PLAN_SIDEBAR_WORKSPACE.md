@@ -1,8 +1,19 @@
 # Phương án cải thiện: Sidebar nav + Workspace (left panel)
 
-> Trạng thái: **ĐỀ XUẤT — chưa triển khai.** Khảo sát 2026-07-02 trên branch
-> `claude/sidebar-workplace-logic-63xfkw`. File này liệt kê lỗi đã xác nhận
-> (kèm vị trí code) và kế hoạch sửa theo 4 giai đoạn.
+> Trạng thái: **ĐÃ TRIỂN KHAI ĐỦ 4 GIAI ĐOẠN** (2026-07-02, branch
+> `claude/sidebar-workplace-logic-63xfkw`). Vị trí dòng code bên dưới là theo
+> bản khảo sát trước khi sửa. Đã verify: typecheck ✓, 75 unit test ✓, build ✓,
+> smoke test Playwright 29 kịch bản ✓ (điều hướng, reconcile, restore, field guard).
+>
+> **Bug phát hiện thêm khi verify** (ngoài danh sách dưới):
+> 1. `exitClashMode` xoá `#clashFiltersA/B` — ID chết từ khi redesign clash UI sang
+>    rule-row (`#clashRulesA/B`) → **throw TypeError mỗi lần thoát clash**, nuốt luôn
+>    `_vpResize()` (canvas không reflow) và làm gãy chuỗi chuyển page của router cũ.
+>    Đã bỏ 2 dòng đó (rule rows vốn persist trong `clashRuleRows`, tự re-render khi vào lại).
+> 2. `searchDebounce` được HTML gọi qua `oninput` nhưng chưa từng gán lên `window`
+>    (search.ts chỉ expose `searchInit`/`searchRun`) → gõ chữ trong tab Search ném
+>    ReferenceError mỗi phím, live-search chết. Đã thêm vào `Object.assign(window…)`.
+>    (Phát hiện nhờ chạy đúng bước đối chiếu `onclick=` ↔ `window.*` ở mục §4.)
 
 ## 1. Hiện trạng & lỗi đã xác nhận
 
@@ -71,37 +82,42 @@
 
 ### Giai đoạn 1 — Sửa nhanh, rủi ro thấp (≈ nửa ngày)
 
-- [ ] `router.ts:25`: đổi selector thành `.sb-item[data-page]` → highlight
+- [x] `router.ts:25`: đổi selector thành `.sb-item[data-page]` → highlight
       sidebar sống lại.
-- [ ] Bỏ `data-page` khỏi Team/Settings/Invite trong `index.html`; thêm class
-      riêng (vd `sb-item-overlay`) để phân biệt nút overlay với nút page.
-- [ ] `router.ts` init: sửa ưu tiên khôi phục — nếu URL **có hash tường minh**
+- [x] Bỏ `data-page` khỏi Team/Settings/Invite trong `index.html` (triển khai:
+      chỉ cần bỏ attribute là đủ phân biệt — selector router chỉ bắt
+      `.sb-item[data-page]`, không cần class riêng).
+- [x] `router.ts` init: sửa ưu tiên khôi phục — nếu URL **có hash tường minh**
       (kể cả `#viewer`) thì hash thắng; chỉ khi hash rỗng mới đọc localStorage.
-- [ ] Guard khôi phục `field`: chỉ tự vào lại field nếu thiết bị touch
+- [x] Guard khôi phục `field`: chỉ tự vào lại field nếu thiết bị touch
       (`matchMedia('(pointer: coarse)')`) — nếu không, hạ về `viewer`.
-- [ ] Bỏ `setTimeout(120)` — gọi `applyPage` đồng bộ (mọi module đã import
+- [x] Bỏ `setTimeout(120)` — gọi `applyPage` đồng bộ (mọi module đã import
       xong trước `initRouter()`).
-- [ ] Compare → Clash: khi vào page clash mà `appState.compareResult` tồn tại,
-      router gọi `exitCompare()` trước rồi mới `toggleClashMode()`; đồng thời
-      `toggleClashMode()` hiện toast/log UI thay vì chặn im lặng.
+- [x] Compare → Clash: router `exitCompare()` trước rồi mới `enterClashMode()`
+      (triển khai rộng hơn: compare result chỉ sống trong page compare — rời
+      page compare là exit; guard trong `enterClashMode` giờ chỉ còn là
+      safety-net cho caller trực tiếp, log qua `log()` thay vì ném TypeError
+      như cũ — `(window as any).log` vốn chưa từng được gán).
 
 ### Giai đoạn 2 — Một nguồn sự thật cho page/mode (≈ 1 ngày)
 
 Mục tiêu: **router là cổng duy nhất** đổi page; mode module chỉ expose
 `enter/exit`, không tự quản lý điều hướng.
 
-- [ ] Thêm `appState.activePage` (store) — bỏ biến cục bộ `activePage` trong
+- [x] Thêm `appState.activePage` (store) — bỏ biến cục bộ `activePage` trong
       router; `applyPage` viết vào store.
-- [ ] Biến `applyPage` thành **reconcile idempotent**: khai báo trạng thái
+- [x] Biến `applyPage` thành **reconcile idempotent**: khai báo trạng thái
       mong muốn theo page (`{clash: bool, sg: bool, field: bool}`), so với
       trạng thái thực (`appState.clashMode`, `sgState.open`, `fieldActive`)
       rồi enter/exit phần lệch. Bỏ early-return theo `activePage` (hết bẫy §4).
-- [ ] Các nút header (`btnClash`, `btnSGCheck`, `btnExitClash`, Field) đổi
+- [x] Các nút header (`btnClash`, `btnSGCheck`, `btnExitClash`, Field) đổi
       sang `navigateTo('clash' | 'validate' | 'viewer' | 'field')`. Đường tắt
       trong `properties.ts` (auto mở SG khi click phần tử fail) cũng đi qua
       `navigateTo('validate')`.
-- [ ] `fieldExitMode` giữ nguyên (`navigateTo('viewer')` — đã đúng hướng).
-- [ ] Phát event `window.dispatchEvent(new CustomEvent('ifc:pagechange', {detail:{page}}))`
+- [x] Field mode (triển khai: đảo chiều so với đề xuất — `exitFieldMode` KHÔNG
+      gọi `navigateTo` nữa vì giờ router gọi nó khi reconcile; nút Desktop
+      trong field UI và hint touch-device đổi sang `navigateTo('viewer'/'field')`).
+- [x] Phát event `window.dispatchEvent(new CustomEvent('ifc:pagechange', {detail:{page}}))`
       để module khác (drive, ai, persist) phản ứng mà không cần router biết họ.
 
 ### Giai đoạn 3 — Workspace thích ứng theo page (≈ 1–1.5 ngày)
@@ -109,7 +125,7 @@ Mục tiêu: **router là cổng duy nhất** đổi page; mode module chỉ exp
 Mục tiêu: left panel chỉ hiện những section liên quan tới page hiện tại,
 khai báo bằng attribute thay vì rải `style.display` theo ID trong router.
 
-- [ ] Gắn `data-pages="…"` cho từng section trong `#leftPanel`
+- [x] Gắn `data-pages="…"` cho từng section trong `#leftPanel`
       (`index.html`), ví dụ:
       | Section | viewer | compare | clash | validate |
       |---|---|---|---|---|
@@ -117,28 +133,31 @@ khai báo bằng attribute thay vì rải `style.display` theo ID trong router.
       | Upload card B + Run Compare | | ✓ | ✓ | |
       | Federation slots | ✓ | ✓ | ✓ | ✓ |
       | Google Drive panel | ✓ | ✓ | | |
-      | Summary strip + filter + category | | ✓ | | |
+      | Summary strip + filter chips | | ✓ | | |
+      | Category Filter | ✓ | ✓ | ✓ | ✓ |
       | Tabs Entity Tree / Issues / Search | ✓ (Search) | ✓ | | |
-      (bảng trên là đề xuất khởi điểm — chốt với team trước khi làm)
-- [ ] Router thêm 1 hàm `applyWorkspace(page)`: một vòng
+      (đã chốt như trên khi triển khai — Category Filter giữ ở mọi page vì nó
+      là công cụ lọc hiển thị của cả view mode, không riêng compare)
+- [x] Router thêm 1 hàm `applyWorkspace(page)`: một vòng
       `querySelectorAll('[data-pages]')` toggle hidden — xoá các đoạn toggle
       lẻ tẻ theo ID (`odPanel`, `projectDriveViewerCard`) hiện tại.
-- [ ] Khi **rời** page compare: gỡ `.show` khỏi `sumStrip/filterB/catFilter`;
-      quyết định chính sách với compare result đang mở — đề xuất: giữ
-      `compareResult` trong state nhưng ẩn overlay 3D khi sang viewer, gọi
-      `exitCompare()` thật sự khi vào clash (vì clash yêu cầu thoát compare).
-- [ ] Đổi nhãn upload card theo page: page viewer hiển thị "Model" thay vì
+- [x] Chính sách compare result (triển khai đơn giản hơn đề xuất): compare
+      result **chỉ sống trong page compare** — rời page compare (bất kể sang
+      đâu) là router gọi `exitCompare()` thật sự; hàm này vốn đã gỡ `.show`
+      khỏi `sumStrip/searchW/filterB` + khôi phục material. Dự đoán được,
+      không có trạng thái "kết quả ẩn nửa vời".
+- [x] Đổi nhãn upload card theo page: page viewer hiển thị "Model" thay vì
       "Version A — Baseline" (chỉ đổi text, cùng slot 0).
 
 ### Giai đoạn 4 — Dọn trùng lặp & chốt hành vi (≈ nửa ngày)
 
-- [ ] Xoá `setFilter`/`switchTab`/`filterIssuesList`/hàm diff-visibility trùng
+- [x] Xoá `setFilter`/`switchTab`/`filterIssuesList`/hàm diff-visibility trùng
       trong `tools/measure.ts` (bản đang "thắng" nhờ thứ tự import); giữ một
       bản duy nhất trong `compare/compare.ts`, export cho nơi khác import.
       So khớp 2 bản trước khi xoá để không mất khác biệt hành vi nào.
-- [ ] `state-persist.ts`: lưu thêm `appState.activePage` cùng nhóm panel để
-      restore panel + page nhất quán trong 1 lần.
-- [ ] Cập nhật `.claude/ARCHITECTURE.md` (mục ui/router) mô tả luồng mới.
+- [x] Persist page: router tự lưu `ifc.page` trong `applyPage()` (mỗi lần đổi
+      page, không chờ autosave 30s) — không cần đụng `state-persist.ts`.
+- [x] Cập nhật `.claude/ARCHITECTURE.md` (mục ui/router) mô tả luồng mới.
 
 ## 3. Kiểm thử
 

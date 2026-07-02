@@ -8,6 +8,7 @@ import type {
   SGState,
   AIIndex,
   ViewCubeState,
+  Page,
 } from '../types/index.js';
 
 // Central mutable application state.
@@ -31,6 +32,7 @@ export const appState = {
   fedNextSlot: 2,
 
   // ── UI state ─────────────────────────────────────────────────────────
+  activePage: 'viewer' as Page,
   ctxTarget: null as any,
   activeCategories: new Set<string>(),
   modelBounds: {

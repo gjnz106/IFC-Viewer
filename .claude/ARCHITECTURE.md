@@ -56,8 +56,26 @@ frontend/index.html (Vite shell)
 | integrations | `integrations/ai.ts` | Trợ lý AI: data index · query tools (count/sum) · chat UI |
 | ui | `ui/ui-shell.ts` | Vỏ UI: topbar, sidebar, panel toggles, menu |
 | ui | `ui/fieldmode.ts` | Field mode (tablet/công trường): touch, joystick, storey, plan 2D |
-| ui | `ui/router.ts` | Router hash-based (viewer/compare/clash/validate/field) |
+| ui | `ui/router.ts` | Router hash-based — **nguồn sự thật duy nhất** cho page/mode (xem dưới) |
 | ui | `ui/state-persist.ts` | Lưu/khôi phục UI prefs qua LocalStorage |
+
+### Router & workspace (ui/router.ts)
+
+- `navigateTo(page)` là cổng duy nhất đổi page (`viewer/compare/clash/validate/field`).
+  Mọi entry point — sidebar nav, nút header (SG Check, Field), tab SG ở right panel,
+  nút Desktop trong Field mode, hint touch — đều gọi `navigateTo`, không tự bật/tắt mode.
+- `applyPage()` **reconcile idempotent**: so trạng thái thực (`appState.clashMode`,
+  `sgState.open`, `fieldActive`, `compareResult`) với trạng thái page mong muốn rồi
+  enter/exit phần lệch qua các primitive export: `enterClashMode/exitClashMode`
+  (clash.ts), `sgSetPanel` (validator-export.ts), `enterFieldMode/exitFieldMode`
+  (fieldmode.ts). Compare result chỉ sống trong page compare — rời page là `exitCompare()`.
+- `window.toggleClashMode` / `window.toggleSGCheckPanel` chỉ còn là alias điều hướng
+  (gọi `navigateTo`) cho caller cũ.
+- Page hiện hành: `appState.activePage`; đổi page phát event `ifc:pagechange`
+  (`window.dispatchEvent`), lưu `localStorage['ifc.page']`.
+- **Workspace theo page:** section trong `#leftPanel` khai báo `data-pages="a b c"`
+  trong `index.html`; router toggle class `.ws-hide` (display:none !important) —
+  trục riêng, không đụng inline `display`/`.show` mà các module tính năng tự quản.
 
 Thứ tự khởi tạo: `frontend/src/main.ts` (auth → core → tools → compare → validate →
 integrations → ui → router/persist).
