@@ -743,11 +743,16 @@ export function initThree(): void {
   // Only the cheap handle-size rescaling runs per frame.
   (function loop(){
     requestAnimationFrame(loop);
-    // Apply any pending smooth wheel-zoom BEFORE controls.update() so that
-    // damping picks up the small camera movement each frame — gives Revit-
-    // like glide instead of a series of instant steps.
-    applyZoomVelocity();
-    appState.controls.update();
+    // In walk mode the walk loop owns the camera — running OrbitControls.update()
+    // (and wheel-zoom) here as well makes the two fight over the camera each
+    // frame, which reads as stutter. Skip them while walking.
+    if(!appState.walkActive){
+      // Apply any pending smooth wheel-zoom BEFORE controls.update() so that
+      // damping picks up the small camera movement each frame — gives Revit-
+      // like glide instead of a series of instant steps.
+      applyZoomVelocity();
+      appState.controls.update();
+    }
     // NOTE: previously guarded by `if((window as any).sectionBox)`, but
     // `sectionBox` (the existence flag) was never actually assigned to
     // `window` — only the function itself was — so that guard was always
