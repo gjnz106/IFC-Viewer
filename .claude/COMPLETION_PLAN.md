@@ -14,7 +14,7 @@
 
 | Phase | Nội dung | Status |
 |------:|----------|--------|
-| 0 | Khôi phục hosting + standalone review | ✅ Done — PR #<tbd> |
+| 0 | Khôi phục hosting + standalone review | ✅ Done — PR #42 |
 | 1 | Sửa bug chức năng (XSS, clash, smart-match) | ✅ Done — PR #41 |
 | 2 | Bộ nhớ & hiệu năng | ⬜ Not started |
 | 3 | Độ chính xác Compare (geometry hash) | ⬜ Not started |
@@ -26,7 +26,7 @@ Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #
 ---
 
 ## Phase 0 — Khôi phục hosting + standalone review ✅ Done
-**Status:** ✅ Done — PR #<tbd> (2026-07-05)
+**Status:** ✅ Done — PR #42 (2026-07-05)
 
 Người dùng xác nhận **hosting = Vercel + Firebase tại https://ifc.t3lab.space** (KHÔNG dùng
 GitHub Pages — URL `gjnz106.github.io/IFC-Viewer` bị bỏ). `vercel.json`/`firebase.json` đã
