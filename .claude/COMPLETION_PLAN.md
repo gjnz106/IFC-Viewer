@@ -14,7 +14,7 @@
 
 | Phase | Nội dung | Status |
 |------:|----------|--------|
-| 0 | Khôi phục hosting | ⬜ Not started |
+| 0 | Khôi phục hosting + standalone review | ✅ Done — PR #<tbd> |
 | 1 | Sửa bug chức năng (XSS, clash, smart-match) | ✅ Done — PR #41 |
 | 2 | Bộ nhớ & hiệu năng | ⬜ Not started |
 | 3 | Độ chính xác Compare (geometry hash) | ⬜ Not started |
@@ -25,21 +25,22 @@ Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #
 
 ---
 
-## Phase 0 — Khôi phục hosting
-**Status:** ⬜ Not started
+## Phase 0 — Khôi phục hosting + standalone review ✅ Done
+**Status:** ✅ Done — PR #<tbd> (2026-07-05)
 
-App đã chuyển sang `frontend/` (Vite); root `index.html` cũ bị xoá nên GitHub Pages
-hiển thị README. Cần đưa app trở lại một URL công khai.
+Người dùng xác nhận **hosting = Vercel + Firebase tại https://ifc.t3lab.space** (KHÔNG dùng
+GitHub Pages — URL `gjnz106.github.io/IFC-Viewer` bị bỏ). `vercel.json`/`firebase.json` đã
+build `frontend` → `frontend/dist`, có SPA rewrite + header WASM đúng → cấu hình hợp lệ,
+không cần workflow Pages.
 
-- [ ] Quyết định hướng: **(a)** GitHub Actions build `frontend/dist` → deploy Pages
-      (giữ URL `gjnz106.github.io/IFC-Viewer`; cần Settings→Pages→Source = GitHub Actions),
-      hoặc **(b)** dùng Vercel/Firebase `ifc.t3lab.space` (đã có `vercel.json`/`firebase.json`).
-- [ ] Nếu (a): thêm `.github/workflows/deploy-pages.yml` (checkout → setup-node → `npm install`
-      → `npm run build --workspace=frontend` → upload-pages-artifact `frontend/dist` →
-      deploy-pages). Vite `base: './'` đã hợp cho subpath.
-- [ ] Xác nhận WASM web-ifc + asset load đúng dưới subpath.
-- **Done khi:** mở được app đã build trên URL công khai.
-- ⚠️ Cần người dùng chọn (a)/(b) và bật Pages source nếu (a) → nếu chưa rõ, HỎI trước khi làm.
+- [x] Chốt hosting: Vercel/Firebase (bỏ Pages).
+- [x] Rà `vercel.json`/`firebase.json`: buildCommand + outputDirectory + rewrites + WASM headers OK.
+- [x] **Bản standalone review** (yêu cầu người dùng): `npm run build:standalone` → 1 file
+      `frontend/dist-standalone/index.html` tự chứa; web-ifc WASM tải từ CDN qua
+      `window.__WASM_BASE__` (mở được từ `file://`). `vite.config.standalone.ts` +
+      `viteSingleFile`. `setWasmPath` giờ đọc `window.__WASM_BASE__` (production không đổi).
+- [x] Quy trình `/ifc` cập nhật: mỗi update tự build + gửi file standalone cho người dùng review.
+- **Done khi:** app chạy ở ifc.t3lab.space + mỗi update có file standalone để review. ✅
 
 ## Phase 1 — Sửa bug chức năng ✅ Done — PR #41
 **Status:** ✅ Done — PR #41 (2026-07-05)

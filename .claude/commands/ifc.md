@@ -32,7 +32,14 @@ Bạn đang tự động thực thi kế hoạch hoàn thiện app IFC Delta. L�
      `/opt/pw-browsers/chromium-*/chrome-linux/chrome`, kiểm tra 0 pageerror) khi khả thi.
    - Nếu có gì fail → sửa cho pass; nếu bế tắc → DỪNG, báo rõ chỗ kẹt, KHÔNG commit.
 
-6. **Commit + push + PR (draft):**
+6. **Bản standalone để review (bắt buộc mỗi update):**
+   - Chạy `npm run build:standalone --workspace=frontend` → tạo `frontend/dist-standalone/index.html`
+     (1 file HTML tự chứa; web-ifc WASM tải từ CDN qua `window.__WASM_BASE__` để mở được từ `file://`).
+   - Smoke-test headless (mở file bằng Chromium, kiểm tra 0 pageerror).
+   - **Gửi file cho người dùng bằng `SendUserFile`** (đổi tên có ngày, ví dụ `IFC-Delta-review-<YYYYMMDD>.html`),
+     kèm caption ngắn nói phase nào + review thế nào — TRƯỚC hoặc CÙNG khi mở PR để họ review trước khi merge.
+
+7. **Commit + push + PR (draft):**
    - Chỉ `git add` các file đã đổi (đừng add `frontend/dist`).
    - Commit message rõ ràng (dùng `-F <file>` nếu message có ký tự đặc biệt/backtick).
      Kết thúc bằng:
@@ -42,7 +49,7 @@ Bạn đang tự động thực thi kế hoạch hoàn thiện app IFC Delta. L�
    - `git push -u origin claude/festive-ride-ftow0a`.
    - Mở **draft PR** vào `main` (dùng GitHub MCP). KHÔNG tự merge — để người dùng merge.
 
-7. **Cập nhật status ở HAI nơi:**
+8. **Cập nhật status ở HAI nơi:**
    - **Repo:** trong `.claude/COMPLETION_PLAN.md` đổi `Status:` của phase → `✅ Done — PR #<n> (<ngày>)`,
      tick các checkbox `[ ]`→`[x]`, cập nhật bảng tổng quan. Commit thay đổi này cùng PR.
    - **Notion:** cập nhật page `394e88f5-1f7d-81ae-a852-e6e45f0d1570` (dùng Notion MCP:
@@ -50,8 +57,8 @@ Bạn đang tự động thực thi kế hoạch hoàn thiện app IFC Delta. L�
      Nếu Notion MCP chưa kết nối trong phiên này → ghi chú "Notion chưa kết nối, bỏ qua" và tiếp tục
      (đừng để lỗi Notion chặn việc còn lại).
 
-8. **Báo cáo** ngắn gọn: đã làm phase nào, thay đổi chính, kết quả verify, link PR, status mới.
-   Rồi DỪNG (một phase mỗi lần).
+9. **Báo cáo** ngắn gọn: đã làm phase nào, thay đổi chính, kết quả verify, link PR + file standalone,
+   status mới. Rồi DỪNG (một phase mỗi lần).
 
 ## Nguyên tắc
 - Một phase/lần. Không gộp nhiều phase trừ khi người dùng yêu cầu.
