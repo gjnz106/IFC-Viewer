@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { escapeHtml } from '../../lib/escape.js';
 
 // ── NOTE: This module is the continuation of doCompare() (which starts in
 //    08-federation-load.js / federation-load.ts) PLUS the compare-mode UI
@@ -182,24 +183,34 @@ function doCompare(a: Record<string, any>, b: Record<string, any>): any {
 
       let score = 0;
 
-      // Exact name match = strong signal
-      if (ea.name && eb.name && ea.name === eb.name) score += 10;
-      // Same objectType
-      if (ea.objectType && eb.objectType && ea.objectType === eb.objectType) score += 5;
-      // Same tag (Revit ElementId) = very strong signal
-      if (ea.tag && eb.tag && ea.tag === eb.tag) score += 20;
-      // Similar name (contains same base name)
+      // Identity signals from Name / Tag. A match MUST have at least one of
+      // these — ObjectType alone is not enough. Otherwise, when many identical
+      // same-type/same-ObjectType instances are added and a few removed
+      // (e.g. 10 new + 3 deleted doors of one type), the greedy loop pairs
+      // arbitrary unrelated elements as "modified (Recreated)".
+      const exactName = !!(ea.name && eb.name && ea.name === eb.name);
+      const tagMatch = !!(ea.tag && eb.tag && ea.tag === eb.tag);
+      let baseMatch = false;
       if (ea.name && eb.name) {
         const baseA = ea.name.replace(/[:\-\.]\d+$/, '').trim();
         const baseB = eb.name.replace(/[:\-\.]\d+$/, '').trim();
-        if (baseA && baseB && baseA === baseB) score += 8;
+        baseMatch = !!(baseA && baseB && baseA === baseB);
       }
 
-      if (score > bestScore) { bestScore = score; bestIdx = j; }
+      if (exactName) score += 10;
+      // Same objectType — a supporting signal only, never sufficient on its own
+      if (ea.objectType && eb.objectType && ea.objectType === eb.objectType) score += 5;
+      if (tagMatch) score += 20;      // Revit ElementId — very strong
+      if (baseMatch) score += 8;      // same base name (family), differing suffix
+
+      // Require real Name/Tag evidence to qualify as the same element.
+      const qualified = exactName || tagMatch || baseMatch;
+      if (qualified && score > bestScore) { bestScore = score; bestIdx = j; }
     }
 
-    // If we found a good match (score >= 5), treat as Modified
-    if (bestIdx >= 0 && bestScore >= 5) {
+    // Only qualified candidates ever set bestIdx, so ObjectType-only never
+    // reaches here. Keep the score floor as a secondary guard.
+    if (bestIdx >= 0 && bestScore >= 8) {
       const eb = unmatchedB[bestIdx];
       matchedA.add(i);
       matchedB.add(bestIdx);
@@ -393,9 +404,11 @@ export function renderTree() {
     const na = list.filter(e => e.status === 'added').length, nr = list.filter(e => e.status === 'removed').length, nm = list.filter(e => e.status === 'modified').length;
     const badges = [na ? `<span class="tg-b ba">+${na}</span>` : '', nr ? `<span class="tg-b br">−${nr}</span>` : '', nm ? `<span class="tg-b bm">~${nm}</span>` : ''].filter(Boolean).join('');
     const col = appState.activeFilter === 'all' && list.length > 20 && !list.some(e => e.status !== 'unchanged');
-    html += `<div><div class="tg-hdr" onclick="togG(this)"><span class="tg-arr${col ? ' col' : ''}">▼</span><span class="tg-n">${type} (${list.length})</span>${badges}</div><div class="tg-items${col ? ' col' : ''}">`;
+    html += `<div><div class="tg-hdr" onclick="togG(this)"><span class="tg-arr${col ? ' col' : ''}">▼</span><span class="tg-n">${escapeHtml(type)} (${list.length})</span>${badges}</div><div class="tg-items${col ? ' col' : ''}">`;
     list.slice(0, 150).forEach(e => { const en = e.entity || e.a || e.b;
-      html += `<div class="ti" data-g="${e.gid}" onclick="selI('${e.gid}')"><div class="ti-dot ${e.status}"></div><span class="ti-nm">${en?.name || '(unnamed)'}</span><span class="ti-id">${e.status}</span></div>`;
+      // GlobalId goes only into a data- attribute (escaped); the click handler
+      // reads it back off the element, so it never enters a JS string literal.
+      html += `<div class="ti" data-g="${escapeHtml(e.gid)}" onclick="selIEl(this)"><div class="ti-dot ${e.status}"></div><span class="ti-nm">${escapeHtml(en?.name || '(unnamed)')}</span><span class="ti-id">${e.status}</span></div>`;
     });
     if (list.length > 150) html += `<div style="padding:4px 26px;font-size:12px;color:var(--text-muted)">+${list.length - 150} more</div>`;
     html += '</div></div>';
@@ -409,9 +422,16 @@ window.selI = function (gid: string) {
   const r = appState.compareResult, all = [...r.added, ...r.removed, ...r.modified, ...r.unchanged];
   const item = all.find(e => e.gid === gid); if (!item) return;
   document.querySelectorAll('.ti').forEach(e => e.classList.remove('sel'));
-  const el = document.querySelector(`.ti[data-g="${gid}"]`); if (el) { el.classList.add('sel'); el.scrollIntoView({ block: 'nearest' }); }
+  const cssEsc = (window as any).CSS?.escape ? (window as any).CSS.escape(gid) : gid;
+  const el = document.querySelector(`.ti[data-g="${cssEsc}"]`); if (el) { el.classList.add('sel'); el.scrollIntoView({ block: 'nearest' }); }
   const ent = item.entity || item.a || item.b;
   showEntityProps(item, ent);
+};
+// Row click handler — reads the GlobalId from the element's data- attribute
+// instead of receiving it inline, so IFC-controlled GlobalIds never get
+// interpolated into an onclick JS string.
+(window as any).selIEl = function (el: HTMLElement) {
+  const gid = el?.dataset?.g; if (gid != null) window.selI!(gid);
 };
 
 function showEntityProps(item: any, ent: any) {
@@ -419,13 +439,13 @@ function showEntityProps(item: any, ent: any) {
   const bg: Record<string, string> = { added: 'var(--green-lt)', removed: 'var(--red-lt)', modified: 'var(--amber-lt)', unchanged: 'var(--blue-lt)' };
   let h = `<div style="padding:8px 12px;background:${bg[item.status]};border-bottom:1px solid var(--border)"><span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:${c[item.status]}">${item.status.toUpperCase()}</span></div>
   <div class="ps"><div class="ps-t">Identity</div>
-  <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:10px">${ent?.globalId || '—'}</div></div>
-  <div class="pr"><div class="pk">Type</div><div class="pv">${ent?.type || '—'}</div></div>
-  <div class="pr"><div class="pk">Name</div><div class="pv">${ent?.name || '—'}</div></div>
-  <div class="pr"><div class="pk">Tag</div><div class="pv">${ent?.tag || '—'}</div></div></div>`;
+  <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:10px">${escapeHtml(ent?.globalId) || '—'}</div></div>
+  <div class="pr"><div class="pk">Type</div><div class="pv">${escapeHtml(ent?.type) || '—'}</div></div>
+  <div class="pr"><div class="pk">Name</div><div class="pv">${escapeHtml(ent?.name) || '—'}</div></div>
+  <div class="pr"><div class="pk">Tag</div><div class="pv">${escapeHtml(ent?.tag) || '—'}</div></div></div>`;
   if (item.diffs) {
     h += `<div class="ps"><div class="ps-t">Changes (${item.diffs.length})</div>`;
-    item.diffs.forEach((d: any) => { h += `<div class="pr"><div class="pk">${d.prop}</div><div class="pv"><div class="dv-old">${d.oldVal}</div><div class="dv-new" style="margin-top:2px">${d.newVal}</div></div></div>`; });
+    item.diffs.forEach((d: any) => { h += `<div class="pr"><div class="pk">${escapeHtml(d.prop)}</div><div class="pv"><div class="dv-old">${escapeHtml(d.oldVal)}</div><div class="dv-new" style="margin-top:2px">${escapeHtml(d.newVal)}</div></div></div>`; });
     h += '</div>';
   }
   const propArea = document.getElementById('propArea');
@@ -518,10 +538,10 @@ export function buildIssues() {
         <div class="issue-hdr">
           <span class="issue-num">#${iss.num}</span>
           <span class="issue-status ${iss.status}">${iss.status.toUpperCase()}</span>
-          <span class="issue-type">${(iss.type || '').replace('Ifc', '')}</span>
+          <span class="issue-type">${escapeHtml((iss.type || '').replace('Ifc', ''))}</span>
         </div>
-        <div class="issue-name">${iss.name}</div>
-        <div class="issue-detail">${iss.detail}</div>
+        <div class="issue-name">${escapeHtml(iss.name)}</div>
+        <div class="issue-detail">${escapeHtml(iss.detail)}</div>
       </div>`;
     });
   }
@@ -574,7 +594,7 @@ function buildCatDropdown(filter = '') {
     if (info.added) changes.push(`<span class="cat-dd-ch a">+${info.added}</span>`);
     if (info.removed) changes.push(`<span class="cat-dd-ch r">−${info.removed}</span>`);
     if (info.modified) changes.push(`<span class="cat-dd-ch m">~${info.modified}</span>`);
-    html += `<label class="cat-dd-item"><input type="checkbox" class="cat-dd-cb" data-cat="${cat}" ${checked} onchange="onCatCheck()"><span class="cat-dd-name">${name}</span><span class="cat-dd-changes">${changes.join('')}</span><span class="cat-dd-count">${info.total}</span></label>`;
+    html += `<label class="cat-dd-item"><input type="checkbox" class="cat-dd-cb" data-cat="${escapeHtml(cat)}" ${checked} onchange="onCatCheck()"><span class="cat-dd-name">${escapeHtml(name)}</span><span class="cat-dd-changes">${changes.join('')}</span><span class="cat-dd-count">${info.total}</span></label>`;
   });
   const catList = document.getElementById('catList');
   if (catList) catList.innerHTML = html;
@@ -640,7 +660,7 @@ function updateCatTags() {
   let html = '';
   appState.activeCategories.forEach(cat => {
     const name = cat.replace('Ifc', '').replace('IFC_', '');
-    html += `<span class="cat-tag">${name}<span class="tag-x" onclick="event.stopPropagation();removeCatTag('${cat}')">×</span></span>`;
+    html += `<span class="cat-tag">${escapeHtml(name)}<span class="tag-x" onclick="event.stopPropagation();removeCatTag('${escapeHtml(cat)}')">×</span></span>`;
   });
   tags.innerHTML = html;
 }

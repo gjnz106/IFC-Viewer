@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
+import { escapeHtml, escapeCsv } from '../../lib/escape.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
 (window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
@@ -12,6 +13,8 @@ import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
 // Module-level variables (not in appState)
 let clashSubsets: THREE.Group[] = [];
 let currentClashIdx = -1;
+// Warning banner text when the candidate cap was hit (some pairs not checked).
+let _clashCapNote = '';
 let clashFilterCounterA = 0, clashFilterCounterB = 0;
 let clashPropertyCacheA: Record<number, any> = {}, clashPropertyCacheB: Record<number, any> = {}; // eid→{propName:value}
 
@@ -118,7 +121,7 @@ function renderClashRules(side: string): void {
     return;
   }
   const elTypes = getClashElementTypes(side);
-  const escA = (s: any) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const escA = escapeHtml; // shared escaper (also handles > and ')
   let html = '';
   rows.forEach((r, i) => {
     const typeOpts = ['<option value="">— select —</option>']
@@ -475,6 +478,16 @@ function bboxPenetration(a: any, b: any): number {
   return Math.min(ox, oy, oz); // penetration depth = smallest overlap axis
 }
 
+// Euclidean separation between two AABBs (0 when they overlap on every axis).
+// Used for true clearance / near-miss detection: bboxPenetration only measures
+// overlap depth and is 0 for separated boxes, so it can never surface a gap.
+function bboxGap(a: any, b: any): number {
+  const dx = Math.max(0, a.mnX - b.mxX, b.mnX - a.mxX);
+  const dy = Math.max(0, a.mnY - b.mxY, b.mnY - a.mxY);
+  const dz = Math.max(0, a.mnZ - b.mxZ, b.mnZ - a.mxZ);
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
 // ── Sample-based mesh intersection test ──
 // Instead of full triangle-triangle intersection (very expensive),
 // we sample vertices from element A and check if any are inside element B's bbox
@@ -650,7 +663,9 @@ window.runClashDetection = async function(): Promise<void> {
 
   // ── Phase 4: Mesh intersection + property enrichment ──
   appState.clashResults = [];
-  const maxCheck = Math.min(candidates.length, 2000);
+  const CAND_CAP = 2000;
+  const capped = candidates.length > CAND_CAP;   // note if we drop candidates
+  const maxCheck = Math.min(candidates.length, CAND_CAP);
   candidates.sort((a, b) => b.penetration - a.penetration);
   const skipTypes = new Set(['IfcSpace', 'IfcSite', 'IfcBuilding', 'IfcBuildingStorey', 'IfcProject']);
 
@@ -664,7 +679,14 @@ window.runClashDetection = async function(): Promise<void> {
     if (clashTypeFilter === 'hard' && !isHard) continue;
     if (clashTypeFilter === 'clearance' && isHard) continue;
 
-    if (isHard || penetration > tolerance) {
+    // Acceptance:
+    //  • hard clash → geometry actually intersects
+    //  • clearance   → real gap between boxes is within the minimum distance
+    //    (bboxGap, not penetration which is 0 for separated boxes — the old
+    //    `penetration > tolerance` test silently dropped every near-miss).
+    const gap = isHard ? 0 : bboxGap(a, b);
+    const accept = isHard || gap <= tolerance;
+    if (accept) {
       const entA = clashPropertyCacheA[a.eid] || {};
       const entB = clashPropertyCacheB[b.eid] || {};
       const typeA = entA.type || '';
@@ -676,7 +698,9 @@ window.runClashDetection = async function(): Promise<void> {
         idx: appState.clashResults.length,
         elA: { eid: a.eid, name: entA.name || '', type: typeA, objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: a },
         elB: { eid: b.eid, name: entB.name || '', type: typeB, objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: 1, bbox: b },
-        penetration, isHard,
+        // For clearances the displayed distance is the gap; for hard clashes it's
+        // the penetration depth. `gap` kept separately for reporting.
+        penetration: isHard ? penetration : gap, gap, isHard,
         verticesAinB: meshTest.verticesAinB,
         verticesBinA: meshTest.verticesBinA,
         point: {
@@ -692,6 +716,15 @@ window.runClashDetection = async function(): Promise<void> {
       lf.style.width = (60 + 30 * (i / maxCheck)) + '%';
       await new Promise(r => setTimeout(r, 0));
     }
+  }
+
+  // If we hit the candidate cap, some pairs were never mesh-tested — make that
+  // explicit instead of letting the user believe the run was exhaustive.
+  if (capped) {
+    _clashCapNote = `⚠️ Chỉ kiểm tra ${maxCheck.toLocaleString()} / ${candidates.length.toLocaleString()} cặp gần nhau nhất (giới hạn để tránh treo). Thu hẹp Source/Target set để quét đầy đủ.`;
+    log(`Clash: candidate cap hit — checked ${maxCheck} of ${candidates.length} bbox candidates (deepest first). Narrow the sets for a complete run.`);
+  } else {
+    _clashCapNote = '';
   }
 
   log(`Clash detection complete: ${appState.clashResults.length} clashes found`);
@@ -808,13 +841,14 @@ function showClashResults(): void {
         <span class="cc-num">#${i + 1} ${cl.isHard ? '⛔' : '⚠️'}</span>
         <span class="cc-dist">${penMM}mm</span>
       </div>
-      <div class="cc-el">A: ${cl.elA.name || '#' + cl.elA.eid}</div>
-      <div class="cc-type">${(cl.elA.type || '').replace('Ifc', '')}</div>
-      <div class="cc-el" style="margin-top:2px">B: ${cl.elB.name || '#' + cl.elB.eid}</div>
-      <div class="cc-type">${(cl.elB.type || '').replace('Ifc', '')}</div>
+      <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
+      <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
+      <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
+      <div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>
     </div>`;
   });
   if (!html) html = '<div style="padding:20px;text-align:center;color:var(--green);font-size:14px;font-weight:600">✓ No clashes detected!</div>';
+  if (_clashCapNote) html = `<div style="margin:6px 8px;padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;font-size:11.5px;color:var(--text-dim);line-height:1.4">${escapeHtml(_clashCapNote)}</div>` + html;
   document.getElementById('clashList')!.innerHTML = html;
 }
 
@@ -830,10 +864,10 @@ window.regroupClashes = function(): void {
       const penMM = (cl.penetration * 1000).toFixed(0);
       html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
         <div class="cc-hdr"><span class="cc-num">#${i + 1} ${cl.isHard ? '⛔' : '⚠️'}</span><span class="cc-dist">${penMM}mm</span></div>
-        <div class="cc-el">A: ${cl.elA.name || '#' + cl.elA.eid}</div>
-        <div class="cc-type">${(cl.elA.type || '').replace('Ifc', '')}</div>
-        <div class="cc-el" style="margin-top:2px">B: ${cl.elB.name || '#' + cl.elB.eid}</div>
-        <div class="cc-type">${(cl.elB.type || '').replace('Ifc', '')}</div>
+        <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
+        <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
+        <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
+        <div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>
       </div>`;
     });
     list.innerHTML = html;
@@ -863,7 +897,7 @@ window.regroupClashes = function(): void {
     const gid = 'cg_' + key.replace(/\W/g, '_');
     html += `<div class="clash-group-hdr" onclick="toggleClashGroup('${gid}')">
       <span class="cg-arr" id="arr_${gid}">▼</span>
-      <span>${key.replace('Ifc', '')}</span>
+      <span>${escapeHtml(key.replace('Ifc', ''))}</span>
       <span class="cg-count">${items.length}</span>
     </div>
     <div class="clash-group-body" id="body_${gid}">`;
@@ -871,8 +905,8 @@ window.regroupClashes = function(): void {
       const penMM = (cl.penetration * 1000).toFixed(0);
       html += `<div class="clash-card" id="clash-${origIdx}" onclick="focusClash(${origIdx})">
         <div class="cc-hdr"><span class="cc-num">#${origIdx + 1} ${cl.isHard ? '⛔' : '⚠️'}</span><span class="cc-dist">${penMM}mm</span></div>
-        <div class="cc-el">A: ${cl.elA.name || '#' + cl.elA.eid}</div>
-        <div class="cc-el" style="margin-top:1px">B: ${cl.elB.name || '#' + cl.elB.eid}</div>
+        <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
+        <div class="cc-el" style="margin-top:1px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
       </div>`;
     });
     html += `</div>`;
@@ -984,19 +1018,19 @@ window.focusClash = function(idx: number): void {
     <span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:var(--red)">CLASH #${idx + 1} — ${cl.isHard ? 'HARD CLASH' : 'CLEARANCE'}</span>
   </div>
   <div class="ps"><div class="ps-t">Clash Info</div>
-    <div class="pr"><div class="pk">Penetration</div><div class="pv" style="color:var(--red);font-weight:700">${penMM} mm</div></div>
-    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.isHard ? 'Hard (geometry intersects)' : 'Clearance (bbox overlap)'}</div></div>
+    <div class="pr"><div class="pk">${cl.isHard ? 'Penetration' : 'Gap'}</div><div class="pv" style="color:${cl.isHard ? 'var(--red)' : 'var(--amber)'};font-weight:700">${penMM} mm</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.isHard ? 'Hard (geometry intersects)' : 'Clearance (within min distance)'}</div></div>
   </div>
   <div class="ps"><div class="ps-t"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ef4444;margin-right:4px"></span>Element A — Source</div>
-    <div class="pr"><div class="pk">Name</div><div class="pv">${cl.elA.name || '—'}</div></div>
-    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.elA.type || '—'}</div></div>
-    <div class="pr"><div class="pk">Tag</div><div class="pv">${cl.elA.tag || '—'}</div></div>
+    <div class="pr"><div class="pk">Name</div><div class="pv">${escapeHtml(cl.elA.name) || '—'}</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${escapeHtml(cl.elA.type) || '—'}</div></div>
+    <div class="pr"><div class="pk">Tag</div><div class="pv">${escapeHtml(cl.elA.tag) || '—'}</div></div>
     <div class="pr"><div class="pk">ExpressID</div><div class="pv">${cl.elA.eid}</div></div>
   </div>
   <div class="ps"><div class="ps-t"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3b82f6;margin-right:4px"></span>Element B — Target</div>
-    <div class="pr"><div class="pk">Name</div><div class="pv">${cl.elB.name || '—'}</div></div>
-    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.elB.type || '—'}</div></div>
-    <div class="pr"><div class="pk">Tag</div><div class="pv">${cl.elB.tag || '—'}</div></div>
+    <div class="pr"><div class="pk">Name</div><div class="pv">${escapeHtml(cl.elB.name) || '—'}</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${escapeHtml(cl.elB.type) || '—'}</div></div>
+    <div class="pr"><div class="pk">Tag</div><div class="pv">${escapeHtml(cl.elB.tag) || '—'}</div></div>
     <div class="pr"><div class="pk">ExpressID</div><div class="pv">${cl.elB.eid}</div></div>
   </div>`;
   document.getElementById('propArea')!.innerHTML = h;
@@ -1008,9 +1042,20 @@ window.exportClashCSV = function(): void {
   if (!appState.clashResults.length) return;
   let csv = '#,Type,Penetration_mm,ElementA_Name,ElementA_Type,ElementA_ID,ElementB_Name,ElementB_Type,ElementB_ID,X,Y,Z\n';
   appState.clashResults.forEach((cl: any, i: number) => {
-    csv += `${i + 1},${cl.isHard ? 'Hard' : 'Clearance'},${(cl.penetration * 1000).toFixed(1)},"${cl.elA.name}",${cl.elA.type},${cl.elA.eid},"${cl.elB.name}",${cl.elB.type},${cl.elB.eid},${cl.point.x.toFixed(3)},${cl.point.y.toFixed(3)},${cl.point.z.toFixed(3)}\n`;
+    // Every text field is quoted + formula-injection-guarded via escapeCsv so a
+    // malicious IFC name (commas, quotes, a leading =/+/-/@) can't corrupt rows
+    // or execute in a spreadsheet.
+    csv += [
+      i + 1, cl.isHard ? 'Hard' : 'Clearance', (cl.penetration * 1000).toFixed(1),
+      escapeCsv(cl.elA.name), escapeCsv(cl.elA.type), cl.elA.eid,
+      escapeCsv(cl.elB.name), escapeCsv(cl.elB.type), cl.elB.eid,
+      cl.point.x.toFixed(3), cl.point.y.toFixed(3), cl.point.z.toFixed(3)
+    ].join(',') + '\n';
   });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'ifc-clash-report.csv'; a.click();
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.href = url; a.download = 'ifc-clash-report.csv'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
   log('Clash CSV exported: ' + appState.clashResults.length + ' clashes');
 };
 
