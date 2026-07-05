@@ -138,7 +138,11 @@ async function initIFC(){
     // loader falls back to a same-origin path that the SPA rewrite answers with HTML,
     // causing "expected magic word 00 61 73 6d, found 3c 21 44 4f". A real static file
     // is served before the rewrite, so this is robust on both Vercel and Firebase.
-    await appState.ifcLoader.ifcManager.setWasmPath('/vendor/web-ifc/');
+    // Production self-hosts the wasm at /vendor/web-ifc/. The standalone review
+    // build (opened from file://, no server) sets window.__WASM_BASE__ to a CDN
+    // URL so it can fetch the version-matched wasm without a same-origin path.
+    const wasmBase = (window as any).__WASM_BASE__ || '/vendor/web-ifc/';
+    await appState.ifcLoader.ifcManager.setWasmPath(wasmBase);
     await appState.ifcLoader.ifcManager.applyWebIfcConfig({USE_FAST_BOOLS:false});
     await appState.ifcLoader.ifcManager.parser.setupOptionalCategories({[IFCSPACE]:false,[IFCOPENINGELEMENT]:false});
     log('WASM ready');setStatus('done','Ready');setTimeout(()=>setStatus('',''),2000);return true;
