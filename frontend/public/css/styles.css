@@ -1513,3 +1513,7 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .auth-back-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-muted);font-family:'Hanken Grotesk';font-size:13px;font-weight:500;cursor:pointer;padding:0;margin-bottom:24px;transition:color .15s}
 .auth-back-btn:hover{color:var(--text)}
 
+
+/* Clash options not yet implemented — disabled + dimmed so they don't read as active controls */
+.clash-cb:has(input:disabled),.clash-radio:has(input:disabled),.clash-include-parts:has(input:disabled){opacity:.45}
+.clash-input-tiny:disabled{opacity:.45;cursor:not-allowed}
