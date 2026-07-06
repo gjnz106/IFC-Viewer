@@ -21,7 +21,7 @@
    update them live. JS clamps the values to the min/max ranges below;
    defaults match the legacy fixed widths so first-load looks unchanged. */
 :root{
-  --lcol: 300px;   /* left sidebar  — clamped 180–480 by drag JS */
+  --lcol: 312px;   /* left sidebar  — clamped 180–480 by drag JS */
   --rcol: 320px;   /* right panel   — clamped 220–600 by drag JS */
   --bottom-h: 320px; /* clash bottom panel height when shown — clamped 200–70vh */
   --resize-w: 4px; /* width of column drag dividers */
@@ -31,7 +31,7 @@
 body{font-family:'Hanken Grotesk','Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
 /* Grid (v5 shell): header (full width) / [rail | lcol | resize | viewport | resize | rcol] / status bar (full width).
    Rail is a fixed 52px nav column; status bar a 26px footer. */
-.app{display:grid;grid-template-rows:48px 1fr 26px;grid-template-columns:52px var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
+.app{display:grid;grid-template-rows:64px 1fr 26px;grid-template-columns:52px var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
 /* Left panel collapsed (no rail tab active): hide the panel + its resize handle by zeroing the track */
 .app.left-collapsed{grid-template-columns:52px 0 0 1fr var(--resize-w) var(--rcol)}
 .app.left-collapsed .left-panel,.app.left-collapsed #lresize{display:none}
@@ -53,7 +53,7 @@ body.resizing,body.resizing *{user-select:none !important;cursor:col-resize !imp
 body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-resize !important}
 
 /* Header / Topbar */
-.topbar{flex-shrink:0;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;z-index:50;overflow-x:auto;scrollbar-width:none;height:48px}
+.topbar{grid-column:1/-1;grid-row:1;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;z-index:50;overflow-x:auto;scrollbar-width:none;height:64px}
 .topbar::-webkit-scrollbar{display:none}
 
 /* ── Topbar brand logo (IDD Lumina pattern) ── */
@@ -938,12 +938,18 @@ body.field-mode .field-toggle{background:var(--green);color:#fff;border-color:va
 /* On narrow phones, collapse to icon-only to keep the header from overflowing */
 @media(max-width:480px){.field-toggle{padding:7px;gap:0}.field-toggle-label{display:none}}
 
-/* ── Field mode overrides ── */
+/* ── Field mode overrides ──
+   Field Mode is a full-screen fixed-position takeover (.field-bar/.field-sheet
+   etc.), so the grid chrome underneath must collapse to 0 too — otherwise the
+   64px header row / 52px rail / panel columns stay reserved as blank space
+   even though their content is display:none (CSS Grid track sizes don't
+   collapse just because a child is hidden). */
+body.field-mode .app{grid-template-rows:0 1fr 0 !important;grid-template-columns:0 0 0 1fr 0 0 !important}
 body.field-mode .topbar{display:none !important}
-body.field-mode .sidebar{display:none !important}
-body.field-mode .body-row{padding-left:0 !important}
+body.field-mode .icon-rail{display:none !important}
 body.field-mode #leftPanel{display:none !important}
 body.field-mode #rightPanel{display:none !important}
+body.field-mode .status-bar{display:none !important}
 body.field-mode .sg-panel{display:none !important}
 body.field-mode .empty-vp .ev-title{font-size:18px}
 body.field-mode .empty-vp .ev-hint{font-size:13px}
@@ -1310,6 +1316,9 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 /* Files section wrapper — toggled by rail */
 .lp-files{display:flex;flex-direction:column;overflow-y:auto}
 .lp-files.hide{display:none}
+/* Model section wrapper (Tree/Issues/Search) — toggled by rail */
+.lp-model{display:flex;flex-direction:column;overflow-y:auto;flex:1;min-height:0}
+.lp-model.hide{display:none}
 
 /* ── Floating vertical toolbar (viewport, left-center) ── */
 .float-tools{position:absolute;left:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:5px;background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 14px -6px rgba(44,36,32,.18);z-index:6}
@@ -1336,140 +1345,25 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .rp-tab svg{width:12px;height:12px}
 .rp-tab-spacer{flex:1}
 
-/* ── Sidebar page navigation (IDD-style icon nav) ─────────────── */
-.body-row {
-  position: relative;
-  padding-left: 60px;
-}
-.sidebar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  height: 100%;
-  flex-shrink: 0;
-  width: 60px;
-  display: flex; flex-direction: column; overflow: hidden !important;
-  background: #ffffff !important;
-  border: none !important;
-  border-right: 1px solid var(--border) !important;
-  box-shadow: none !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
-  z-index: 210;
-  transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms ease;
-}
-.sidebar:hover {
-  width: 230px;
-  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.08) !important;
-}
-.sb-nav {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 0;
-  gap: 2px;
-}
-.sb-nav::-webkit-scrollbar { display: none; }
-
 /* Page-scoped workspace sections: the router adds .ws-hide to any
    [data-pages] element whose list doesn't include the active page.
    !important so it wins over the inline display toggles that feature
    modules (compare/clash/drive) still apply on their own axis. */
 .ws-hide { display: none !important; }
 
-/* Nav items — default (collapsed) state */
-.sb-item {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0;
-  margin: 2px 8px;
-  height: 40px;
-  border-radius: 8px;
-  text-decoration: none;
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  user-select: none;
-  color: #4B5563;
-  overflow: hidden;
-  transition: background 140ms ease, color 140ms ease;
-  position: relative;
-  align-self: stretch;
-}
-.sb-item:hover,
-.sb-item.active {
-  background: #F3F4F6;
-  color: #111827;
-}
-.sb-item.active {
-  font-weight: 600;
-}
-.sb-icon-box {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 100%;
-  color: inherit;
-  flex-shrink: 0;
-  background: transparent !important;
-}
-.sb-label {
-  font-size: 13.5px;
-  font-weight: 500;
-  color: inherit;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-transform: none;
-  opacity: 0;
-  transition: opacity 150ms ease;
-  pointer-events: none;
-}
-/* Nav items — hovered (expanded) state */
-.sidebar:hover .sb-label {
-  opacity: 1;
-  pointer-events: auto;
-}
-.sb-badge-dot {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #EF4444; /* red-500 */
-  border: none;
-  z-index: 5;
-}
-.sb-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 6px 16px;
-  flex-shrink: 0;
-}
-.nav-spacer{flex:1}
-
 /* ── Responsive: #leftPanel / #rightPanel as overlay drawers ────────
-   Below 760px, #leftPanel (312px) + the 60px rail leave almost no room
-   for the 3D viewport (<main>, flex:1). Taking the panels out of the
-   .body-row flex flow lets <main> reclaim the full width; the existing
-   toggleLeftPanel()/toggleRightPanel() handlers (ui-shell.ts) keep
-   working unchanged since they only ever touch `display`. */
+   Below 760px, #leftPanel (312px) + the 52px icon rail leave almost no room
+   for the 3D viewport. position:fixed takes both panels out of the grid flow
+   (their track collapses to its empty min-content) so <main> reclaims the
+   full width; the existing toggleLeftPanel()/toggleRightPanel() handlers
+   (ui-shell.ts) keep working unchanged since they only ever touch `display`. */
 @media(max-width:760px){
   #leftPanel,#rightPanel{
-    position:fixed;top:48px;bottom:0;z-index:150;
+    position:fixed;top:64px;bottom:0;z-index:150;
     box-shadow:0 8px 30px -8px rgba(44,36,32,.35);
   }
-  #leftPanel{left:60px;width:calc(100vw - 60px);max-width:340px}
-  #rightPanel{right:0;width:min(340px,calc(100vw - 60px))}
+  #leftPanel{left:52px;width:calc(100vw - 52px);max-width:340px}
+  #rightPanel{right:0;width:min(340px,calc(100vw - 52px))}
 }
 
 /* ── Upload card ─────────────────────────────────────────────────── */

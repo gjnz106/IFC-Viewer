@@ -4,23 +4,18 @@ import { log } from '../core/ifc-category.js';
 
 // ── SG panel open/close primitive ──
 // The router reconciles the page's desired state through this (validate page
-// = open, everything else = closed). It no longer closes the clash panel
-// itself — ordering between the two bottom panels is the router's job.
+// = open, everything else = closed). #sgPanel is embedded directly in the
+// right panel's "SG Check" tab (v5 shell — see index.html's .sg-in-panel),
+// not a separate bottom dock, so this only needs to toggle its `.show` class
+// and keep the right-panel tab UI in sync via rpSelect(); no bresize/bottom-h
+// handling here any more (that's Clash's own bottom-docked panel now).
 export function sgSetPanel(open: boolean){
   const sgState = appState.sgState;
   if(!!sgState.open === open) return;
   sgState.open = open;
   document.getElementById('btnSGCheck')?.classList.toggle('active', open);
-  const panel = document.getElementById('sgPanel');
-  const br = document.getElementById('bresize');
-  if(open){
-    panel?.classList.add('show');
-    if(br) br.style.display = '';
-  }else{
-    panel?.classList.remove('show');
-    // If neither bottom panel is open, hide the resize handle
-    if(!appState.clashMode && br) br.style.display = 'none';
-  }
+  document.getElementById('sgPanel')?.classList.toggle('show', open);
+  (window as any).rpSelect?.(open ? 'sg' : 'props');
   if(window._vpResize) window._vpResize();
 }
 

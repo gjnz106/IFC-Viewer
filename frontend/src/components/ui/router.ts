@@ -27,9 +27,11 @@ function hashToPage(): Page {
 }
 
 function syncNav(page: Page) {
-  // Only page buttons carry data-page; overlay buttons (Team/Settings/Invite)
-  // don't, so they never steal the highlight.
-  document.querySelectorAll<HTMLElement>('.sb-item[data-page]').forEach(el => {
+  // Only page/mode buttons carry data-page (the v5 header's Field/Compare/Clash
+  // segmented pills); overlay buttons (Team/Settings/Invite) don't, so they
+  // never steal the highlight. 'active' is shared by .sb-item (legacy) and
+  // .hdr-seg (v5 pills) — each has its own CSS for what 'active' looks like.
+  document.querySelectorAll<HTMLElement>('[data-page]').forEach(el => {
     el.classList.toggle('active', el.dataset.page === page);
   });
   const lbl = document.getElementById('headerModeLbl');

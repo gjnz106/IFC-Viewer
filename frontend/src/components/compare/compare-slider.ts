@@ -138,14 +138,20 @@ function injectStyle(): void {
 function injectButton(): void {
   const tb = document.getElementById('vpToolbar');
   if (!tb || document.getElementById('btnCompareSlider')) return;
-  const grp = document.createElement('div');
-  grp.className = 'vp-tg';
-  grp.innerHTML =
-    '<button id="btnCompareSlider" class="vp-tool" title="Side-by-side compare (A | B)" onclick="toggleCompareSlider()">' +
+  // #vpToolbar is now a flat vertical rail (.float-tools/.ft-btn, v5 shell) —
+  // append a separator + button directly instead of the old .vp-tg group wrapper.
+  const sep = document.createElement('div');
+  sep.className = 'ft-sep';
+  tb.appendChild(sep);
+  const btn = document.createElement('button');
+  btn.id = 'btnCompareSlider';
+  btn.className = 'ft-btn';
+  btn.title = 'Side-by-side compare (A | B)';
+  btn.setAttribute('onclick', 'toggleCompareSlider()');
+  btn.innerHTML =
     '<svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round">' +
-    '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M12 4v16"/><path d="M8.5 10l-2 2 2 2M15.5 10l2 2-2 2"/></svg>' +
-    '</button>';
-  tb.appendChild(grp);
+    '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M12 4v16"/><path d="M8.5 10l-2 2 2 2M15.5 10l2 2-2 2"/></svg>';
+  tb.appendChild(btn);
 }
 
 injectStyle();
