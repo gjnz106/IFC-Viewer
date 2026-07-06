@@ -1,0 +1,29 @@
+# Deploy frontend/dist to Firebase Hosting whenever main is updated
+# (e.g. after a PR merge). Requires the FIREBASE_SERVICE_ACCOUNT secret —
+# a Firebase service account JSON key with Hosting Admin permission,
+# added under Settings → Secrets and variables → Actions.
+name: firebase-deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Build frontend
+        run: npm run build --workspace=frontend
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: REPLACE_WITH_FIREBASE_PROJECT_ID
+          channelId: live
