@@ -309,8 +309,6 @@
     <!-- Hidden elements – IDs required by JS modules, not shown in UI -->
     <div style="display:none">
       <button id="btnCompare" disabled onclick="runCompare()">Compare</button>
-      <button id="btnRunClash" disabled onclick="runClashDetection()">Run Clash</button>
-      <button id="btnExitClash" onclick="exitClashMode()">Exit Clash</button>
       <button id="btnExitCompare" onclick="exitCompare()">Exit Compare</button>
       <button id="btnExport" onclick="exportCSV()">CSV</button>
       <button id="btnExportBCF" onclick="exportBCF()">BCF</button>
@@ -754,6 +752,10 @@
             <button class="clash-preset-btn" onclick="applyClashPreset('struct-arch')">Structure ↔ Architecture</button>
             <button class="clash-preset-btn" onclick="applyClashPreset('all-all')">All ↔ All</button>
             <button class="clash-preset-btn clash-preset-swap" onclick="swapClashSets()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg> Swap</button>
+            <div style="margin-left:auto;display:flex;gap:6px;flex:none">
+              <button id="btnRunClash" disabled onclick="runClashDetection()" class="sg-btn" style="display:none;height:28px;padding:0 14px"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;vertical-align:-1px"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run Clash</button>
+              <button id="btnExitClash" onclick="exitClashMode()" class="sg-btn sg-btn-secondary" style="display:none;height:28px;padding:0 14px">Exit Clash</button>
+            </div>
           </div>
           <div class="clash-bottom-grid">
             <div class="clash-set-section">

@@ -28,6 +28,8 @@ function showLeftPanel(): void {
   const btn = document.getElementById('btnToggleLeft');
   if (p) p.style.display = 'flex';
   btn?.classList.add('hdr-panel-btn-active');
+  document.getElementById('app')?.classList.remove('left-collapsed');
+  (window as any)._vpResize?.();
 }
 
 // Clicking a rail button: show its section, and if it's the already-active
