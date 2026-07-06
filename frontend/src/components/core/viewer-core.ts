@@ -598,7 +598,7 @@ export function initThree(): void {
       if(!dragging)return;
       // Compute new width: for left sidebar, width = clientX (distance from
       // viewport left edge). For right, width = window.innerWidth - clientX.
-      const raw = fromLeft ? e.clientX : (window.innerWidth - e.clientX);
+      const raw = fromLeft ? e.clientX - 52 : (window.innerWidth - e.clientX);
       const clamped = Math.max(minPx, Math.min(maxPx, raw));
       root.style.setProperty(varName, clamped+'px');
       window._vpResize();

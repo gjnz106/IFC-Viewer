@@ -70,22 +70,26 @@ window.propAccordionToggleAll=function(expand: boolean){
 };
 
 // ── Right-panel tabs: Properties / SG Check ──
+// The SG panel is embedded directly in this tab now (class .sg-in-panel —
+// v5 shell), so there's no separate "empty" placeholder to manage: sgSetPanel()
+// (validator-export.ts) already toggles #sgPanel's `.show` class off the
+// router's page state — this just picks which of the two tabs is visible.
 window.rpSelect = function(tab: 'props' | 'sg'){
   document.getElementById('rpTabProps')?.classList.toggle('on', tab==='props');
   document.getElementById('rpTabSG')?.classList.toggle('on', tab==='sg');
   const propArea=document.getElementById('propArea') as HTMLElement|null;
-  const sgEmpty=document.getElementById('rpSGEmpty') as HTMLElement|null;
+  const sgPanel=document.getElementById('sgPanel') as HTMLElement|null;
   if(propArea) propArea.style.display = tab==='props' ? '' : 'none';
+  // Force-hide the SG panel whenever Properties is the selected tab, even if
+  // appState.sgState.open is still true (e.g. switching tabs without leaving
+  // the validate page) — otherwise both panels would render stacked at once.
+  // On the SG tab, clear the inline override so the page-driven `.show` class
+  // (sgSetPanel) decides visibility normally.
+  if(sgPanel) sgPanel.style.display = tab==='sg' ? '' : 'none';
   if(tab==='sg'){
     // Entering the SG tab means entering the validate page — go through the
-    // router so the bottom panel, hash and sidebar highlight stay in sync.
+    // router so the hash and persisted page stay in sync.
     if(!appState.sgState.open) window.navigateTo?.('validate');
-    if(sgEmpty) sgEmpty.style.display = appState.sgState.open ? 'none' : 'flex';
-  }else{
-    // Switching to Properties no longer force-closes the SG bottom panel:
-    // showProps() selects this tab on every element pick, and closing the
-    // panel here dragged the app out of the validate page it was on.
-    if(sgEmpty) sgEmpty.style.display = 'none';
   }
 };
 

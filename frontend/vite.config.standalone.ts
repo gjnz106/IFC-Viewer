@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import { viteSingleFile } from 'vite-plugin-singlefile';
@@ -26,6 +28,24 @@ export default defineConfig({
           '</head>',
           `<script>window.__WASM_BASE__=${JSON.stringify(WEB_IFC_CDN)};` +
           `window.__STANDALONE_REVIEW__=true;</script></head>`
+        );
+      },
+    },
+    {
+      // public/css/styles.css is a static passthrough (not part of Vite's
+      // module graph), so vite-plugin-singlefile — which only inlines
+      // Vite-bundled JS/CSS — leaves it as an external <link>. That link
+      // resolves fine against the full dist-standalone/ folder, but the whole
+      // point of this build is a review file the user can open on its own
+      // (e.g. sent as a standalone attachment, no sibling css/ folder next to
+      // it) — so read the real file and inline it as a <style> tag instead.
+      name: 'inline-standalone-css',
+      transformIndexHtml(html) {
+        const cssPath = fileURLToPath(new URL('./public/css/styles.css', import.meta.url));
+        const css = readFileSync(cssPath, 'utf-8');
+        return html.replace(
+          /<link[^>]*href=["']\.?\/?css\/styles\.css["'][^>]*>/,
+          `<style>${css}</style>`
         );
       },
     },
