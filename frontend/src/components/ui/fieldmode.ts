@@ -343,9 +343,17 @@ window.fieldSelectStorey = function(idx: number, elevation: number){
 };
 
 // ── Long-press for context menu (touch devices) ──
+// Called from enterFieldMode() every time Field Mode is entered (router.ts
+// re-enters it on every hash navigation into the field page). exitFieldMode()
+// never tears these down, and the canvas is a single long-lived DOM element,
+// so without this guard each re-entry stacked another full set of touch
+// listeners — long-press/double-tap firing N times after N toggles.
+let _longPressReady = false;
 function fieldSetupLongPress(){
+  if(_longPressReady) return;
   const canvas = appState.renderer?.domElement;
   if(!canvas) return;
+  _longPressReady = true;
   let lpTimer: ReturnType<typeof setTimeout> | null = null;
   let lpPos = {x:0, y:0};
   let lpMoved = false;

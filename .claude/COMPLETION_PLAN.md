@@ -18,7 +18,7 @@
 | 1 | Sửa bug chức năng (XSS, clash, smart-match) | ✅ Done — PR #41 |
 | 2 | Bộ nhớ & hiệu năng | ✅ Done — PR #47 |
 | 3 | Độ chính xác Compare (geometry hash) | ✅ Done — PR #48 |
-| 4 | Export & polish | ⬜ Not started |
+| 4 | Export & polish | ✅ Done — PR #49 |
 | 5 | Verify & phòng thủ | ⬜ Not started |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
@@ -104,14 +104,29 @@ không cần workflow Pages.
 - **Done khi:** re-export cùng model không sinh "Geometry/Position Changed" giả. ✅
   (Verify: typecheck sạch, 87/87 test (+6 test mới), build OK, 0 pageerror headless smoke-test.)
 
-## Phase 4 — Export & polish
-**Status:** ⬜ Not started
+## Phase 4 — Export & polish ✅ Done
+**Status:** ✅ Done — PR #49 (2026-07-07)
 
-- [ ] BCF clash: sửa `<n>` → `<Name>` (schema BCF 2.1) để reader nghiêm ngặt chấp nhận.
-- [ ] Giữ trạng thái checkbox ẩn/hiện federation khi file khác load xong (đang bị reset về checked).
-- [ ] `focusClash` guard chia 0 (model phẳng → NaN slider); sửa comment pad 10% vs code 5%.
-- [ ] Rà các object URL khác chưa revoke; các listener module-scope không có đường gỡ.
-- **Done khi:** export BCF mở được ở BIMcollab/Solibri; không còn NaN/bug nhẹ đã liệt kê.
+- [x] BCF clash: `<n>` → `<Name>` trong `project.bcfp` (clash.ts) — đúng schema BCF 2.1.
+- [x] Federation checkbox: `fedRenderSlots()` từng hardcode `checked` theo `loaded` mỗi lần
+      render lại danh sách — nên mỗi khi 1 file federation khác load xong (gọi lại
+      `fedRenderSlots()`), mọi checkbox bị reset về checked kể cả cái người dùng vừa tắt.
+      Giờ đọc đúng `model.visible` hiện tại (nguồn chân lý duy nhất, do `fedToggleVis` set)
+      thay vì suy ra từ trạng thái loaded.
+- [x] `focusClash`: thêm guard chia 0 cho `toSl()` (model phẳng tuyệt đối trên 1 trục → range=0
+      → NaN slider) — fallback về 50%. Sửa comment sai lệch ở `focus-highlight.ts`
+      ("10%/0.5m" trong khi code thực tế dùng 30%/1–5m, đã ghi đúng ở comment dưới).
+- [x] Rà + vá 3 chỗ thiếu `URL.revokeObjectURL`: `exportCSV`/`exportBCF` (Compare,
+      focus-highlight.ts) và `exportClashBCF` (clash.ts) — Compare CSV cũng phát hiện **chưa
+      từng được escape** dù Phase 1 đã thêm `escapeCsv` cho Clash CSV (bỏ sót export CSV thứ 2
+      của Compare) → đã áp `escapeCsv` cho mọi cell, chặn CSV injection + ký tự `,"` phá cấu trúc.
+      Rà toàn bộ `addEventListener`: chỉ 1 chỗ leak thật — `fieldSetupLongPress()` (fieldmode.ts)
+      add lại 4 touch listener trên `<canvas>` mỗi lần vào Field Mode mà `exitFieldMode()` không
+      gỡ; canvas sống suốt vòng đời app nên bật/tắt N lần → N bộ listener chồng nhau. Thêm guard
+      idempotent (`_longPressReady`) để chỉ setup đúng 1 lần.
+- **Done khi:** export BCF mở được ở BIMcollab/Solibri; không còn NaN/bug nhẹ đã liệt kê. ✅
+  (Verify: typecheck sạch, 87/87 test, build OK, 0 pageerror headless smoke-test cả dist/ và
+  dist-standalone/.)
 
 ## Phase 5 — Verify & phòng thủ
 **Status:** ⬜ Not started

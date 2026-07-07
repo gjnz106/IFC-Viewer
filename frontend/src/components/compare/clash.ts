@@ -1047,7 +1047,11 @@ window.focusClash = function(idx: number): void {
 
   const b = appState.modelBounds;
   const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
-  const toSl = (val: number, mn: number, range: number) => Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100)));
+  // A perfectly flat model (all vertices share one X/Y/Z, e.g. a single-storey
+  // 2D-ish plan) makes range 0 on that axis — (val-mn)/0 is NaN, which used to
+  // get written straight into the slider's value attribute. Fall back to the
+  // middle of the range (50%) when there's nothing to divide by.
+  const toSl = (val: number, mn: number, range: number) => range > 0 ? Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100))) : 50;
 
   (document.getElementById('slXp') as HTMLInputElement).value = String(toSl(mxX, b.min.x, sx));
   (document.getElementById('slXn') as HTMLInputElement).value = String(toSl(mnX, b.min.x, sx));
@@ -1156,7 +1160,7 @@ window.exportClashBCF = async function(): Promise<void> {
   };
 
   zip.file('bcf.version', '<?xml version="1.0" encoding="UTF-8"?>\n<Version VersionId="2.1" xsi:noNamespaceSchemaLocation="version.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><DetailedVersion>2.1</DetailedVersion></Version>');
-  zip.file('project.bcfp', '<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Project ProjectId="' + pid + '"><n>IFC Delta Clash Detection</n></Project></ProjectExtension>');
+  zip.file('project.bcfp', '<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Project ProjectId="' + pid + '"><Name>IFC Delta Clash Detection</Name></Project></ProjectExtension>');
 
   for (let i = 0; i < appState.clashResults.length; i++) {
     const cl = appState.clashResults[i];
@@ -1378,7 +1382,8 @@ window.exportClashBCF = async function(): Promise<void> {
   appState.renderer.render(appState.scene, appState.camera);
 
   const blob = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ifc-delta-clashes.bcf'; a.click();
+  const a = document.createElement('a'); const bcfUrl = URL.createObjectURL(blob); a.href = bcfUrl; a.download = 'ifc-delta-clashes.bcf'; a.click();
+  setTimeout(() => URL.revokeObjectURL(bcfUrl), 1000);
   (window as any).setStatus('done', 'BCF exported'); setTimeout(() => (window as any).setStatus('', ''), 3000);
   log('Clash BCF exported: ' + appState.clashResults.length + ' issues');
 };

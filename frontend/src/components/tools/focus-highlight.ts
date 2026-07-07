@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { escapeCsv } from '../../lib/escape.js';
 
 // ── Find element bbox by scanning scene meshes for matching expressID ──
 // We scan EVERY mesh in the scene that has an expressID attribute. This
@@ -84,8 +85,9 @@ function focusIssueGeometry(idx: number): void {
   if ((window as any)._pendingPivot) (window as any)._pendingPivot = null;
 
   // ── Section box ──
-  // Tighten section box around element + small padding (10% or 0.5m floor).
-  // If section box wasn't active, activate it. If sliders fail to compute
+  // Tighten section box around element + padding (see sbPad below: 30% of
+  // element size, clamped 1m–5m). If section box wasn't active, activate it.
+  // If sliders fail to compute
   // for any reason, skip section box but still keep camera + highlight.
   try {
     // Padding around element: 30% of element size, minimum 1m, maximum 5m.
@@ -227,13 +229,16 @@ window.exportCSV = function (): void {
   const r: any = appState.compareResult;
   let csv = 'Status,Type,GlobalId,Tag/ElementID,Name,Details\n';
   csv += '# Revit: use Tag/ElementID with Select by ID. Tekla/ArchiCAD: use GlobalId to find elements.\n';
-  r.added.forEach((e: any) => csv += `Added,${e.entity.type},"${e.gid}","${e.entity.tag || ''}","${e.entity.name}",New in B\n`);
-  r.removed.forEach((e: any) => csv += `Removed,${e.entity.type},"${e.gid}","${e.entity.tag || ''}","${e.entity.name}",Only in A\n`);
-  r.modified.forEach((e: any) => { const en = e.a || e.b; csv += `Modified,${en.type},"${e.gid}","${en.tag || ''}","${en.name}","${e.diffs.map((d: any) => d.prop + ':' + d.oldVal + '→' + d.newVal).join('; ')}"\n`; });
+  const row = (vals: unknown[]) => vals.map(escapeCsv).join(',') + '\n';
+  r.added.forEach((e: any) => csv += row(['Added', e.entity.type, e.gid, e.entity.tag || '', e.entity.name, 'New in B']));
+  r.removed.forEach((e: any) => csv += row(['Removed', e.entity.type, e.gid, e.entity.tag || '', e.entity.name, 'Only in A']));
+  r.modified.forEach((e: any) => { const en = e.a || e.b; csv += row(['Modified', en.type, e.gid, en.tag || '', en.name, e.diffs.map((d: any) => d.prop + ':' + d.oldVal + '→' + d.newVal).join('; ')]); });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.href = url;
   a.download = 'ifc-compare.csv';
   a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 // ══ BCF Export ══
@@ -393,7 +398,8 @@ window.exportBCF = async function (): Promise<void> {
   appState.camera.position.copy(saveCam); appState.controls.target.copy(saveTgt); appState.controls.update(); appState.renderer.render(appState.scene, appState.camera);
 
   const blob = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ifc-delta-issues.bcf'; a.click();
+  const a = document.createElement('a'); const url = URL.createObjectURL(blob); a.href = url; a.download = 'ifc-delta-issues.bcf'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
   log('BCF exported: ' + appState.issuesList.length + ' issues');
 };
 
