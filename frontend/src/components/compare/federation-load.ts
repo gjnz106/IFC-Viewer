@@ -113,6 +113,84 @@ export function getLoadedModelCount(): number {
   return appState.loadedModels.filter(m=>!!m).length;
 }
 
+// ══ Unload everything (used by project switching) ══════════════════
+// There was previously no "clear the whole workspace" path — fedRemoveSlot
+// only ever handled federation slots (≥2), and loadIFC only replaces the
+// single slot it's given. Switching projects needs a full teardown so the
+// next project starts from a pristine state.
+export function unloadAllModels(): void {
+  if (appState.walkActive) (window as any).toggleWalkMode?.();
+
+  // Clear overlays that read appState.loadedModels to restore visibility —
+  // must run before the models themselves are disposed below.
+  (window as any).clearMeasure?.();
+  window.clearHighlight?.();
+  if (appState.colorize.active) (window as any).colorizeClear?.();
+  (window as any).showAllHidden?.();
+
+  // Sweep diff subsets (exitCompare already ran via the router's navigateTo,
+  // but this is idempotent and cheap to call defensively).
+  disposeDiffSubsets();
+
+  // Dispose + remove every model slot. Mutate the arrays in place (not
+  // reassign) — other modules read appState.loadedModels/.files by property
+  // lookup each time, but this keeps the same array identity just in case.
+  for (let i = 0; i < appState.loadedModels.length; i++) {
+    const m = appState.loadedModels[i];
+    if (m) {
+      disposeModel(m);
+      appState.scene.remove(m);
+      if (window._colorizeInvalidate) window._colorizeInvalidate(i);
+    }
+  }
+  appState.loadedModels.length = 0;
+  appState.loadedModels.push(null, null);
+  appState.files.length = 0;
+  appState.files.push(null, null);
+
+  appState.fedNextSlot = 2;
+  appState.sharedCenterOffset = null;
+  appState.modelBounds.min.set(0, 0, 0);
+  appState.modelBounds.max.set(0, 0, 0);
+  appState.compareResult = null;
+  appState.clashResults = [];
+  appState.sgState.cachedCtx = null;
+  appState.sgState.cachedCtxKey = null;
+  appState.aiIndex = null;
+  appState.aiIndexKey = null;
+  appState.activeCategories = new Set();
+  (window as any)._catData = {};
+  (window as any)._catModelIDs = {};
+
+  if (appState.sectionActive) {
+    window.toggleSectionBox?.();
+  } else {
+    appState.clipPlanes.forEach(p => { p.constant = 99999; });
+  }
+
+  for (const idx of [0, 1]) {
+    document.getElementById('uc' + idx)?.classList.remove('loaded');
+    const fn = document.getElementById('fn' + idx); if (fn) fn.textContent = '';
+    const fs = document.getElementById('fs' + idx); if (fs) fs.textContent = '';
+    const us = document.getElementById('us' + idx);
+    if (us) { us.className = 'uc-badge-loaded'; us.textContent = 'Loading…'; }
+    const visRow = document.getElementById('visRow' + idx) as HTMLElement | null;
+    if (visRow) visRow.style.display = 'none';
+  }
+  fedRenderSlots();
+
+  const emptyVP = document.getElementById('emptyVP') as HTMLElement | null;
+  if (emptyVP) emptyVP.style.display = 'flex';
+  const btnCompare = document.getElementById('btnCompare') as HTMLButtonElement | null;
+  if (btnCompare) btnCompare.disabled = true;
+  const panelBtn = document.getElementById('btnRunComparePanel') as HTMLButtonElement | null;
+  if (panelBtn) { panelBtn.disabled = true; panelBtn.style.opacity = '.35'; }
+  const propArea = document.getElementById('propArea');
+  if (propArea) propArea.innerHTML = '<div class="prop-empty">Click element in 3D to inspect</div>';
+  if (window.requestPlanRebuild) window.requestPlanRebuild();
+}
+window.unloadAllModels = unloadAllModels;
+
 // Helper: iterate all loaded models with callback(model, index)
 export function forEachModel(fn: (model: THREE.Group, index: number) => void): void {
   for(let i=0; i<appState.loadedModels.length; i++){

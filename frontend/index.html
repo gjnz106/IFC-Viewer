@@ -148,6 +148,12 @@
     <div class="tb-brand">
       <span class="tb-brand-name">T3LAB<span class="tb-brand-dot">.</span>IFC</span>
     </div>
+
+    <!-- Project switcher chip -->
+    <button id="btnProjects" class="tb-proj-chip" onclick="toggleProjectsPanel()" title="Switch project">
+      <span id="tbProjectName">—</span>
+      <svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
     <span class="tb-brand-sep"></span>
 
     <!-- Mode switcher (Field / Compare / Clash) — v5 segmented pills -->
@@ -941,12 +947,11 @@
     <div style="display:grid;gap:12px;font-size:13px">
       <div>
         <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Project Name</label>
-        <input type="text" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" value="City Tower Phase 1">
+        <input type="text" id="projName" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
       </div>
       <div>
         <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Project Code</label>
-        <input type="text" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" value="CT-P1">
-      </div>
+        <input type="text" id="projCode" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px"></div>
       <div>
         <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Active Modules</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
@@ -1064,6 +1069,26 @@
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px">
       <button class="btn btn-primary btn-sm" onclick="toggleTeamPanel()" style="padding:6px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Projects Dialog (switch / create / rename / delete) -->
+<div class="modal-overlay" id="projectsOverlay" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);padding:16px" onclick="toggleProjectsPanel()">
+  <div class="modal-content" style="width:100%;max-width:460px;padding:24px 26px;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.15);color:#000" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0;font-size:16px;font-weight:700">Projects</h3>
+      <button class="tb-icon-btn" onclick="toggleProjectsPanel()" style="font-size:18px;border:none;background:transparent;cursor:pointer">×</button>
+    </div>
+    <div id="projList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;margin-bottom:16px"></div>
+    <div style="border-top:1px solid #eee;padding-top:14px">
+      <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">New project</label>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;margin-bottom:6px">
+        <input type="text" id="projNewName" placeholder="Project name" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
+        <input type="text" id="projNewCode" placeholder="Code" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
+      </div>
+      <input type="text" id="projNewDrive" placeholder="Google Drive link (optional)" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px;margin-bottom:8px">
+      <button class="btn btn-primary btn-sm" onclick="projCreate()" style="width:100%;justify-content:center;padding:8px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">+ Create &amp; switch</button>
     </div>
   </div>
 </div>

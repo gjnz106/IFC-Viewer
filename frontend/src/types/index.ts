@@ -342,6 +342,16 @@ declare global {
     fedHandleFile?: (ev: Event) => void;
     fedRemoveSlot?: (idx: number) => void;
     fedToggleVis?: (idx: number) => void;
+    unloadAllModels?: () => void;
+
+    // Projects (local-first project registry)
+    toggleProjectsPanel?: () => void;
+    projCreate?: () => void;
+    projRename?: (id: string) => void;
+    projDelete?: (id: string) => void;
+    projSwitch?: (id: string) => void;
+    projFillSettings?: () => void;
+    projSaveSettings?: () => void;
 
     // Clash
     addClashRow?: (side: 'A' | 'B') => void;

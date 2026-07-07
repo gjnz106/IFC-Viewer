@@ -20,7 +20,7 @@
 | 3 | Độ chính xác Compare (geometry hash) | ✅ Done — PR #48 |
 | 4 | Export & polish | ✅ Done — PR #49 |
 | 5 | Verify & phòng thủ | ✅ Done — PR #50 |
-| 6 | Project management (local-first) | ⬜ Not started |
+| 6 | Project management (local-first) | ✅ Done |
 | 7 | Walk levels (storey picker + clip tầng) | ⬜ Not started |
 | 8 | Measure area/angle + unit setting | ⬜ Not started |
 | 9 | Saved viewpoints (per-project) | ⬜ Not started |
@@ -174,14 +174,14 @@ không cần workflow Pages.
   dist-standalone/, E2E headless đầy đủ 4 luồng nghiệp vụ chính.)
 
 ## Phase 6 — Project management (local-first) · Size M–L
-**Status:** ⬜ Not started
+**Status:** ✅ Done (2026-07-07)
 
 Người dùng đã chốt: project = **local-first**, KHÔNG backend/Firestore. Project =
 `{id, name, code, driveLink, state}` trong localStorage; nút switch trên topbar + modal
 quản lý (list/create/rename/delete/switch). Switch = unload TẤT CẢ model + khôi phục
 Drive link/state của project đích; model nạp lại từ Drive folder hoặc re-upload thủ công.
 
-- [ ] **Data layer `frontend/src/lib/projects-store.ts`** (mới, theo pattern pure+glue của
+- [x] **Data layer `frontend/src/lib/projects-store.ts`** (mới, theo pattern pure+glue của
       `validate/snapshots.ts`): `Project {id, name, code, state:{driveLink, units?, page?,
       camera?}, createdAt, updatedAt}`; `ProjectRegistry {activeId, list}` lưu key
       **`ifc.projects.v1`** (1 key JSON atomic). Pure ops: `createProject`, `renameProject`,
@@ -190,12 +190,12 @@ Drive link/state của project đích; model nạp lại từ Drive folder hoặ
       từ key cũ). Glue `loadRegistry/saveRegistry` (try/catch quota), `getActiveProject`.
       Test `projects-store.test.ts`: create/rename/delete round-trip, delete-active promote,
       delete-last recreate default, migrateLegacy, setActive id lạ = no-op.
-- [ ] **Mirror key cũ `'projectDriveLink'`:** KHÔNG sửa các chỗ đang đọc key này
+- [x] **Mirror key cũ `'projectDriveLink'`:** KHÔNG sửa các chỗ đang đọc key này
       (drive.ts `loadProjectDriveModelsViewer`, router.ts `applyWorkspace`, ui-shell.ts
       toggleSettingsPanel) — khi switch/save, ghi `active.state.driveLink` vào key cũ
       (hoặc removeItem khi rỗng). Giữ diff nhỏ, tích hợp miễn phí với card
       `#projectDriveViewerCard` sẵn có.
-- [ ] **`unloadAllModels()`** (mới, đặt ở `federation-load.ts` — nơi đã own slot lifecycle;
+- [x] **`unloadAllModels()`** (mới, đặt ở `federation-load.ts` — nơi đã own slot lifecycle;
       export + gắn window). Thứ tự: ① caller `navigateTo('viewer')` trước (router tự exit
       compare/clash/SG/field — không duplicate logic); ② clear measure/highlight/colorize/
       hidden (`clearMeasure`, `clearHighlight`, `colorizeClear`, `showAllHidden`); ③ sweep
@@ -212,7 +212,7 @@ Drive link/state của project đích; model nạp lại từ Drive folder hoặ
       ⚠️ **Verify trước khi code:** grep module nào giữ reference mảng
       `appState.files/loadedModels` — nếu có thì mutate in-place (`length=0; push(null,null)`)
       thay vì reassign.
-- [ ] **UI:** chip `#btnProjects` + `#tbProjectName` trên topbar (sau brand, CSS
+- [x] **UI:** chip `#btnProjects` + `#tbProjectName` trên topbar (sau brand, CSS
       `.tb-proj-chip` mới trong styles.css); modal `#projectsOverlay` clone pattern
       `#teamOverlay` (`.modal-overlay`/`.modal-content`, backdrop-click đóng): list
       `#projList` (row: name/code/drive-dot + nút Switch/Rename/Delete, render bởi
@@ -221,12 +221,12 @@ Drive link/state của project đích; model nạp lại từ Drive folder hoặ
       types/index.ts): `toggleProjectsPanel/projCreate/projRename/projDelete/projSwitch`,
       đặt trong module mới `frontend/src/components/ui/projects.ts` (import ở main.ts sau
       ui-shell, trước initRouter).
-- [ ] **`projSwitch(id)`:** guard `#loadOv.on` (đang load) → abort; có model/compareResult →
+- [x] **`projSwitch(id)`:** guard `#loadOv.on` (đang load) → abort; có model/compareResult →
       `confirm()`; lưu state project cũ (camera + page + driveLink); `setActive` + mirror
       key cũ; `navigateTo('viewer')`; `unloadAllModels()`; cập nhật chip + re-render list;
       dispatch `CustomEvent('ifc:projectchange')`. KHÔNG tự gọi
       `loadProjectDriveModelsViewer()` (tránh popup OAuth bất ngờ — card Drive là affordance).
-- [ ] **Settings modal rework:** gắn id `#projName/#projCode` cho 2 input mock (bỏ value
+- [x] **Settings modal rework:** gắn id `#projName/#projCode` cho 2 input mock (bỏ value
       hardcode "City Tower Phase 1"/"CT-P1"); populate/save qua hook `projFillSettings/
       projSaveSettings` (định nghĩa ở projects.ts) gọi từ `toggleSettingsPanel` (ui-shell.ts).
 - Edge: 2 tab mở song song = last-writer-wins trên `ifc.projects.v1` (ghi comment chấp nhận);

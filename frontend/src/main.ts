@@ -26,6 +26,7 @@ import './components/integrations/drive.js';
 import './components/inspect/search.js';
 import './components/ui/fieldmode.js';
 import './components/ui/ui-shell.js';
+import './components/ui/projects.js';
 import './components/ui/rail.js';
 import { initRouter } from './components/ui/router.js';
 import { initStatePersist } from './components/ui/state-persist.js';
