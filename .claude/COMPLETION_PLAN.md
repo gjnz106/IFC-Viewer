@@ -20,8 +20,19 @@
 | 3 | Độ chính xác Compare (geometry hash) | ✅ Done — PR #48 |
 | 4 | Export & polish | ✅ Done — PR #49 |
 | 5 | Verify & phòng thủ | ✅ Done — PR #50 |
+| 6 | Project management (local-first) | ⬜ Not started |
+| 7 | Walk levels (storey picker + clip tầng) | ⬜ Not started |
+| 8 | Measure area/angle + unit setting | ⬜ Not started |
+| 9 | Saved viewpoints (per-project) | ⬜ Not started |
+| 10 | Bật clash options (box filter, duplicate, self-clash) | ⬜ Not started |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
+
+> **Thứ tự phụ thuộc (Phase 6–10):** Phase 6 đi trước — Phase 9 cần `projectId`,
+> Phase 8 lưu unit per-project (có fallback global nên vẫn chạy độc lập được).
+> Phase 7 và 10 độc lập hoàn toàn. Quy ước chung: logic thuần đặt ở
+> `frontend/src/lib/*.ts` + test Vitest colocated; handler gắn `window.*` + khai báo
+> `types/index.ts`; không đổi/xoá element ID + handler hiện có.
 
 ---
 
@@ -161,3 +172,244 @@ không cần workflow Pages.
 - **Done khi:** có test hồi quy cho các fix chính + đã kiểm thử tương tác trên trình duyệt. ✅
   (Verify: typecheck sạch, 101/101 test (+14 mới), build OK, 0 pageerror cả dist/ và
   dist-standalone/, E2E headless đầy đủ 4 luồng nghiệp vụ chính.)
+
+## Phase 6 — Project management (local-first) · Size M–L
+**Status:** ⬜ Not started
+
+Người dùng đã chốt: project = **local-first**, KHÔNG backend/Firestore. Project =
+`{id, name, code, driveLink, state}` trong localStorage; nút switch trên topbar + modal
+quản lý (list/create/rename/delete/switch). Switch = unload TẤT CẢ model + khôi phục
+Drive link/state của project đích; model nạp lại từ Drive folder hoặc re-upload thủ công.
+
+- [ ] **Data layer `frontend/src/lib/projects-store.ts`** (mới, theo pattern pure+glue của
+      `validate/snapshots.ts`): `Project {id, name, code, state:{driveLink, units?, page?,
+      camera?}, createdAt, updatedAt}`; `ProjectRegistry {activeId, list}` lưu key
+      **`ifc.projects.v1`** (1 key JSON atomic). Pure ops: `createProject`, `renameProject`,
+      `deleteProject` (xoá active → kích hoạt cái còn lại; xoá cái cuối → tạo lại "Default
+      Project"), `setActive`, `migrateLegacy(driveLink)` (first-run: dựng registry 1 project
+      từ key cũ). Glue `loadRegistry/saveRegistry` (try/catch quota), `getActiveProject`.
+      Test `projects-store.test.ts`: create/rename/delete round-trip, delete-active promote,
+      delete-last recreate default, migrateLegacy, setActive id lạ = no-op.
+- [ ] **Mirror key cũ `'projectDriveLink'`:** KHÔNG sửa các chỗ đang đọc key này
+      (drive.ts `loadProjectDriveModelsViewer`, router.ts `applyWorkspace`, ui-shell.ts
+      toggleSettingsPanel) — khi switch/save, ghi `active.state.driveLink` vào key cũ
+      (hoặc removeItem khi rỗng). Giữ diff nhỏ, tích hợp miễn phí với card
+      `#projectDriveViewerCard` sẵn có.
+- [ ] **`unloadAllModels()`** (mới, đặt ở `federation-load.ts` — nơi đã own slot lifecycle;
+      export + gắn window). Thứ tự: ① caller `navigateTo('viewer')` trước (router tự exit
+      compare/clash/SG/field — không duplicate logic); ② clear measure/highlight/colorize/
+      hidden (`clearMeasure`, `clearHighlight`, `colorizeClear`, `showAllHidden`); ③ sweep
+      diff subsets còn sót (export lại `disposeDiffSubsets` để tái dùng); ④ per-slot
+      `disposeModel` + `scene.remove` + `_colorizeInvalidate(i)`; ⑤ reset state:
+      `files/loadedModels`, `fedNextSlot=2`, `sharedCenterOffset=null`, `modelBounds`,
+      `compareResult=null`, `clashResults=[]`, `sgState.cachedCtx=null`, aiIndex,
+      `_catData/_catModelIDs`, `activeCategories`; ⑥ reset 6 `clipPlanes` constant về 99999 —
+      **KHÔNG truncate mảng** (bài học `fieldClosePlan2D` Phase 5); nếu `sectionActive` →
+      `toggleSectionBox()` để tắt; ⑦ reset DOM: `#uc0/#uc1` bỏ class loaded, clear
+      `#fn*/#fs*/#us*`, ẩn `#visRow*`, `fedRenderSlots()`, hiện `#emptyVP`, disable
+      `#btnCompare/#btnRunComparePanel`, `#catFilter` bỏ show, `#propArea` về placeholder,
+      `requestPlanRebuild()`; ⑧ nếu đang walk → `toggleWalkMode()` trước tiên.
+      ⚠️ **Verify trước khi code:** grep module nào giữ reference mảng
+      `appState.files/loadedModels` — nếu có thì mutate in-place (`length=0; push(null,null)`)
+      thay vì reassign.
+- [ ] **UI:** chip `#btnProjects` + `#tbProjectName` trên topbar (sau brand, CSS
+      `.tb-proj-chip` mới trong styles.css); modal `#projectsOverlay` clone pattern
+      `#teamOverlay` (`.modal-overlay`/`.modal-content`, backdrop-click đóng): list
+      `#projList` (row: name/code/drive-dot + nút Switch/Rename/Delete, render bởi
+      `renderProjectList()`, escape bằng `escapeHtml`) + form tạo mới `#projNewName/
+      #projNewCode/#projNewDrive` + `projCreate()`. Handlers trên window (khai báo
+      types/index.ts): `toggleProjectsPanel/projCreate/projRename/projDelete/projSwitch`,
+      đặt trong module mới `frontend/src/components/ui/projects.ts` (import ở main.ts sau
+      ui-shell, trước initRouter).
+- [ ] **`projSwitch(id)`:** guard `#loadOv.on` (đang load) → abort; có model/compareResult →
+      `confirm()`; lưu state project cũ (camera + page + driveLink); `setActive` + mirror
+      key cũ; `navigateTo('viewer')`; `unloadAllModels()`; cập nhật chip + re-render list;
+      dispatch `CustomEvent('ifc:projectchange')`. KHÔNG tự gọi
+      `loadProjectDriveModelsViewer()` (tránh popup OAuth bất ngờ — card Drive là affordance).
+- [ ] **Settings modal rework:** gắn id `#projName/#projCode` cho 2 input mock (bỏ value
+      hardcode "City Tower Phase 1"/"CT-P1"); populate/save qua hook `projFillSettings/
+      projSaveSettings` (định nghĩa ở projects.ts) gọi từ `toggleSettingsPanel` (ui-shell.ts).
+- Edge: 2 tab mở song song = last-writer-wins trên `ifc.projects.v1` (ghi comment chấp nhận);
+  các key `state-persist.ts` (`ifc.panels`, `ifc.camera`…) giữ **global** phase này (chỉ lưu
+  camera vào project record lúc switch); registry hỏng/JSON lỗi → try/catch tạo lại default.
+- **Done khi:** tạo → switch → mọi model unload sạch (reload lại model chạy như lần đầu,
+  test unload→reload 2 lần) → switch lại khôi phục đúng Drive link; typecheck + test + build
+  pass, 0 pageerror smoke-test.
+
+## Phase 7 — Walk levels (storey picker + teleport + clip tầng) · Size M
+**Status:** ⬜ Not started
+
+Người dùng đã chốt: chọn level khi walk → **teleport tới tầm mắt ~1.6m trên sàn tầng đó +
+clip ẩn các tầng khác** (toggle tắt được); danh sách level **lọc bỏ storey rác** (0 phần tử,
+trùng cao độ). Quy ước toạ độ bắt buộc: `worldY = elevation − appState.sharedCenterOffset.y`
+(chuẩn = fieldmode.ts `fieldSelectStorey`; plan-overlay.ts đang dùng elevation thô = bug).
+
+- [ ] **`frontend/src/lib/storeys.ts`** (mới, pure): `WalkStorey {name, modelIdx, expressID,
+      elevation, topElevation, elementCount}`; `mergeStoreys(perModel)` — bỏ storey
+      elementCount=0, dedup elevation ±0.1m (giữ bản count cao hơn), sort tăng dần,
+      `topElevation` = elevation storey kế tiếp CÒN GIỮ (fallback +3.5m — convention
+      plan-overlay); `storeyWorldY(elevation, offsetY)`. Glue `ensureStoreyCounts(modelIdx)`:
+      đếm phần tử per-storey qua `mgr.getSpatialStructure` (pattern sẵn có ở ai.ts
+      `buildAiIndex`), cache `model.spatial.storeyCounts`, chạy **lazy** lần đầu build picker
+      (getSpatialStructure chậm trên model lớn). Fallback an toàn: lỗi đếm → count = Infinity
+      (không bao giờ bị lọc); lọc xong rỗng → dùng danh sách chưa lọc.
+      Test `storeys.test.ts`: lọc 0-count, dedup giữ count cao, topElevation fallback +
+      next-kept, dấu `storeyWorldY`, fallback all-junk.
+- [ ] **walk.ts + index.html:** strip pill `#walkLevels` cạnh `#walkHUD` + checkbox
+      `#walkClipChk` ("Clip storey", mặc định bật). **Pointer lock chặn click chuột trên
+      desktop** → phím là chính: `PageUp/PageDown` (và `[`/`]`) đổi tầng, `L` toggle clip
+      (thêm vào keydown listener sẵn có, guard `walkActive`); pill vẫn click được trên touch
+      (Field Mode walk không pointer-lock), highlight tầng active. HUD hint thêm
+      `⇞⇟ Level · L Clip`. Hàm mới trên window: `walkBuildLevels` (async, gọi khi vào walk:
+      ensureStoreyCounts → mergeStoreys → render pill; render list chưa lọc ngay, re-render
+      khi count về), `walkGoToStorey(idx)`, `walkCycleStorey(dir)`, `walkToggleStoreyClip`.
+- [ ] **`walkGoToStorey`:** `floorY = storeyWorldY(s.elevation, offset.y)`; camera.y =
+      floorY + 1.6m quy đổi đơn vị model (`1.6*1000/units.lengthFactor`); giữ x/z hiện tại
+      (clamp vào modelBounds XZ, ngoài bounds → về center); pitch=0 qua bridge `walkSetPose`
+      (dùng chung desktop + Field Mode). Clip bật: ghi thẳng
+      `clipPlanes[2].constant = storeyWorldY(s.topElevation) + 0.1` và
+      `clipPlanes[3].constant = −(floorY − 0.3)` (quy ước fieldSelectStorey), X/Z không đụng,
+      KHÔNG gọi `updateSectionFromSliders` (sẽ bị slider ghi đè).
+- [ ] **Restore clip** khi tắt toggle **và cả 2 đường exit walk** (`toggleWalkMode` exit
+      branch + `pointerlockchange` force-exit — dễ sót): `sectionActive` →
+      `updateSectionFromSliders()` (trả section box của user), ngược lại constant về 99999.
+      Show/hide `#walkLevels` cùng `#walkHUD` ở cả 2 đường.
+- [ ] **Sửa bug plan-overlay elevation thô** (cùng quy ước, tránh 2 convention song song):
+      `planSelectStorey` (storeyClip :195–196), best-storey pick (:142), `onStorey` check
+      (:360), shift-click Y-window (:548) → chuyển qua `storeyWorldY`. Giữ elevation thô cho
+      chuỗi hiển thị (`+3.00m`).
+- Edge: nhiều model federation → merge + dedup, nhãn `(A)/(B)` (FED_LABELS) chỉ khi trùng tên
+  khác cao độ; model không storey/all-junk → pill "No storeys" disabled, phím no-op; section
+  box đang bật + storey clip → storey clip thắng khi walk, restore khi exit.
+- **Done khi:** model có offset ≠ 0 → walk chọn tầng 2 → camera đúng tầm mắt tầng 2, các tầng
+  khác bị clip; tắt clip thấy lại toàn bộ; exit walk khôi phục section; Plan overlay chọn
+  storey khớp Field Mode; typecheck + test + build pass, 0 pageerror.
+
+## Phase 8 — Measure area + angle + unit setting toàn cục · Size M
+**Status:** ⬜ Not started
+
+Thêm 2 mode đo mới (diện tích, góc) + 1 cài đặt đơn vị hiển thị (mm/m/ft-in) dùng chung cho
+measure, coordinates readout, properties panel. Lưu ý nền tảng: world coords = project units;
+`readProjectUnits` đã chuẩn hoá `lengthFactor` (project→mm) — pref chỉ đổi **hiển thị**,
+không convert 2 lần.
+
+- [ ] **`frontend/src/lib/units.ts`** (mới): `UnitPref = 'mm'|'m'|'ftin'`; pure
+      `formatLengthMm(mm, pref)`, `formatFtIn(mm)` (làm tròn 1/8", rút gọn phân số 6/8→3/4,
+      xử lý âm), `formatAreaM2(m2, pref)` (m²|ft²), `formatVolumeM3(m3, pref)`. Glue:
+      `getUnitPref()` (project active `state.units` → localStorage `ifc.units` → 'mm'),
+      `setUnitPref(u)` (ghi cả 2 nơi + dispatch `CustomEvent('ifc:unitschange')`),
+      `worldToMm(v, modelIdx=0)` = `v * (units.lengthFactor ?? 1000)` (dùng factor slot 0
+      cho scene-level; federation lệch đơn vị thì geometry đã lệch sẵn — ghi comment).
+      Test `units.test.ts`: mm/m/ft-in incl. formatFtIn exact (0, 304.8→1'-0", 1619, âm,
+      làm tròn 1/8"), factor ft²/ft³.
+- [ ] **`frontend/src/lib/measure-math.ts`** (mới, pure): `polygonArea3D(points)` (Newell —
+      đúng cho polygon 3D gần phẳng, "projected area lên best-fit plane"), `angleAt(p1,
+      vertex, p2)` độ. Test `measure-math.test.ts`: vuông đơn vị=1, vuông xoay/tịnh tiến=1,
+      tam giác 3-4-5, colinear→0, góc 90°/180°/nhọn, degenerate (vertex==endpoint) guard.
+- [ ] **measure.ts:** `measureType` mở rộng `'distance'|'level'|'area'|'angle'`; refactor
+      `setMeasureMode` styling thành loop (giữ nguyên ID/behavior cũ). Nút `#modeArea/
+      #modeAngle` sau `#modeLevel` (copy pattern button inline sẵn có) + chip
+      `#measureUnitBtn` (`onclick="cycleUnitPref()"`, hiện mm|m|ft). **Area:** mỗi click thêm
+      điểm; từ điểm 3 vẽ outline khép kín + fill mesh (triangle fan, DoubleSide,
+      depthTest:false) + label sống `formatAreaM2(polygonArea3D(pts)·(worldToMm(1)/1000)²)`;
+      Enter/double-click chốt; mọi object transient đẩy vào `measureMarkers` (đường cleanup
+      sẵn có). **Angle:** đúng 3 click A–B–C, vẽ B→A, B→C + label `xx.x°` tại B; click thứ 4
+      bắt đầu lại. Thay hết format hardcode (distance `${dist.toFixed(3)}m`, level
+      `(el*1000).toFixed(0)` + `EL … m`) bằng `formatLengthMm(worldToMm(v), pref)`. Nghe
+      `'ifc:unitschange'` → `clearMeasure()` (sprite đã bake chữ) + update chip.
+- [ ] **Consumers:** coordinates.ts format X/Y/Z qua units (giữ layout compact; mm → số
+      nguyên); properties.ts `fmtLength/fmtArea/fmtVolume` route qua formatter mới (nhân
+      per-model `units.*Factor` — conversion IFC-internal→mm sẵn có — rồi format theo pref);
+      thêm `<select id="unitSelect" onchange="setUnitPrefFromUI()">` vào `#settingsOverlay`,
+      populate lúc mở. Khai báo `cycleUnitPref/setUnitPrefFromUI` trên window + types.
+- Edge: IFC internal units = feet → `lengthFactor` đã xử lý, chỉ verify không double-convert;
+  ft-in âm (elevation dưới datum) → dấu `-` đầu; polygon colinear/duplicate → area 0 không
+  crash; unit pref hoạt động cả khi có project (per-project) lẫn không (global `ifc.units`).
+- **Done khi:** 4 mode đo hoạt động; đổi đơn vị cập nhật measure + coords + properties;
+  typecheck + test + build pass, 0 pageerror.
+
+## Phase 9 — Saved viewpoints (gallery per-project) · Size M–L · phụ thuộc Phase 6
+**Status:** ⬜ Not started
+
+Viewpoint có tên = camera + visibility + section state, lưu per-project, khôi phục từ gallery
+thumbnail ở left panel.
+
+- [ ] **`frontend/src/lib/viewpoints-store.ts`** (mới): `Viewpoint {id, name, createdAt,
+      camera{px..tz}, anchor, section:{active, sliders[6]}, visibility:{slotVisible,
+      hiddenKeys, isolated}, modelsKey, thumb}` — key `ifc.viewpoints.<projectId>`
+      ('default' khi chưa có registry), cap 30/project (`addViewpoint(list, vp, maxKeep)`).
+      **`anchor` = sharedCenterOffset LÚC CHỤP** + `remapCamera(vp, currentOffset)`:
+      `newWorld = savedWorld + (savedOffset − currentOffset)` (identity khi 1 trong 2 null) —
+      bắt buộc vì offset do model load ĐẦU TIÊN quyết định, reload đổi thứ tự → camera lệch
+      nếu không remap. `modelsFingerprint(fileNames)` (sorted join — mismatch → warn khi
+      restore). Test: remap identity/shift/null, cap, fingerprint không phụ thuộc thứ tự.
+- [ ] **`frontend/src/components/tools/viewpoints.ts`** (mới; import main.ts sau
+      color-schemes): **`vpSave()`** — name qua prompt; camera từ position + controls.target;
+      anchor = sharedCenterOffset; section = `sectionActive` + giá trị 6 slider `slXp…slZn`
+      (phần trăm theo modelBounds → offset-proof cho cùng bộ model); visibility qua accessor
+      mới **export từ color-schemes.ts**: `getVisibilityState()/applyVisibilityState()`
+      (set `hiddenExpressIDs/isolatedIDs` hiện module-private — export accessor rồi
+      `rebuildModelSubset(mi)` per model); `slotVisible` từ `model.visible`; thumbnail JPEG
+      ~160×100 q0.6 từ `renderer.domElement` qua offscreen canvas (renderer đã
+      `preserveDrawingBuffer:true`). **`vpRestore(id)`** — chưa load model → chỉ camera
+      (remap với currentOffset=null) + toast "Models not loaded — camera only"; fingerprint
+      lệch → vẫn apply + warn; đang compare (`compareResult`) → chặn "Exit compare first";
+      thứ tự áp: camera (remap) → sliders + `toggleSectionBox()` nếu active lệch →
+      `updateSectionFromSliders()` → visibility (checkbox `#visA/#visB` + `toggleModelVis`
+      semantics slot 0/1, `model.visible` + `fedRenderSlots()` slot 2+ → applyVisibilityState).
+      `vpDelete` (confirm) / `vpRename`.
+- [ ] **Gallery UI:** panel `.od-panel` `#vpPanel` ở left panel (sau block Drive),
+      `data-pages="viewer compare clash validate"`; header "Viewpoints" + badge `#vpBadge`;
+      body `#vpGalleryBody`: nút "+ Save viewpoint" (`vpSave`) + grid `#vpGrid` (card = img
+      thumb + name + ✎/✕, click = `vpRestore`); render bởi `renderVpGallery()`, escape tên.
+      CSS mới `.vp-card/.vp-grid`. Handlers + types: `vpSave/vpRestore/vpDelete/vpRename/
+      vpTogglePanel`.
+- [ ] **Tích hợp project:** nghe `'ifc:projectchange'` để re-read gallery (Phase 6 dispatch
+      trong `projSwitch` — nếu chưa có thì thêm ở phase này); `projDelete` xoá kèm
+      `ifc.viewpoints.<id>`.
+- Edge: quota localStorage (thumb ~5–8KB, cap 30) → try/catch, fail retry bỏ thumb mới nhất;
+  lưu khi đang walk → lưu camera tương đương orbit (position + lookDir·10 làm target, như
+  walk-exit); restore KHÔNG tự vào lại walk (descope, ghi chú).
+- **Done khi:** lưu 2 viewpoint (1 cái có section + hidden) → F5 → load lại model → restore
+  đúng cả 2; load model đổi thứ tự slot → restore vẫn frame đúng hình (remap hoạt động);
+  typecheck + test + build pass, 0 pageerror.
+
+## Phase 10 — Bật clash options (đánh giá từng cái) · Size M · độc lập
+**Status:** ⬜ Not started
+
+Các option disabled từ Phase 1 (index.html, `title="Chưa hỗ trợ (roadmap)"`) — đánh giá
+từng cái: **làm** box size/volume filter + Duplicate type + Single Model (self-clash);
+**descope có lý do** Include parts + Single System/Component.
+
+- [ ] **Box size/volume filter (S):** overlap box `ox,oy,oz` đã có ở `bboxPenetration`
+      (clash.ts) → pure export `passesBoxFilter(ox, oy, oz, cfg{sizeOn, sizeMm,
+      side:'shortest'|'longest', volOn, volM3})` — bỏ hard clash khi cạnh chọn của overlap
+      box < sizeMm hoặc volume < volM3 (semantics BIMcollab: suppress clash vụn); đọc input
+      trong `runClashDetection` (cạnh `clashTolMinDist`), áp ở nhánh accept cho **hard clash
+      only** (clearance không có overlap box). Bật 5 input: `#clashTolBoxSize/
+      #clashTolBoxSizeVal/#clashTolShortest/#clashTolLongest/#clashTolBoxVol/#clashTolBoxVolVal`.
+- [ ] **Duplicate type (M):** dùng `computeGeometryHashes(modelIdx)` từ `lib/geometry-hash.ts`
+      (entry có `hash` + `center/size` world-space 1cm-quantized — đã bao vị trí, xác nhận):
+      khi `#clashTypeDuplicate` checked, cặp (a∈setA, b∈setB) `hashA===hashB && cùng IFC
+      type` → result `isDuplicate:true`, bỏ qua mesh-test (theo định nghĩa đã trùng); badge
+      riêng trong card list + stat card `#clashDup` mới (cạnh `#clashTotal/#clashHard/
+      #clashNear`); CSV/BCF export mang flag mới (mirror mọi chỗ dùng `isHard`). Duplicate
+      bypass box filter (overlap box = element box).
+- [ ] **Single Model = self-clash A×A (M):** helpers `buildElementBBoxes/buildFilteredSet`
+      đã parameterized theo modelIdx → khi `#clashSingleModel` checked và chỉ slot 0 loaded
+      (hoặc 2 slot cùng model): setA=setB=model 0; skip `a.eid===b.eid`, dedup cặp đối xứng
+      (`a.eid < b.eid`); nới gate `#btnRunClash` ở `enterClashMode` (hiện đòi cả 2 model)
+      cho phép chỉ slot 0 khi checked, giữ behavior cũ khi không. Chú ý `CAND_CAP` (n²/2
+      self-pairs — cảnh báo cap sẵn có vẫn áp dụng). Disable checkbox Duplicate khi ở
+      single-model mode (self-pair identical-position sẽ flag mọi cặp — vô nghĩa).
+- [ ] **Descope (giữ disabled, đổi tooltip tiếng Anh "Not supported — …"):** Include parts
+      (`#clashIncludePartsA/B` — cần expand IfcRelAggregates/Nests, hiếm trong IFC Revit,
+      không có fixture test); Single System (`#clashSingleSystem` — cần index
+      IfcRelAssignsToGroup chỉ để lọc, cost/benefit kém); Single Component
+      (`#clashSingleComponent` — phụ thuộc Include parts).
+- Test: mở rộng `clash.test.ts` — `passesBoxFilter` (shortest/longest side, volume, boundary,
+  off=pass-through), dedup cặp đối xứng, ghép duplicate từ hash map synthetic;
+  regression-guard `bboxGap` bằng test sẵn có.
+- **Done khi:** 3 option mới chạy đúng trên fixture Phase 5 (duplicate flag đúng cặp wall
+  không đổi; box filter suppress clash nhỏ khi nâng ngưỡng; self-clash phát hiện
+  self-overlap); typecheck + test + build pass, 0 pageerror.
