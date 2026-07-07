@@ -17,7 +17,7 @@
 | 0 | Khôi phục hosting + standalone review | ✅ Done — PR #42 |
 | 1 | Sửa bug chức năng (XSS, clash, smart-match) | ✅ Done — PR #41 |
 | 2 | Bộ nhớ & hiệu năng | ✅ Done — PR #47 |
-| 3 | Độ chính xác Compare (geometry hash) | ⬜ Not started |
+| 3 | Độ chính xác Compare (geometry hash) | ✅ Done — PR #48 |
 | 4 | Export & polish | ⬜ Not started |
 | 5 | Verify & phòng thủ | ⬜ Not started |
 
@@ -81,14 +81,28 @@ không cần workflow Pages.
 - **Done khi:** load→unload→reload nhiều lần không tăng bộ nhớ; clash model lớn không treo tab. ✅
   (Verify: typecheck sạch, 81/81 test, build OK, 0 pageerror headless smoke-test.)
 
-## Phase 3 — Độ chính xác Compare (geometry hash)
-**Status:** ⬜ Not started
+## Phase 3 — Độ chính xác Compare (geometry hash) ✅ Done
+**Status:** ✅ Done — PR #48 (2026-07-07)
 
-- [ ] Áp `matrixWorld` vào hash (hiện dùng toạ độ local → false "Position Moved" nếu lệch offset).
-- [ ] Hash bất biến thứ tự vertex (volume + bbox + count) thay vì 50 vertex đầu theo buffer.
-- [ ] Thống nhất quantize (1cm) vs threshold (10mm) để hết false "Position Moved" đúng 10mm.
-- [ ] Gộp `computeGeometryHashes` (đang duplicate ở compare.ts + federation-load.ts) về 1 module.
-- **Done khi:** re-export cùng model không sinh "Geometry/Position Changed" giả.
+- [x] Module dùng chung mới `frontend/src/lib/geometry-hash.ts`, transform mỗi vertex qua
+      `c.matrixWorld` trước khi tính bbox/volume — sửa đúng bug hash dùng toạ độ local (biến
+      `wm` từng bị khai báo nhưng không dùng ở bản compare.ts cũ) khiến model có offset (federation
+      slot, shared center offset) báo "Position Moved" giả dù phần tử không di chuyển thật.
+- [x] Hash giờ bất biến thứ tự vertex/face: tính volume bằng divergence theorem (tổng thể tích
+      tứ diện ký hiệu từ gốc toạ độ qua mỗi mặt tam giác, hỗ trợ cả geometry indexed/non-indexed)
+      thay vì sample 50 vertex đầu theo thứ tự buffer — bản cũ đổi hash mỗi khi exporter re-order/
+      re-triangulate hình học giống hệt, gây false "Geometry Changed".
+- [x] Quantize hash thống nhất về lưới 1cm (10mm) — cùng độ phân giải với ngưỡng "Position Moved"/
+      "Size Changed" hiện có, nên hash chỉ khác khi khác biệt thật vượt ngưỡng các phép so sánh
+      tường minh đã coi là đáng kể (loại bỏ trường hợp hash lệch do nhiễu làm tròn dưới ngưỡng).
+- [x] Gộp 2 bản `computeGeometryHashes` (compare.ts + federation-load.ts, đã trôi lệch — bản
+      federation-load.ts còn không dùng `matrixWorld` chút nào) thành 1 hàm duy nhất; xoá bản
+      federation-load.ts (không có nơi nào khác gọi tới, đã xác minh).
+- [x] Thêm `frontend/src/lib/geometry-hash.test.ts`: bất biến thứ tự face/vertex, tính đúng thể
+      tích tứ diện đơn vị, dùng world-space thay vì local, cùng hash cho cùng hình dịch chuyển
+      giống nhau ở cả 2 model, phát hiện đúng khi hình dạng thực sự đổi, model rỗng trả về `{}`.
+- **Done khi:** re-export cùng model không sinh "Geometry/Position Changed" giả. ✅
+  (Verify: typecheck sạch, 87/87 test (+6 test mới), build OK, 0 pageerror headless smoke-test.)
 
 ## Phase 4 — Export & polish
 **Status:** ⬜ Not started

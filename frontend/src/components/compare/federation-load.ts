@@ -417,63 +417,9 @@ async function getAllProps(modelID: number): Promise<Record<string, any>> {
   return props;
 }
 
-// ══ Geometry Hash — detect shape/position changes per element ══
-export function computeGeometryHashes(modelIdx: number): Record<number, any> {
-  const hashes: Record<number, any>={};
-  const model=appState.loadedModels[modelIdx];
-  if(!model)return hashes;
-
-  model.traverse(c=>{
-    if(!(c as any).isMesh||!(c as any).geometry?.attributes?.expressID||!(c as any).geometry?.attributes?.position)return;
-    const eidArr=(c as any).geometry.attributes.expressID.array;
-    const posArr=(c as any).geometry.attributes.position.array;
-
-    // Group vertices by expressID
-    const eidVerts: Record<number, any>={};
-    for(let i=0;i<eidArr.length;i++){
-      const eid=eidArr[i];
-      if(!eid||eid<=0)continue;
-      if(!eidVerts[eid])eidVerts[eid]={verts:[],count:0,mnX:Infinity,mnY:Infinity,mnZ:Infinity,mxX:-Infinity,mxY:-Infinity,mxZ:-Infinity};
-      const ev=eidVerts[eid];
-      const pi=i*3;
-      if(pi+2>=posArr.length)continue;
-      const x=posArr[pi],y=posArr[pi+1],z=posArr[pi+2];
-      if(isNaN(x))continue;
-      ev.count++;
-      // Track bounding box
-      if(x<ev.mnX)ev.mnX=x;if(x>ev.mxX)ev.mxX=x;
-      if(y<ev.mnY)ev.mnY=y;if(y>ev.mxY)ev.mxY=y;
-      if(z<ev.mnZ)ev.mnZ=z;if(z>ev.mxZ)ev.mxZ=z;
-      // Sample some vertices for hash (not all — too slow for large models)
-      if(ev.verts.length<50) ev.verts.push(Math.round(x*100),Math.round(y*100),Math.round(z*100));
-    }
-
-    // Build hash per expressID
-    for(const[eid,ev]of Object.entries(eidVerts)){
-      const sx=((ev as any).mxX-(ev as any).mnX).toFixed(2);
-      const sy=((ev as any).mxY-(ev as any).mnY).toFixed(2);
-      const sz=((ev as any).mxZ-(ev as any).mnZ).toFixed(2);
-      const cx=(((ev as any).mnX+(ev as any).mxX)/2).toFixed(2);
-      const cy=(((ev as any).mnY+(ev as any).mxY)/2).toFixed(2);
-      const cz=(((ev as any).mnZ+(ev as any).mxZ)/2).toFixed(2);
-
-      // Hash combines: vertex count + sampled vertex positions + bbox
-      const hashStr=(ev as any).verts.join(',')+`|${(ev as any).count}|${sx},${sy},${sz}`;
-      let hash=0;
-      for(let i=0;i<hashStr.length;i++){hash=((hash<<5)-hash)+hashStr.charCodeAt(i);hash|=0}
-
-      hashes[parseInt(eid)]={
-        vertCount:(ev as any).count,
-        hash:hash,
-        bboxStr:`${sx}×${sy}×${sz} @(${cx},${cy},${cz})`,
-        size:{x:parseFloat(sx),y:parseFloat(sy),z:parseFloat(sz)},
-        center:{x:parseFloat(cx),y:parseFloat(cy),z:parseFloat(cz)}
-      };
-    }
-  });
-
-  return hashes;
-}
+// computeGeometryHashes() used to be duplicated here — moved to
+// lib/geometry-hash.ts (imported by compare.ts, the only caller) so both
+// halves of Compare share one implementation instead of two that could drift.
 
 // ── Expose cross-module callers on window ──
 // window.getAllProps (AI index), window.findModelIdx (pick), window.fedRenderSlots
