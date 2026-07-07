@@ -476,6 +476,7 @@ function setupPlanInteraction(): void {
     panel.style.right = 'auto';
   });
   hdr.addEventListener('pointerup', () => { planDragState = null; });
+  hdr.addEventListener('pointercancel', () => { planDragState = null; });
 
   resize.addEventListener('pointerdown', (e: PointerEvent) => {
     e.stopPropagation();
@@ -496,6 +497,28 @@ function setupPlanInteraction(): void {
     if (planView) planFit();
   });
   resize.addEventListener('pointerup', () => { planDragState = null; });
+  resize.addEventListener('pointercancel', () => { planDragState = null; });
+
+  // Mouse-wheel zoom — the desktop counterpart of Field Mode's pinch-zoom on
+  // the same view (fieldmode.ts's touch handler for the mobile Plan 2D).
+  // There was previously no way to zoom this panel at all besides the Fit
+  // button (which re-frames to the whole model, not incremental zoom).
+  // Same clamp bounds as the mobile pinch-zoom, centered on the current view.
+  wrap.addEventListener('wheel', (e: WheelEvent) => {
+    if (!planView || planView.storey === null) return;
+    e.preventDefault();
+    const cam = planView.camera;
+    const scale = e.deltaY > 0 ? 1.1 : 1 / 1.1;
+    const cx = (cam.left + cam.right) / 2;
+    const cy = (cam.top + cam.bottom) / 2;
+    const hw = (cam.right - cam.left) / 2 * scale;
+    const hh = (cam.top - cam.bottom) / 2 * scale;
+    if (hw < 0.5 || hw > 5000) return;
+    cam.left = cx - hw; cam.right = cx + hw;
+    cam.top = cy + hh; cam.bottom = cy - hh;
+    cam.updateProjectionMatrix();
+    planView.dirty = true;
+  }, { passive: false });
 
   wrap.addEventListener('click', (e: MouseEvent) => {
     if (!planView || planDragState) return;
