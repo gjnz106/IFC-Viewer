@@ -11,6 +11,7 @@ import { appState } from '../../store/index.js';
 import { FED_COLORS, IFC_NAMES } from '../../lib/constants.js';
 import { runCompare as computeDiff } from './compare.js';
 import { log } from '../core/ifc-category.js';
+import { disposeModel } from '../core/viewer-core.js';
 
 // ══ Federation file management (slots 2+) ══════════════════════════
 let _fedPendingSlot = -1;
@@ -40,6 +41,7 @@ window.fedHandleFile = function(ev: Event){
 window.fedRemoveSlot = function(idx: number){
   if(idx < 2) return;
   if(appState.loadedModels[idx]){
+    disposeModel(appState.loadedModels[idx]);
     appState.scene.remove(appState.loadedModels[idx]!);
     appState.loadedModels[idx] = null;
   }
@@ -163,8 +165,22 @@ window.runCompare=async function(){
   lo.classList.remove('on');
 };
 
+// createSubset() keys each subset by (modelID, material.uuid, customID) — since
+// applyDiffColors() builds a fresh material every run, re-running Compare never
+// reuses the previous subsetID, so the old 'added'/'removed'/'modified-*'/
+// 'unchanged-*' meshes are orphaned rather than replaced. Sweep them out (and
+// dispose their geometry/material) before creating the new set.
+function disposeDiffSubsets(): void {
+  const stale = appState.scene.children.filter((c: any) => c.userData?.diffSubset);
+  stale.forEach((sub: any) => {
+    appState.scene.remove(sub);
+    disposeModel(sub);
+  });
+}
+
 async function applyDiffColors(): Promise<void> {
   const r=appState.compareResult as any;
+  disposeDiffSubsets();
 
   // Backup original materials before modifying
   [0,1].forEach(i=>{if(appState.loadedModels[i])appState.loadedModels[i]!.traverse(c=>{if((c as any).isMesh){

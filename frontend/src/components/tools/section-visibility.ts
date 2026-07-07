@@ -31,6 +31,7 @@ import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { setStatus } from './focus-highlight.js';
 import { fedRenderSlots } from '../compare/federation-load.js';
+import { disposeModel } from '../core/viewer-core.js';
 import { IFC_NAMES } from '../../lib/constants.js';
 
 // ── Section Plan parallel to clicked face (Dalux-style) ──
@@ -342,7 +343,7 @@ async function loadIFC(idx: number){
   const st=idx<2?document.getElementById('us'+idx):null;
   if(st){st.className='uc-status prog';st.textContent='⏳ Parsing...';}
   try{
-    if(appState.loadedModels[idx]){appState.scene.remove(appState.loadedModels[idx]!);appState.loadedModels[idx]=null}
+    if(appState.loadedModels[idx]){disposeModel(appState.loadedModels[idx]);appState.scene.remove(appState.loadedModels[idx]!);appState.loadedModels[idx]=null}
     // Invalidate cached props for this slot so Colorize rescans on next use
     if(window._colorizeInvalidate)window._colorizeInvalidate(idx);
     // If no models remain at all, reset shared offset
@@ -652,10 +653,10 @@ window.exitCompare=function(){
   // Remove all diff subsets
   const toRemove: any[]=[];
   appState.scene.traverse(c=>{if((c as any).isMesh&&(c as any).userData?.diffSubset)toRemove.push(c)});
-  toRemove.forEach(c=>{if(c.parent)c.parent.remove(c)});
+  toRemove.forEach(c=>{if(c.parent)c.parent.remove(c);disposeModel(c)});
 
   // Remove view subsets
-  viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
+  viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s);disposeModel(s)});
   viewSubsets=[];
   (window as any).viewSubsets=viewSubsets; // mirrored (same ref — later .push() stays in sync): compare.ts/measure.ts read this to hide/show category-filter subsets when toggling model A/B visibility
 

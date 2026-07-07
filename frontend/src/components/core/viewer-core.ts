@@ -129,6 +129,20 @@ export function ifcClassToRevitCategory(cls: string): string {
 
 export function log(...a: any[]): void { console.log('[IFC]',...a) }
 
+// Free GPU buffers for a model/mesh subtree before dropping the last JS
+// reference to it. Three.js meshes hold onto geometry/material even after
+// scene.remove() — the driver only reclaims them on an explicit dispose(),
+// so skipping this leaks VRAM every time a model is replaced or unloaded.
+export function disposeModel(root: any): void {
+  if (!root) return;
+  root.traverse((c: any) => {
+    if (!c.isMesh) return;
+    c.geometry?.dispose?.();
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    mats.forEach((m: any) => m?.dispose?.());
+  });
+}
+
 // ══ Three.js ══
 export function initThree(): void {
   // Renderer attaches to #vpCanvas (the flex child inside vpArea), NOT vpArea

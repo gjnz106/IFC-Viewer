@@ -6,6 +6,7 @@ import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
 import { escapeHtml, escapeCsv } from '../../lib/escape.js';
+import { disposeModel } from '../core/viewer-core.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
 (window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
@@ -390,13 +391,13 @@ export function exitClashMode(): void {
   if(panelBtn2){panelBtn2.disabled=!bothLoaded;panelBtn2.style.opacity=bothLoaded?'1':'.35';}
   document.getElementById('clashGroupBar')!.style.display = 'none';
 
-  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); });
+  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
   clashSubsets = []; appState.clashResults = []; currentClashIdx = -1;
   clashPropertyCacheA = {}; clashPropertyCacheB = {};
   // Remove focus highlights
   const oldFocus: THREE.Object3D[] = [];
   appState.scene.traverse(c => { if ((c as any).userData?.clashFocus) oldFocus.push(c); });
-  oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); });
+  oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); disposeModel(c); });
 
   for (let i = 0; i < 2; i++) {
     if (!appState.loadedModels[i]) continue;
@@ -488,39 +489,55 @@ function bboxGap(a: any, b: any): number {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+// Precompute world-space vertices per expressID, once per model, for only the
+// eids that survived the bbox pre-filter. meshIntersectionTest() used to
+// traverse the ENTIRE model twice (once per direction) for every single
+// candidate pair — with up to CAND_CAP=2000 candidates that's up to 4000 full
+// model traversals just to test intersection. Building this map once and
+// having meshIntersectionTest do a plain lookup collapses that to 2 traversals
+// total regardless of candidate count.
+function buildEidVertexMap(model: THREE.Group, eids: Set<number>): Map<number, THREE.Vector3[]> {
+  const map = new Map<number, THREE.Vector3[]>();
+  model.traverse(c => {
+    if (!(c as any).isMesh || !(c as any).geometry?.attributes?.expressID || !(c as any).geometry?.attributes?.position) return;
+    const eidArr: ArrayLike<number> = (c as any).geometry.attributes.expressID.array;
+    const pos: ArrayLike<number> = (c as any).geometry.attributes.position.array;
+    const wm = (c as THREE.Mesh).matrixWorld;
+    for (let i = 0; i < eidArr.length; i++) {
+      const eid = eidArr[i];
+      if (!eids.has(eid)) continue;
+      const pi = i * 3;
+      let list = map.get(eid);
+      if (!list) { list = []; map.set(eid, list); }
+      list.push(new THREE.Vector3(pos[pi], pos[pi + 1], pos[pi + 2]).applyMatrix4(wm));
+    }
+  });
+  return map;
+}
+
 // ── Sample-based mesh intersection test ──
 // Instead of full triangle-triangle intersection (very expensive),
 // we sample vertices from element A and check if any are inside element B's bbox
 // For more accurate results, we do a bidirectional check
-function meshIntersectionTest(elA: any, elB: any, modelA: THREE.Group, modelB: THREE.Group): any {
+function meshIntersectionTest(elA: any, elB: any, vertsA: Map<number, THREE.Vector3[]>, vertsB: Map<number, THREE.Vector3[]>): any {
   // Collect vertices of A that are inside B's bbox (expanded slightly)
   const pad = 0.01;
 
-  const checkInside = (srcModel: THREE.Group, srcEid: number, targetBBox: any) => {
-    let inside = 0, total = 0;
-    srcModel.traverse(c => {
-      if (!(c as any).isMesh || !(c as any).geometry?.attributes?.expressID || !(c as any).geometry?.attributes?.position) return;
-      const eids: ArrayLike<number> = (c as any).geometry.attributes.expressID.array;
-      const pos: ArrayLike<number> = (c as any).geometry.attributes.position.array;
-      const wm = (c as THREE.Mesh).matrixWorld;
-      const v = new THREE.Vector3();
-      for (let i = 0; i < eids.length; i++) {
-        if (eids[i] !== srcEid) continue;
-        total++;
-        const pi = i * 3;
-        v.set(pos[pi], pos[pi + 1], pos[pi + 2]).applyMatrix4(wm);
-        if (v.x >= targetBBox.mnX - pad && v.x <= targetBBox.mxX + pad &&
-            v.y >= targetBBox.mnY - pad && v.y <= targetBBox.mxY + pad &&
-            v.z >= targetBBox.mnZ - pad && v.z <= targetBBox.mxZ + pad) {
-          inside++;
-        }
+  const checkInside = (verts: THREE.Vector3[] | undefined, targetBBox: any) => {
+    if (!verts) return { inside: 0, total: 0 };
+    let inside = 0;
+    for (const v of verts) {
+      if (v.x >= targetBBox.mnX - pad && v.x <= targetBBox.mxX + pad &&
+          v.y >= targetBBox.mnY - pad && v.y <= targetBBox.mxY + pad &&
+          v.z >= targetBBox.mnZ - pad && v.z <= targetBBox.mxZ + pad) {
+        inside++;
       }
-    });
-    return { inside, total };
+    }
+    return { inside, total: verts.length };
   };
 
-  const rAB = checkInside(modelA, elA.eid, elB);
-  const rBA = checkInside(modelB, elB.eid, elA);
+  const rAB = checkInside(vertsA.get(elA.eid), elB);
+  const rBA = checkInside(vertsB.get(elB.eid), elA);
 
   return {
     verticesAinB: rAB.inside,
@@ -536,6 +553,11 @@ window.runClashDetection = async function(): Promise<void> {
   if (!appState.loadedModels[0] || !appState.loadedModels[1]) return;
   const lo = document.getElementById('loadOv')!, lt = document.getElementById('loadTxt')!, lf = document.getElementById('loadFill')!;
   lo.classList.add('on');
+
+  // Re-running without exiting first would otherwise leave the previous run's
+  // clash-zone marker meshes orphaned in the scene (never disposed).
+  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
+  clashSubsets = [];
 
   // ── Read configuration from new BIMcollab-style UI ──
   // Tolerances. The "Minimum distance" field controls what previously was the
@@ -583,24 +605,30 @@ window.runClashDetection = async function(): Promise<void> {
       const ids = catIDs[cat]?.[modelIdx];
       if (!ids) continue;
       for (const eid of ids) {
-        // Get properties for filter matching
+        // Get properties for filter matching — skip the (awaited) IFC lookup
+        // entirely when this category has no property filters, since
+        // passesFilters() always returns true for an empty filter list and
+        // the fetched values would go unused. With thousands of elements per
+        // category this was previously the dominant cost of Phase 1.
         let entity: any = { expressID: eid, type: cat, name: '', objectType: '', tag: '', description: '', predefinedType: '' };
-        try {
-          const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[modelIdx] as any).modelID, eid, false);
-          if (p) {
-            entity.name = p.Name?.value || '';
-            entity.objectType = p.ObjectType?.value || '';
-            entity.tag = p.Tag?.value || '';
-            entity.description = p.Description?.value || '';
-            entity.predefinedType = p.PredefinedType?.value || '';
-            entity.Name = entity.name; entity.ObjectType = entity.objectType;
-            entity.Tag = entity.tag; entity.Description = entity.description;
-            entity.PredefinedType = entity.predefinedType;
-          }
-        } catch (e) {}
+        if (propFilters.length) {
+          try {
+            const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[modelIdx] as any).modelID, eid, false);
+            if (p) {
+              entity.name = p.Name?.value || '';
+              entity.objectType = p.ObjectType?.value || '';
+              entity.tag = p.Tag?.value || '';
+              entity.description = p.Description?.value || '';
+              entity.predefinedType = p.PredefinedType?.value || '';
+              entity.Name = entity.name; entity.ObjectType = entity.objectType;
+              entity.Tag = entity.tag; entity.Description = entity.description;
+              entity.PredefinedType = entity.predefinedType;
+            }
+          } catch (e) {}
 
-        // Apply property filters
-        if (!passesFilters(entity, propFilters)) continue;
+          // Apply property filters
+          if (!passesFilters(entity, propFilters)) continue;
+        }
 
         elements[eid] = entity;
         propCache[eid] = entity;
@@ -669,10 +697,15 @@ window.runClashDetection = async function(): Promise<void> {
   candidates.sort((a, b) => b.penetration - a.penetration);
   const skipTypes = new Set(['IfcSpace', 'IfcSite', 'IfcBuilding', 'IfcBuildingStorey', 'IfcProject']);
 
+  const checkedEidsA = new Set<number>(), checkedEidsB = new Set<number>();
+  for (let i = 0; i < maxCheck; i++) { checkedEidsA.add(candidates[i].a.eid); checkedEidsB.add(candidates[i].b.eid); }
+  const vertsMapA = buildEidVertexMap(appState.loadedModels[0]!, checkedEidsA);
+  const vertsMapB = buildEidVertexMap(appState.loadedModels[1]!, checkedEidsB);
+
   for (let i = 0; i < maxCheck; i++) {
     const { a, b, penetration } = candidates[i];
 
-    const meshTest = meshIntersectionTest(a, b, appState.loadedModels[0]!, appState.loadedModels[1]!);
+    const meshTest = meshIntersectionTest(a, b, vertsMapA, vertsMapB);
     const isHard = meshTest.isHard;
 
     // Apply clash type filter
@@ -725,6 +758,25 @@ window.runClashDetection = async function(): Promise<void> {
     log(`Clash: candidate cap hit — checked ${maxCheck} of ${candidates.length} bbox candidates (deepest first). Narrow the sets for a complete run.`);
   } else {
     _clashCapNote = '';
+  }
+
+  // Names were skipped in buildFilteredSet() for categories with no property
+  // filter (see comment there) to avoid awaiting getItemProperties for every
+  // candidate element. Backfill them now, but only for the actual result set
+  // — typically orders of magnitude smaller than "every element checked".
+  for (const cl of appState.clashResults) {
+    if (!cl.elA.name) {
+      try {
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[0] as any).modelID, cl.elA.eid, false);
+        if (p?.Name?.value) cl.elA.name = p.Name.value;
+      } catch (e) {}
+    }
+    if (!cl.elB.name) {
+      try {
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[1] as any).modelID, cl.elB.eid, false);
+        if (p?.Name?.value) cl.elB.name = p.Name.value;
+      } catch (e) {}
+    }
   }
 
   log(`Clash detection complete: ${appState.clashResults.length} clashes found`);

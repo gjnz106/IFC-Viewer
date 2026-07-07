@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { escapeHtml } from '../../lib/escape.js';
+import { disposeModel } from '../core/viewer-core.js';
 
 // ── NOTE: This module is the continuation of doCompare() (which starts in
 //    08-federation-load.js / federation-load.ts) PLUS the compare-mode UI
@@ -717,7 +718,7 @@ export function applyCategoryVisibility3D() {
   // Remove old diff subsets
   const toRemove: any[] = [];
   appState.scene.traverse((c: any) => { if (c.isMesh && c.userData?.diffSubset) toRemove.push(c); });
-  toRemove.forEach(c => { if (c.parent) c.parent.remove(c); });
+  toRemove.forEach(c => { if (c.parent) c.parent.remove(c); disposeModel(c); });
 
   const filterByCat = (items: any[]) => {
     if (showNone) return [];
