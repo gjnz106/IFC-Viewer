@@ -442,7 +442,7 @@ async function loadIFC(idx: number){
       if(appState.files[1])document.getElementById('clashFileB')!.textContent=appState.files[1]!.name;
       document.getElementById('clashFileA')!.classList.toggle('loaded',!!appState.loadedModels[0]);
       document.getElementById('clashFileB')!.classList.toggle('loaded',!!appState.loadedModels[1]);
-      (document.getElementById('btnRunClash') as HTMLButtonElement).disabled=!(appState.loadedModels[0]&&appState.loadedModels[1]);
+      (window as any).updateClashRunButtonState?.();
     }
 
     // Build category filter from loaded models

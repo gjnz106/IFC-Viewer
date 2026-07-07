@@ -24,7 +24,7 @@
 | 7 | Walk levels (storey picker + clip tầng) | ✅ Done |
 | 8 | Measure area/angle + unit setting | ✅ Done |
 | 9 | Saved viewpoints (per-project) | ✅ Done |
-| 10 | Bật clash options (box filter, duplicate, self-clash) | ⬜ Not started |
+| 10 | Bật clash options (box filter, duplicate, self-clash) | ✅ Done |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -375,34 +375,34 @@ thumbnail ở left panel.
   typecheck + test + build pass, 0 pageerror.
 
 ## Phase 10 — Bật clash options (đánh giá từng cái) · Size M · độc lập
-**Status:** ⬜ Not started
+**Status:** ✅ Done (2026-07-07)
 
 Các option disabled từ Phase 1 (index.html, `title="Chưa hỗ trợ (roadmap)"`) — đánh giá
 từng cái: **làm** box size/volume filter + Duplicate type + Single Model (self-clash);
 **descope có lý do** Include parts + Single System/Component.
 
-- [ ] **Box size/volume filter (S):** overlap box `ox,oy,oz` đã có ở `bboxPenetration`
+- [x] **Box size/volume filter (S):** overlap box `ox,oy,oz` đã có ở `bboxPenetration`
       (clash.ts) → pure export `passesBoxFilter(ox, oy, oz, cfg{sizeOn, sizeMm,
       side:'shortest'|'longest', volOn, volM3})` — bỏ hard clash khi cạnh chọn của overlap
       box < sizeMm hoặc volume < volM3 (semantics BIMcollab: suppress clash vụn); đọc input
       trong `runClashDetection` (cạnh `clashTolMinDist`), áp ở nhánh accept cho **hard clash
       only** (clearance không có overlap box). Bật 5 input: `#clashTolBoxSize/
       #clashTolBoxSizeVal/#clashTolShortest/#clashTolLongest/#clashTolBoxVol/#clashTolBoxVolVal`.
-- [ ] **Duplicate type (M):** dùng `computeGeometryHashes(modelIdx)` từ `lib/geometry-hash.ts`
+- [x] **Duplicate type (M):** dùng `computeGeometryHashes(modelIdx)` từ `lib/geometry-hash.ts`
       (entry có `hash` + `center/size` world-space 1cm-quantized — đã bao vị trí, xác nhận):
       khi `#clashTypeDuplicate` checked, cặp (a∈setA, b∈setB) `hashA===hashB && cùng IFC
       type` → result `isDuplicate:true`, bỏ qua mesh-test (theo định nghĩa đã trùng); badge
       riêng trong card list + stat card `#clashDup` mới (cạnh `#clashTotal/#clashHard/
       #clashNear`); CSV/BCF export mang flag mới (mirror mọi chỗ dùng `isHard`). Duplicate
       bypass box filter (overlap box = element box).
-- [ ] **Single Model = self-clash A×A (M):** helpers `buildElementBBoxes/buildFilteredSet`
+- [x] **Single Model = self-clash A×A (M):** helpers `buildElementBBoxes/buildFilteredSet`
       đã parameterized theo modelIdx → khi `#clashSingleModel` checked và chỉ slot 0 loaded
       (hoặc 2 slot cùng model): setA=setB=model 0; skip `a.eid===b.eid`, dedup cặp đối xứng
       (`a.eid < b.eid`); nới gate `#btnRunClash` ở `enterClashMode` (hiện đòi cả 2 model)
       cho phép chỉ slot 0 khi checked, giữ behavior cũ khi không. Chú ý `CAND_CAP` (n²/2
       self-pairs — cảnh báo cap sẵn có vẫn áp dụng). Disable checkbox Duplicate khi ở
       single-model mode (self-pair identical-position sẽ flag mọi cặp — vô nghĩa).
-- [ ] **Descope (giữ disabled, đổi tooltip tiếng Anh "Not supported — …"):** Include parts
+- [x] **Descope (giữ disabled, đổi tooltip tiếng Anh "Not supported — …"):** Include parts
       (`#clashIncludePartsA/B` — cần expand IfcRelAggregates/Nests, hiếm trong IFC Revit,
       không có fixture test); Single System (`#clashSingleSystem` — cần index
       IfcRelAssignsToGroup chỉ để lọc, cost/benefit kém); Single Component
