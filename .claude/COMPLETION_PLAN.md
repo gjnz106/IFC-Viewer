@@ -23,7 +23,7 @@
 | 6 | Project management (local-first) | ✅ Done |
 | 7 | Walk levels (storey picker + clip tầng) | ✅ Done |
 | 8 | Measure area/angle + unit setting | ✅ Done |
-| 9 | Saved viewpoints (per-project) | ⬜ Not started |
+| 9 | Saved viewpoints (per-project) | ✅ Done |
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ⬜ Not started |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
@@ -329,12 +329,12 @@ không convert 2 lần.
   typecheck + test + build pass, 0 pageerror.
 
 ## Phase 9 — Saved viewpoints (gallery per-project) · Size M–L · phụ thuộc Phase 6
-**Status:** ⬜ Not started
+**Status:** ✅ Done (2026-07-07)
 
 Viewpoint có tên = camera + visibility + section state, lưu per-project, khôi phục từ gallery
 thumbnail ở left panel.
 
-- [ ] **`frontend/src/lib/viewpoints-store.ts`** (mới): `Viewpoint {id, name, createdAt,
+- [x] **`frontend/src/lib/viewpoints-store.ts`** (mới): `Viewpoint {id, name, createdAt,
       camera{px..tz}, anchor, section:{active, sliders[6]}, visibility:{slotVisible,
       hiddenKeys, isolated}, modelsKey, thumb}` — key `ifc.viewpoints.<projectId>`
       ('default' khi chưa có registry), cap 30/project (`addViewpoint(list, vp, maxKeep)`).
@@ -343,7 +343,7 @@ thumbnail ở left panel.
       bắt buộc vì offset do model load ĐẦU TIÊN quyết định, reload đổi thứ tự → camera lệch
       nếu không remap. `modelsFingerprint(fileNames)` (sorted join — mismatch → warn khi
       restore). Test: remap identity/shift/null, cap, fingerprint không phụ thuộc thứ tự.
-- [ ] **`frontend/src/components/tools/viewpoints.ts`** (mới; import main.ts sau
+- [x] **`frontend/src/components/tools/viewpoints.ts`** (mới; import main.ts sau
       color-schemes): **`vpSave()`** — name qua prompt; camera từ position + controls.target;
       anchor = sharedCenterOffset; section = `sectionActive` + giá trị 6 slider `slXp…slZn`
       (phần trăm theo modelBounds → offset-proof cho cùng bộ model); visibility qua accessor
@@ -358,13 +358,13 @@ thumbnail ở left panel.
       `updateSectionFromSliders()` → visibility (checkbox `#visA/#visB` + `toggleModelVis`
       semantics slot 0/1, `model.visible` + `fedRenderSlots()` slot 2+ → applyVisibilityState).
       `vpDelete` (confirm) / `vpRename`.
-- [ ] **Gallery UI:** panel `.od-panel` `#vpPanel` ở left panel (sau block Drive),
+- [x] **Gallery UI:** panel `.od-panel` `#vpPanel` ở left panel (sau block Drive),
       `data-pages="viewer compare clash validate"`; header "Viewpoints" + badge `#vpBadge`;
       body `#vpGalleryBody`: nút "+ Save viewpoint" (`vpSave`) + grid `#vpGrid` (card = img
       thumb + name + ✎/✕, click = `vpRestore`); render bởi `renderVpGallery()`, escape tên.
       CSS mới `.vp-card/.vp-grid`. Handlers + types: `vpSave/vpRestore/vpDelete/vpRename/
       vpTogglePanel`.
-- [ ] **Tích hợp project:** nghe `'ifc:projectchange'` để re-read gallery (Phase 6 dispatch
+- [x] **Tích hợp project:** nghe `'ifc:projectchange'` để re-read gallery (Phase 6 dispatch
       trong `projSwitch` — nếu chưa có thì thêm ở phase này); `projDelete` xoá kèm
       `ifc.viewpoints.<id>`.
 - Edge: quota localStorage (thumb ~5–8KB, cap 30) → try/catch, fail retry bỏ thumb mới nhất;

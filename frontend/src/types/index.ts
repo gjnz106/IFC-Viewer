@@ -351,6 +351,13 @@ declare global {
     fedToggleVis?: (idx: number) => void;
     unloadAllModels?: () => void;
 
+    // Viewpoints (saved camera + section + visibility, per project)
+    vpTogglePanel?: () => void;
+    vpSave?: () => void;
+    vpRestore?: (id: string) => void;
+    vpRename?: (id: string) => void;
+    vpDelete?: (id: string) => void;
+
     // Projects (local-first project registry)
     toggleProjectsPanel?: () => void;
     projCreate?: () => void;

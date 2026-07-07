@@ -449,6 +449,21 @@
         </div>
       </div>
 
+      <div id="vpPanelSep" data-pages="viewer compare clash validate" style="height:1px;background:var(--border);margin:0 16px"></div>
+
+      <!-- Saved Viewpoints -->
+      <div class="od-panel" id="vpPanel" data-pages="viewer compare clash validate">
+        <button class="od-toggle" onclick="vpTogglePanel()">
+          <span class="od-toggle-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+          Viewpoints
+          <span class="od-toggle-badge" id="vpBadge">0</span>
+        </button>
+        <div class="od-body" id="vpBody">
+          <button class="od-login-btn" onclick="vpSave()">+ Save viewpoint</button>
+          <div class="vp-grid" id="vpGrid"></div>
+        </div>
+      </div>
+
       </div><!-- /lpFiles -->
 
       <!-- === MODEL section (Tree / Issues / Search) — shown by rail === -->

@@ -14,6 +14,7 @@ import {
   createProject, renameProject, deleteProject, setActive, getActiveProject,
   updateProjectState, type ProjectRegistry,
 } from '../../lib/projects-store.js';
+import { deleteProjectViewpoints } from '../../lib/viewpoints-store.js';
 
 function persist(): void {
   saveRegistry(registry);
@@ -135,7 +136,7 @@ window.projDelete = function (id: string): void {
   if (!confirm(`Delete project "${p.name}"? This only removes the project entry — it does not delete any files.`)) return;
   const wasActive = registry.activeId === id;
   registry = deleteProject(registry, id);
-  try { localStorage.removeItem('ifc.viewpoints.' + id); } catch { /* private mode */ }
+  deleteProjectViewpoints(id);
   if (wasActive) {
     finishActivation();
   } else {

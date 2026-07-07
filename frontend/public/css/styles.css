@@ -407,6 +407,15 @@ body.resizing{cursor:col-resize;user-select:none}
 .od-login-btn:hover{background:var(--bg-hover);border-color:var(--border-hi)}
 .od-login-btn svg{width:14px;height:14px}
 .od-status{font-family:'JetBrains Mono';font-size:9px;color:var(--text-muted);padding:2px 0}
+.vp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.vp-card{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:pointer;background:var(--bg-card)}
+.vp-card:hover{border-color:var(--border-hi)}
+.vp-card img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:#eee}
+.vp-card-name{font-size:10px;padding:4px 6px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vp-card-actions{position:absolute;top:3px;right:3px;display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.vp-card:hover .vp-card-actions{opacity:1}
+.vp-card-actions button{width:18px;height:18px;border:none;border-radius:4px;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;cursor:pointer;line-height:1}
+.vp-empty{grid-column:1/-1;padding:10px 4px;text-align:center;font-size:10.5px;color:var(--text-muted)}
 .od-breadcrumb{display:flex;align-items:center;gap:2px;font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);padding:2px 0;flex-wrap:wrap}
 .od-crumb{cursor:pointer;color:var(--blue);padding:1px 3px;border-radius:3px}
 .od-crumb:hover{background:rgba(44,36,32,.08)}

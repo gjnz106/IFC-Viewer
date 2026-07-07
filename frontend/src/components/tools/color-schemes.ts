@@ -193,6 +193,23 @@ function getAllExpressIDsForModel(mi: number): number[] {
   return[...ids];
 }
 
+// Accessors for Saved Viewpoints (components/tools/viewpoints.ts) — the
+// hidden/isolated sets are module-private everywhere else, so capture and
+// restore go through these rather than duplicating the hide/isolate logic.
+export function getVisibilityState(): { hiddenKeys: string[]; isolated: number[] | null } {
+  return { hiddenKeys: [...hiddenExpressIDs], isolated: isolatedIDs ? [...isolatedIDs] : null };
+}
+
+export function applyVisibilityState(state: { hiddenKeys: string[]; isolated: number[] | null }): void {
+  hiddenExpressIDs = new Set(state.hiddenKeys || []);
+  isolatedIDs = state.isolated ? new Set(state.isolated) : null;
+  for (let i = 0; i < 2; i++) {
+    if (appState.loadedModels[i]) rebuildModelSubset(i);
+  }
+  const btn = document.getElementById('btnShowAll');
+  if (btn) (btn as HTMLElement).style.display = (hiddenExpressIDs.size > 0 || isolatedIDs) ? '' : 'none';
+}
+
 export function showAllHidden(): void {
   
   hiddenExpressIDs.clear();
