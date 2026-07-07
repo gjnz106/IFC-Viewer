@@ -25,7 +25,6 @@ import './components/validate/validator-export.js';
 import './components/integrations/drive.js';
 import './components/inspect/search.js';
 import './components/ui/fieldmode.js';
-import './components/integrations/ai.js';
 import './components/ui/ui-shell.js';
 import './components/ui/rail.js';
 import { initRouter } from './components/ui/router.js';
@@ -40,3 +39,11 @@ initViewCube();
 initStatePersist();  // restore UI prefs from localStorage
 initRouter();        // set up hash routing + restore last page
 log('T3LAB.IFC ready');
+
+// AI data-index module isn't wired to any startup UI (console debug tool
+// only, window.aiIndexSummary()) and nothing else imports it, so defer its
+// ~cost out of the critical bundle — load once the browser is idle instead
+// of blocking first paint / interactivity.
+const _loadAI = () => import('./components/integrations/ai.js');
+if ('requestIdleCallback' in window) (window as any).requestIdleCallback(_loadAI);
+else setTimeout(_loadAI, 2000);

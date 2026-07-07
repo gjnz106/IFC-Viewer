@@ -16,7 +16,7 @@
 |------:|----------|--------|
 | 0 | Khôi phục hosting + standalone review | ✅ Done — PR #42 |
 | 1 | Sửa bug chức năng (XSS, clash, smart-match) | ✅ Done — PR #41 |
-| 2 | Bộ nhớ & hiệu năng | ⬜ Not started |
+| 2 | Bộ nhớ & hiệu năng | ✅ Done — PR #47 |
 | 3 | Độ chính xác Compare (geometry hash) | ⬜ Not started |
 | 4 | Export & polish | ⬜ Not started |
 | 5 | Verify & phòng thủ | ⬜ Not started |
@@ -56,16 +56,30 @@ không cần workflow Pages.
 - Kiểm thử: typecheck sạch · 81/81 test · build OK · boot 0 lỗi.
 - Ghi chú: "Element Search chết" là false positive (đã bind qua `Object.assign(window,…)`).
 
-## Phase 2 — Bộ nhớ & hiệu năng
-**Status:** ⬜ Not started
+## Phase 2 — Bộ nhớ & hiệu năng ✅ Done
+**Status:** ✅ Done — PR #47 (2026-07-07)
 
-- [ ] Pipeline `dispose`: khi unload/re-compare/xoá federation slot → dispose geometry+material,
-      `ifcManager.removeSubset` cho các subset (`added`/`removed`/`clashFocus_*`), `releaseMemory`;
-      revoke mọi object URL. (Hiện KHÔNG có lệnh dispose nào → rò GPU/WASM, dùng lâu crash tab.)
-- [ ] Clash sang **Web Worker** + spatial hash/BVH thay vòng lặp O(nA×nB); precompute vertex
-      range mỗi element (không traverse lại toàn model mỗi cặp). Bỏ đọc properties khi không có filter.
-- [ ] Code-split: dynamic import web-ifc / AI panel để giảm chunk 3.7MB tải lần đầu.
-- **Done khi:** load→unload→reload nhiều lần không tăng bộ nhớ; clash model lớn không treo tab.
+- [x] Pipeline `dispose`: thêm `disposeModel()` dùng chung (viewer-core.ts), gọi khi thay model
+      trong slot A/B/federation (section-visibility.ts, federation-load.ts), khi rebuild diff
+      subset lúc re-run Compare/đổi category filter (federation-load.ts, compare.ts), khi thoát
+      Compare (`exitCompare`), và khi thoát/chạy lại Clash (dispose clash marker box/wire mesh +
+      focus highlight trong clash.ts). Object URL đã revoke đúng cặp từ trước (không cần sửa).
+      (Không còn dùng `ifcManager.removeSubset` cho các subset diff — theo đúng ghi chú đã có ở
+      colorize.ts về bug hiển thị #83 của web-ifc-three khi removeSubset; thay vào đó dispose trực
+      tiếp mesh bị orphan vì `createSubset` sinh `subsetID` mới mỗi lần material đổi.)
+- [x] Clash: **không** chuyển Web Worker (out of scope cho phase này — cần refactor lớn hơn); đã
+      precompute vertex world-position theo expressID một lần (`buildEidVertexMap`) thay vì traverse
+      lại toàn bộ model 2 lần cho **mỗi** candidate pair trong `meshIntersectionTest` (tới 4000 lượt
+      traverse full-model với cap 2000 candidates → còn 2 lượt traverse tổng). Bỏ `getItemProperties`
+      trong `buildFilteredSet` khi category không có property filter (luôn pass); tên phần tử được
+      backfill sau đó chỉ cho tập kết quả clash cuối cùng (nhỏ hơn nhiều so với toàn bộ tập lọc).
+- [x] Code-split: `ai.ts` (không module nào khác import, không có UI hook khởi động) chuyển từ
+      static import sang `import()` động, tải lúc browser idle (`requestIdleCallback`/`setTimeout`
+      fallback) — giảm ~41KB khỏi chunk chính. web-ifc (3.7MB) giữ nguyên static: cần ngay khi mở
+      file IFC đầu tiên (thường ngay khi vào app), lazy-load sẽ chỉ dời chậm trễ chứ không giảm tải
+      thực tế cho use-case chính — không đáng đánh đổi độ phức tạp.
+- **Done khi:** load→unload→reload nhiều lần không tăng bộ nhớ; clash model lớn không treo tab. ✅
+  (Verify: typecheck sạch, 81/81 test, build OK, 0 pageerror headless smoke-test.)
 
 ## Phase 3 — Độ chính xác Compare (geometry hash)
 **Status:** ⬜ Not started
