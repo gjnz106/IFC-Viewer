@@ -482,7 +482,7 @@ function bboxPenetration(a: any, b: any): number {
 // Euclidean separation between two AABBs (0 when they overlap on every axis).
 // Used for true clearance / near-miss detection: bboxPenetration only measures
 // overlap depth and is 0 for separated boxes, so it can never surface a gap.
-function bboxGap(a: any, b: any): number {
+export function bboxGap(a: any, b: any): number {
   const dx = Math.max(0, a.mnX - b.mxX, b.mnX - a.mxX);
   const dy = Math.max(0, a.mnY - b.mxY, b.mnY - a.mxY);
   const dz = Math.max(0, a.mnZ - b.mxZ, b.mnZ - a.mxZ);

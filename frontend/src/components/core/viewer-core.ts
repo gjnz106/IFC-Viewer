@@ -117,14 +117,22 @@ const IFC_TO_REVIT_CAT: Record<string, string> = {
   'IfcProject':'(Project)',
 };
 
+// Case-insensitive index of IFC_TO_REVIT_CAT, built once. Numeric lookups
+// sometimes hand back an ALL-CAPS class name (e.g. 'IFCWALLSTANDARDCASE');
+// reconstructing its PascalCase form by only capitalizing the first letter
+// (the old approach) produces 'Ifcwallstandardcase', which can never match a
+// multi-word key like 'IfcWallStandardCase' — there's no way to recover word
+// boundaries from an all-caps string. Comparing lowercase-to-lowercase sidesteps
+// that entirely.
+const IFC_TO_REVIT_CAT_LOWER: Record<string, string> = {};
+for (const k in IFC_TO_REVIT_CAT) IFC_TO_REVIT_CAT_LOWER[k.toLowerCase()] = IFC_TO_REVIT_CAT[k];
+
 // Resolve a raw IFC class name (e.g. 'IfcDoor') into the Revit Category
 // equivalent ('Doors'). Returns the input if no mapping exists, and strips
 // unknown 'IFC_' numeric prefixes that slipped through. Pure function.
 export function ifcClassToRevitCategory(cls: string): string {
   if(!cls)return cls||'Unknown';
-  // Normalize: sometimes we get an ALL-CAPS IFCDOOR from numeric lookups
-  // — try title-case variant too
-  return IFC_TO_REVIT_CAT[cls] || IFC_TO_REVIT_CAT[cls.charAt(0)+cls.slice(1).toLowerCase()] || cls;
+  return IFC_TO_REVIT_CAT[cls] || IFC_TO_REVIT_CAT_LOWER[cls.toLowerCase()] || cls;
 }
 
 export function log(...a: any[]): void { console.log('[IFC]',...a) }
@@ -701,10 +709,19 @@ export function initThree(): void {
       if(mi>=0&&appState.loadedModels[mi]){
         let eid: number|null=null;
         try{eid=appState.ifcLoader.ifcManager.getExpressId((hit.object as THREE.Mesh).geometry,hit.faceIndex!)}catch(ex){}
+        // Check ALL three vertices of the hit face, not just the first — same
+        // fix as the left-click pick path above: on merged compare/diff
+        // subsets a face can start on a vertex whose expressID is 0
+        // (degenerate/boundary), which made right-click "No element" at a
+        // spot left-click could select fine after running Compare.
         if(!eid&&(hit.object as THREE.Mesh).geometry.attributes.expressID){
           const geom = (hit.object as THREE.Mesh).geometry;
-          const idx2=geom.index?geom.index.array[hit.faceIndex!*3]:hit.faceIndex!*3;
-          eid=(geom.attributes.expressID.array as any)[idx2];
+          const eidArr=geom.attributes.expressID.array as any;
+          const base=hit.faceIndex!*3;
+          for(let k=0;k<3;k++){
+            const vi=geom.index?geom.index.array[base+k]:(base+k);
+            if(vi>=0&&vi<eidArr.length&&eidArr[vi]>0){eid=eidArr[vi];break}
+          }
         }
 
         if(eid&&eid>0){

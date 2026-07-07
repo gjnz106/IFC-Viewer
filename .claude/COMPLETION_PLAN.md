@@ -19,7 +19,7 @@
 | 2 | Bộ nhớ & hiệu năng | ✅ Done — PR #47 |
 | 3 | Độ chính xác Compare (geometry hash) | ✅ Done — PR #48 |
 | 4 | Export & polish | ✅ Done — PR #49 |
-| 5 | Verify & phòng thủ | ⬜ Not started |
+| 5 | Verify & phòng thủ | ✅ Done — PR #50 |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -128,10 +128,36 @@ không cần workflow Pages.
   (Verify: typecheck sạch, 87/87 test, build OK, 0 pageerror headless smoke-test cả dist/ và
   dist-standalone/.)
 
-## Phase 5 — Verify & phòng thủ
-**Status:** ⬜ Not started
+## Phase 5 — Verify & phòng thủ ✅ Done
+**Status:** ✅ Done — PR #50 (2026-07-07)
 
-- [ ] Test browser thật với 2 file IFC mẫu: compare, compare slider, clash e2e, walk mode.
-- [ ] Thêm unit test: smart-match (10 thêm/3 xoá cùng loại), clearance (`bboxGap`), geometry hash.
-- [ ] Rà sâu phần chưa review kỹ: viewer-core, validator rules, fieldmode touch handlers.
-- **Done khi:** có test hồi quy cho các fix chính + đã kiểm thử tương tác trên trình duyệt.
+- [x] Test browser thật (headless Chromium + 2 file IFC tự tạo có wall thêm/xoá/dịch chuyển):
+      **Compare** phát hiện đúng added/removed/modified, kể cả "Position Moved" chính xác đúng
+      0.5m dịch chuyển đã cố ý tạo (xác nhận fix Phase 3 hoạt động đúng trên dữ liệu IFC thật, không
+      chỉ unit test). **Compare Slider** toggle bật/tắt không lỗi. **Clash e2e**: chạy full pipeline
+      với model thật, phát hiện đúng 2 vụ va chạm (self-overlap của phần tử không đổi + overlap của
+      phần tử dịch chuyển 0.5m còn chồng lấn). **Walk mode** bật/tắt không lỗi. Cả 4 luồng: 0
+      pageerror. (App yêu cầu Firebase Auth — sandbox không có mạng ra ngoài để đăng nhập thật, nên
+      test bypass overlay auth qua DOM thuần tuý để lái các luồng nghiệp vụ; không đụng tới logic
+      ứng dụng.)
+- [x] Thêm 14 unit test mới: `compare.test.ts` (smart-match — 10 thêm/3 xoá cùng loại/ObjectType
+      không bị ghép bừa; ghép đúng qua Tag/Name khi GlobalId đổi), `clash.test.ts` (`bboxGap` —
+      overlap/touch/gap 1 trục/gap chéo đa trục/near-miss trong ngưỡng), `viewer-core.test.ts`
+      (`ifcClassToRevitCategory` — bao gồm case ALL-CAPS nhiều từ vừa fix).
+      (`geometry-hash.test.ts` đã thêm ở Phase 3.)
+- [x] Rà sâu viewer-core/validator-rules/fieldmode, tìm và sửa 4 bug thật:
+  - `fieldmode.ts` `fieldClosePlan2D()`: zero hẳn `appState.clipPlanes` (length=0) khi đóng Plan 2D
+    thay vì khôi phục 6 plane fully-open chuẩn — mọi module khác (section-visibility sliders,
+    clash markers, picking) giữ tham chiếu tới mảng này và index `[0..5]` trực tiếp, nên section
+    box của cả app hỏng vĩnh viễn cho tới khi reload trang. Giờ khôi phục đúng 6 plane gốc.
+  - `validator-rules.ts` FED-005 (TrueNorth alignment): tính `abs(a1-a2)` không xử lý wrap-around
+    0°/360° → 2 model lệch thật ~2° nhưng gần mốc 0°/360° bị báo sai lệch ~358°. Thêm wrap-around.
+  - `viewer-core.ts` context menu (right-click): chỉ check expressID của vertex đầu tiên của face,
+    trong khi left-click pick đã check cả 3 vertex (tránh vertex expressID=0 trên diff-subset sau
+    Compare) — right-click cùng vị trí có thể báo "No element" dù left-click chọn được. Đồng bộ.
+  - `viewer-core.ts` `ifcClassToRevitCategory`: fallback title-case chỉ viết hoa ký tự đầu
+    (`Ifcwallstandardcase`) nên không bao giờ khớp key nhiều từ như `IfcWallStandardCase` khi input
+    là ALL-CAPS từ numeric lookup. Đổi sang so khớp lowercase-to-lowercase qua index dựng 1 lần.
+- **Done khi:** có test hồi quy cho các fix chính + đã kiểm thử tương tác trên trình duyệt. ✅
+  (Verify: typecheck sạch, 101/101 test (+14 mới), build OK, 0 pageerror cả dist/ và
+  dist-standalone/, E2E headless đầy đủ 4 luồng nghiệp vụ chính.)

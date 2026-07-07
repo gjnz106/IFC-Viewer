@@ -569,8 +569,19 @@ window.fieldClosePlan2D = function(){
   document.getElementById('fieldPlan2D')!.classList.remove('show');
   document.getElementById('fieldBtnPlan2D')!.classList.remove('on');
   if(_fp2dAnimId){ cancelAnimationFrame(_fp2dAnimId); _fp2dAnimId = null; }
-  // Remove storey clip planes
+  // Restore the standard 6 fully-open clip planes (±X/±Y/±Z at 99999) instead
+  // of leaving the array empty. section-visibility.ts's sliders and other
+  // callers hold `clippingPlanes: appState.clipPlanes` and index it at
+  // [0..5] directly — Plan 2D's storey view only ever pushes 2 planes onto
+  // this same shared array (fieldPlan2DSelectStorey), so truncating to 0 on
+  // close used to break the main app's section box until a full page reload.
   appState.clipPlanes.length = 0;
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(-1,0,0), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(1,0,0), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,-1,0), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,1,0), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,0,-1), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,0,1), 99999));
 };
 
 function fieldPlan2DResize(){
