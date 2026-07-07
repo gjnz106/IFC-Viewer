@@ -9,7 +9,7 @@ import { log } from '../core/ifc-category.js';
 //
 // Setup: console.cloud.google.com → APIs & Services → Credentials
 //   1. Create OAuth 2.0 Client ID (Web application)
-//   2. Authorized JS origins: https://gjnz106.github.io
+//   2. Authorized JS origins: https://ifc.t3lab.space
 //   3. Enable Google Drive API
 //   4. Copy CLIENT_ID below
 
@@ -41,7 +41,7 @@ function odUpdateBadge(state: 'on' | 'offline'): void {
 
 window.gdLogin = function (): void {
   if (GD_CONFIG.CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
-    alert('Google Drive not configured.\n\n1. Go to console.cloud.google.com\n2. Create project → Enable Google Drive API\n3. Credentials → Create OAuth 2.0 Client ID\n4. Authorized JS origins: https://gjnz106.github.io\n5. Open this HTML → search GD_CONFIG\n6. Replace YOUR_GOOGLE_CLIENT_ID_HERE');
+    alert('Google Drive not configured.\n\n1. Go to console.cloud.google.com\n2. Create project → Enable Google Drive API\n3. Credentials → Create OAuth 2.0 Client ID\n4. Authorized JS origins: https://ifc.t3lab.space\n5. Open drive.ts → search GD_CONFIG\n6. Replace YOUR_GOOGLE_CLIENT_ID_HERE');
     _pendingLoad = null;
     _pendingLoadViewer = false;
     return;
