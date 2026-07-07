@@ -6,6 +6,18 @@ import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { planBasis, worldToUV, uvToWorld, rotatedExtent } from './plan-geometry.js';
 import { FED_LABELS } from '../../lib/constants.js';
+import { storeyWorldY } from '../../lib/storeys.js';
+
+// PlanStorey.elevation/topElev are raw IFC values (used for display labels
+// like "+3.00m"); any comparison against world-space Y (camera position,
+// raycast hits, clip planes) must go through this — the scene is shifted by
+// -sharedCenterOffset, so world Y = elevation - offset.y. This was
+// previously done inconsistently here (Field Mode's fieldSelectStorey in
+// fieldmode.ts always applied it; this module never did), which put the
+// storey slab in the wrong place whenever the offset was non-zero.
+function worldElev(elevation: number): number {
+  return storeyWorldY(elevation, appState.sharedCenterOffset?.y || 0);
+}
 
 interface PlanStorey {
   name: string;
@@ -139,7 +151,7 @@ function rebuildPlanStoreyList(): void {
     const camY = appState.camera.position.y;
     let bestI = 0, bestD = Infinity;
     planStoreys.forEach((s, i) => {
-      const d = Math.abs((s.elevation + s.topElev) / 2 - camY);
+      const d = Math.abs((worldElev(s.elevation) + worldElev(s.topElev)) / 2 - camY);
       if (d < bestD) { bestD = d; bestI = i; }
     });
     sel.value = String(bestI);
@@ -192,8 +204,8 @@ window.planSelectStorey = function(idxStr: number | string): void {
   if (idx < 0 || idx >= planStoreys.length) return;
   planView.storey = idx;
   const s = planStoreys[idx];
-  planView.storeyClip[0].constant = -(s.elevation - 0.1);
-  planView.storeyClip[1].constant = (s.topElev + 0.1);
+  planView.storeyClip[0].constant = -(worldElev(s.elevation) - 0.1);
+  planView.storeyClip[1].constant = (worldElev(s.topElev) + 0.1);
   (document.getElementById('planInfoStorey') as HTMLElement).textContent =
     s.name + ' [' + s.elevation.toFixed(2) + ' → ' + s.topElev.toFixed(2) + 'm]';
   planFit();
@@ -357,7 +369,7 @@ function drawPlanCameraMarker(): void {
   let onStorey = true;
   if (storey) {
     const camY = appState.camera.position.y;
-    onStorey = (camY >= storey.elevation - 0.5) && (camY <= storey.topElev + 0.5);
+    onStorey = (camY >= worldElev(storey.elevation) - 0.5) && (camY <= worldElev(storey.topElev) + 0.5);
   }
   const fanFill   = onStorey ? 'rgba(37,99,235,0.18)' : 'rgba(120,120,120,0.10)';
   const fanStroke = onStorey ? '#2563eb' : '#9ca3af';
@@ -545,7 +557,7 @@ function setupPlanInteraction(): void {
       });
       const hits = ray.intersectObjects(ms, false);
       const s = planStoreys[planView.storey as number];
-      const yLo = s.elevation - 0.5, yHi = s.topElev + 0.5;
+      const yLo = worldElev(s.elevation) - 0.5, yHi = worldElev(s.topElev) + 0.5;
       const validHit = hits.find((h: any) => {
         if (h.point.y < yLo || h.point.y > yHi) return false;
         if (appState.sectionActive && appState.clipPlanes.length === 6) {

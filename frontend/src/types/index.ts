@@ -372,6 +372,9 @@ declare global {
     // Walk
     toggleWalkMode?: () => void;
     walkTouchUD?: (dir: 'up' | 'down', pressed: boolean) => void;
+    walkGoToStorey?: (idx: number) => void;
+    walkCycleStorey?: (dir: number) => void;
+    walkToggleStoreyClip?: () => void;
 
     // Plan overlay
     togglePlanOverlay?: () => void;

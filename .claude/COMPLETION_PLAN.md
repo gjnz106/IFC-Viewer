@@ -21,7 +21,7 @@
 | 4 | Export & polish | ✅ Done — PR #49 |
 | 5 | Verify & phòng thủ | ✅ Done — PR #50 |
 | 6 | Project management (local-first) | ✅ Done |
-| 7 | Walk levels (storey picker + clip tầng) | ⬜ Not started |
+| 7 | Walk levels (storey picker + clip tầng) | ✅ Done |
 | 8 | Measure area/angle + unit setting | ⬜ Not started |
 | 9 | Saved viewpoints (per-project) | ⬜ Not started |
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ⬜ Not started |
@@ -237,14 +237,14 @@ Drive link/state của project đích; model nạp lại từ Drive folder hoặ
   pass, 0 pageerror smoke-test.
 
 ## Phase 7 — Walk levels (storey picker + teleport + clip tầng) · Size M
-**Status:** ⬜ Not started
+**Status:** ✅ Done (2026-07-07)
 
 Người dùng đã chốt: chọn level khi walk → **teleport tới tầm mắt ~1.6m trên sàn tầng đó +
 clip ẩn các tầng khác** (toggle tắt được); danh sách level **lọc bỏ storey rác** (0 phần tử,
 trùng cao độ). Quy ước toạ độ bắt buộc: `worldY = elevation − appState.sharedCenterOffset.y`
 (chuẩn = fieldmode.ts `fieldSelectStorey`; plan-overlay.ts đang dùng elevation thô = bug).
 
-- [ ] **`frontend/src/lib/storeys.ts`** (mới, pure): `WalkStorey {name, modelIdx, expressID,
+- [x] **`frontend/src/lib/storeys.ts`** (mới, pure): `WalkStorey {name, modelIdx, expressID,
       elevation, topElevation, elementCount}`; `mergeStoreys(perModel)` — bỏ storey
       elementCount=0, dedup elevation ±0.1m (giữ bản count cao hơn), sort tăng dần,
       `topElevation` = elevation storey kế tiếp CÒN GIỮ (fallback +3.5m — convention
@@ -255,7 +255,7 @@ trùng cao độ). Quy ước toạ độ bắt buộc: `worldY = elevation − 
       (không bao giờ bị lọc); lọc xong rỗng → dùng danh sách chưa lọc.
       Test `storeys.test.ts`: lọc 0-count, dedup giữ count cao, topElevation fallback +
       next-kept, dấu `storeyWorldY`, fallback all-junk.
-- [ ] **walk.ts + index.html:** strip pill `#walkLevels` cạnh `#walkHUD` + checkbox
+- [x] **walk.ts + index.html:** strip pill `#walkLevels` cạnh `#walkHUD` + checkbox
       `#walkClipChk` ("Clip storey", mặc định bật). **Pointer lock chặn click chuột trên
       desktop** → phím là chính: `PageUp/PageDown` (và `[`/`]`) đổi tầng, `L` toggle clip
       (thêm vào keydown listener sẵn có, guard `walkActive`); pill vẫn click được trên touch
@@ -263,18 +263,18 @@ trùng cao độ). Quy ước toạ độ bắt buộc: `worldY = elevation − 
       `⇞⇟ Level · L Clip`. Hàm mới trên window: `walkBuildLevels` (async, gọi khi vào walk:
       ensureStoreyCounts → mergeStoreys → render pill; render list chưa lọc ngay, re-render
       khi count về), `walkGoToStorey(idx)`, `walkCycleStorey(dir)`, `walkToggleStoreyClip`.
-- [ ] **`walkGoToStorey`:** `floorY = storeyWorldY(s.elevation, offset.y)`; camera.y =
+- [x] **`walkGoToStorey`:** `floorY = storeyWorldY(s.elevation, offset.y)`; camera.y =
       floorY + 1.6m quy đổi đơn vị model (`1.6*1000/units.lengthFactor`); giữ x/z hiện tại
       (clamp vào modelBounds XZ, ngoài bounds → về center); pitch=0 qua bridge `walkSetPose`
       (dùng chung desktop + Field Mode). Clip bật: ghi thẳng
       `clipPlanes[2].constant = storeyWorldY(s.topElevation) + 0.1` và
       `clipPlanes[3].constant = −(floorY − 0.3)` (quy ước fieldSelectStorey), X/Z không đụng,
       KHÔNG gọi `updateSectionFromSliders` (sẽ bị slider ghi đè).
-- [ ] **Restore clip** khi tắt toggle **và cả 2 đường exit walk** (`toggleWalkMode` exit
+- [x] **Restore clip** khi tắt toggle **và cả 2 đường exit walk** (`toggleWalkMode` exit
       branch + `pointerlockchange` force-exit — dễ sót): `sectionActive` →
       `updateSectionFromSliders()` (trả section box của user), ngược lại constant về 99999.
       Show/hide `#walkLevels` cùng `#walkHUD` ở cả 2 đường.
-- [ ] **Sửa bug plan-overlay elevation thô** (cùng quy ước, tránh 2 convention song song):
+- [x] **Sửa bug plan-overlay elevation thô** (cùng quy ước, tránh 2 convention song song):
       `planSelectStorey` (storeyClip :195–196), best-storey pick (:142), `onStorey` check
       (:360), shift-click Y-window (:548) → chuyển qua `storeyWorldY`. Giữ elevation thô cho
       chuỗi hiển thị (`+3.00m`).
