@@ -829,8 +829,13 @@ export const SG_RULES: any[] = [
         angle: m.spatial?.trueNorthAngle ?? 0
       }));
       const ref = angles[0];
+      const TWO_PI = Math.PI * 2;
       for (let i = 1; i < angles.length; i++) {
-        const diff = Math.abs(angles[i].angle - ref.angle);
+        // Wrap-around: two TrueNorth angles near 0°/360° (e.g. 1° and 359°)
+        // are actually only 2° apart, not ~358° — normalize the raw
+        // difference into [0, π] before converting to degrees.
+        let diff = Math.abs(angles[i].angle - ref.angle) % TWO_PI;
+        if (diff > Math.PI) diff = TWO_PI - diff;
         const diffDeg = diff * 180 / Math.PI;
         if (diffDeg > 0.5) {
           failed.push({ eid: 0, name: `${angles[i].mName} vs ${ref.mName}`,
