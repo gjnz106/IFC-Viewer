@@ -1,9 +1,11 @@
 // ══════════════════════════════════════════════════════════════════════
 // ── 2D Plan Overlay (Option A: top-down ortho mini-renderer) ─────────
 // ══════════════════════════════════════════════════════════════════════
+import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { planBasis, worldToUV, uvToWorld, rotatedExtent } from './plan-geometry.js';
+import { FED_LABELS } from '../../lib/constants.js';
 
 interface PlanStorey {
   name: string;
@@ -70,9 +72,6 @@ function planUVToWorld(u: number, v: number): [number, number] {
   return uvToWorld(u, v, { x: cam.position.x, z: cam.position.z },
     { left: cam.left, right: cam.right, top: cam.top, bottom: cam.bottom }, planView!.tnAngle);
 }
-
-declare const THREE: any;
-declare const FED_LABELS: string[];
 
 // Forward declarations to satisfy TypeScript's linear scoping
 declare function planSelectStorey(idx: number | string): void;
@@ -537,7 +536,7 @@ function setupPlanInteraction(): void {
         log('Plan shift-click: no element on this storey at that point');
         return;
       }
-      const hit = validHit;
+      const hit = validHit as any;
       const eid = hit.object?.geometry?.attributes?.expressID?.array?.[hit.faceIndex * 3];
       if (eid == null) {
         log('Plan shift-click: hit has no expressID');
