@@ -90,13 +90,18 @@ export function fedRenderSlots(): void {
     const size = appState.files[i] ? (appState.files[i]!.size/1048576).toFixed(1)+'MB' : '';
     const statusText = loaded ? '✓ Loaded' : '⏳ Loading...';
     const statusCls = loaded ? 'color:var(--green)' : 'color:var(--amber)';
+    // Reflect the model's actual current visibility (set by fedToggleVis),
+    // not just "loaded" — re-rendering this list (e.g. when another
+    // federation file finishes loading) used to always mark the checkbox
+    // checked, silently re-showing a model the user had just hidden.
+    const isVisible = loaded && appState.loadedModels[i]!.visible !== false;
     html += `<div class="fed-slot ${loaded?'loaded':''}">
       <div class="fed-slot-color" style="background:${color}"></div>
       <div class="fed-slot-info">
         <div class="fed-slot-name" title="${(window as any).escapeHtml(fname)}">${(window as any).escapeHtml(fname)}</div>
         <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}</div>
       </div>
-      <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${loaded?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">
+      <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${isVisible?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">
       <button class="fed-slot-rm" onclick="fedRemoveSlot(${i})" title="Remove this file">✕</button>
     </div>`;
   }
