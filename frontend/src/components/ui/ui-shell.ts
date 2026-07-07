@@ -94,6 +94,7 @@ window.colorizeSetProp = function (v: string): void {
         if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
       }
       (window as any).projFillSettings?.();
+      (window as any).projFillSettingsUnits?.();
       el.style.display = 'flex';
     } else {
       const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;

@@ -430,7 +430,7 @@ export function initThree(): void {
 
     // ── Measure mode: add point and return ──
     if((window as any).measureMode){
-      if((window as any).measurePoints.length>=2)(window as any).clearMeasure();
+      if((window as any).measureShouldAutoClear?.())(window as any).clearMeasure();
       (window as any).addMeasurePoint(validHit.point);
       return;
     }

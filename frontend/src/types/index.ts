@@ -165,7 +165,7 @@ export interface SectionState {
 }
 
 // ── Measure types ──────────────────────────────────────────────────────
-export type MeasureMode = 'distance' | 'level' | null;
+export type MeasureMode = 'distance' | 'level' | 'area' | 'angle' | null;
 
 export interface MeasurePoint {
   position: THREE.Vector3;
@@ -291,6 +291,13 @@ declare global {
     toggleMeasure?: () => void;
     clearMeasure?: () => void;
     setGlobalOpacity?: (val: number) => void;
+    finishAreaMeasure?: () => void;
+    measureShouldAutoClear?: () => boolean;
+
+    // Units (display preference: mm / m / ft-in)
+    cycleUnitPref?: () => void;
+    setUnitPrefFromUI?: () => void;
+    projFillSettingsUnits?: () => void;
 
     // Category filter
     toggleCatDropdown?: () => void;

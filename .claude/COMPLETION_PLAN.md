@@ -22,7 +22,7 @@
 | 5 | Verify & phòng thủ | ✅ Done — PR #50 |
 | 6 | Project management (local-first) | ✅ Done |
 | 7 | Walk levels (storey picker + clip tầng) | ✅ Done |
-| 8 | Measure area/angle + unit setting | ⬜ Not started |
+| 8 | Measure area/angle + unit setting | ✅ Done |
 | 9 | Saved viewpoints (per-project) | ⬜ Not started |
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ⬜ Not started |
 
@@ -286,14 +286,14 @@ trùng cao độ). Quy ước toạ độ bắt buộc: `worldY = elevation − 
   storey khớp Field Mode; typecheck + test + build pass, 0 pageerror.
 
 ## Phase 8 — Measure area + angle + unit setting toàn cục · Size M
-**Status:** ⬜ Not started
+**Status:** ✅ Done (2026-07-07)
 
 Thêm 2 mode đo mới (diện tích, góc) + 1 cài đặt đơn vị hiển thị (mm/m/ft-in) dùng chung cho
 measure, coordinates readout, properties panel. Lưu ý nền tảng: world coords = project units;
 `readProjectUnits` đã chuẩn hoá `lengthFactor` (project→mm) — pref chỉ đổi **hiển thị**,
 không convert 2 lần.
 
-- [ ] **`frontend/src/lib/units.ts`** (mới): `UnitPref = 'mm'|'m'|'ftin'`; pure
+- [x] **`frontend/src/lib/units.ts`** (mới): `UnitPref = 'mm'|'m'|'ftin'`; pure
       `formatLengthMm(mm, pref)`, `formatFtIn(mm)` (làm tròn 1/8", rút gọn phân số 6/8→3/4,
       xử lý âm), `formatAreaM2(m2, pref)` (m²|ft²), `formatVolumeM3(m3, pref)`. Glue:
       `getUnitPref()` (project active `state.units` → localStorage `ifc.units` → 'mm'),
@@ -302,11 +302,11 @@ không convert 2 lần.
       cho scene-level; federation lệch đơn vị thì geometry đã lệch sẵn — ghi comment).
       Test `units.test.ts`: mm/m/ft-in incl. formatFtIn exact (0, 304.8→1'-0", 1619, âm,
       làm tròn 1/8"), factor ft²/ft³.
-- [ ] **`frontend/src/lib/measure-math.ts`** (mới, pure): `polygonArea3D(points)` (Newell —
+- [x] **`frontend/src/lib/measure-math.ts`** (mới, pure): `polygonArea3D(points)` (Newell —
       đúng cho polygon 3D gần phẳng, "projected area lên best-fit plane"), `angleAt(p1,
       vertex, p2)` độ. Test `measure-math.test.ts`: vuông đơn vị=1, vuông xoay/tịnh tiến=1,
       tam giác 3-4-5, colinear→0, góc 90°/180°/nhọn, degenerate (vertex==endpoint) guard.
-- [ ] **measure.ts:** `measureType` mở rộng `'distance'|'level'|'area'|'angle'`; refactor
+- [x] **measure.ts:** `measureType` mở rộng `'distance'|'level'|'area'|'angle'`; refactor
       `setMeasureMode` styling thành loop (giữ nguyên ID/behavior cũ). Nút `#modeArea/
       #modeAngle` sau `#modeLevel` (copy pattern button inline sẵn có) + chip
       `#measureUnitBtn` (`onclick="cycleUnitPref()"`, hiện mm|m|ft). **Area:** mỗi click thêm
@@ -317,7 +317,7 @@ không convert 2 lần.
       bắt đầu lại. Thay hết format hardcode (distance `${dist.toFixed(3)}m`, level
       `(el*1000).toFixed(0)` + `EL … m`) bằng `formatLengthMm(worldToMm(v), pref)`. Nghe
       `'ifc:unitschange'` → `clearMeasure()` (sprite đã bake chữ) + update chip.
-- [ ] **Consumers:** coordinates.ts format X/Y/Z qua units (giữ layout compact; mm → số
+- [x] **Consumers:** coordinates.ts format X/Y/Z qua units (giữ layout compact; mm → số
       nguyên); properties.ts `fmtLength/fmtArea/fmtVolume` route qua formatter mới (nhân
       per-model `units.*Factor` — conversion IFC-internal→mm sẵn có — rồi format theo pref);
       thêm `<select id="unitSelect" onchange="setUnitPrefFromUI()">` vào `#settingsOverlay`,
