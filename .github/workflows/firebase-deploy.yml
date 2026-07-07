@@ -25,5 +25,5 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: REPLACE_WITH_FIREBASE_PROJECT_ID
+          projectId: ifc-delta
           channelId: live
