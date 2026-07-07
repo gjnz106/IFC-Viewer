@@ -3,6 +3,7 @@ import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { escapeHtml } from '../../lib/escape.js';
 import { disposeModel } from '../core/viewer-core.js';
+import { computeGeometryHashes } from '../../lib/geometry-hash.js';
 
 // ── NOTE: This module is the continuation of doCompare() (which starts in
 //    08-federation-load.js / federation-load.ts) PLUS the compare-mode UI
@@ -10,67 +11,6 @@ import { disposeModel } from '../core/viewer-core.js';
 //    concatenated into one shared module scope.  In the TypeScript port the
 //    doCompare body has been moved here as the exported runCompare helper
 //    wraps it. All shared globals are accessed via appState.* ──
-
-// ── Compute geometry hashes for both models ──
-// (called from runCompare / doCompare; kept here because it reads scene)
-function computeGeometryHashes(modelIdx: number): Record<number, any> {
-  const hashes: Record<number, any> = {};
-  const model = appState.loadedModels[modelIdx];
-  if (!model) return hashes;
-
-  model.traverse((c: any) => {
-    if (!c.isMesh || !c.geometry?.attributes?.expressID || !c.geometry?.attributes?.position) return;
-    const eidArr = c.geometry.attributes.expressID.array;
-    const posArr = c.geometry.attributes.position.array;
-    const wm = c.matrixWorld;
-    const v = new THREE.Vector3();
-
-    // Group vertices by expressID
-    const eidVerts: Record<number, any> = {};
-    for (let i = 0; i < eidArr.length; i++) {
-      const eid = eidArr[i];
-      if (!eid || eid <= 0) continue;
-      if (!eidVerts[eid]) eidVerts[eid] = { verts: [], count: 0, mnX: Infinity, mnY: Infinity, mnZ: Infinity, mxX: -Infinity, mxY: -Infinity, mxZ: -Infinity };
-      const ev = eidVerts[eid];
-      const pi = i * 3;
-      if (pi + 2 >= posArr.length) continue;
-      const x = posArr[pi], y = posArr[pi + 1], z = posArr[pi + 2];
-      if (isNaN(x)) continue;
-      ev.count++;
-      // Track bounding box
-      if (x < ev.mnX) ev.mnX = x; if (x > ev.mxX) ev.mxX = x;
-      if (y < ev.mnY) ev.mnY = y; if (y > ev.mxY) ev.mxY = y;
-      if (z < ev.mnZ) ev.mnZ = z; if (z > ev.mxZ) ev.mxZ = z;
-      // Sample some vertices for hash (not all — too slow for large models)
-      if (ev.verts.length < 50) ev.verts.push(Math.round(x * 100), Math.round(y * 100), Math.round(z * 100));
-    }
-
-    // Build hash per expressID
-    for (const [eid, ev] of Object.entries(eidVerts)) {
-      const sx = (ev.mxX - ev.mnX).toFixed(2);
-      const sy = (ev.mxY - ev.mnY).toFixed(2);
-      const sz = (ev.mxZ - ev.mnZ).toFixed(2);
-      const cx = ((ev.mnX + ev.mxX) / 2).toFixed(2);
-      const cy = ((ev.mnY + ev.mxY) / 2).toFixed(2);
-      const cz = ((ev.mnZ + ev.mxZ) / 2).toFixed(2);
-
-      // Hash combines: vertex count + sampled vertex positions + bbox
-      const hashStr = ev.verts.join(',') + `|${ev.count}|${sx},${sy},${sz}`;
-      let hash = 0;
-      for (let i = 0; i < hashStr.length; i++) { hash = ((hash << 5) - hash) + hashStr.charCodeAt(i); hash |= 0; }
-
-      hashes[parseInt(eid)] = {
-        vertCount: ev.count,
-        hash: hash,
-        bboxStr: `${sx}×${sy}×${sz} @(${cx},${cy},${cz})`,
-        size: { x: parseFloat(sx), y: parseFloat(sy), z: parseFloat(sz) },
-        center: { x: parseFloat(cx), y: parseFloat(cy), z: parseFloat(cz) }
-      };
-    }
-  });
-
-  return hashes;
-}
 
 function doCompare(a: Record<string, any>, b: Record<string, any>): any {
   const added: any[] = [], removed: any[] = [], modified: any[] = [], unchanged: any[] = [];
