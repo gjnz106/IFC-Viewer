@@ -7,6 +7,7 @@ import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
 import { escapeHtml, escapeCsv } from '../../lib/escape.js';
 import { disposeModel } from '../core/viewer-core.js';
+import { computeGeometryHashes } from '../../lib/geometry-hash.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
 (window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
@@ -43,6 +44,7 @@ interface ClashResultData {
   elB: { eid: number; name: string; type: string; objectType: string; tag: string; modelIdx: number; bbox: any };
   penetration: number;
   isHard: boolean;
+  isDuplicate?: boolean;
   verticesAinB: number;
   verticesBinA: number;
   point: { x: number; y: number; z: number };
@@ -340,6 +342,32 @@ function getClashFilters(side: string): any[] {
 // window.toggleClashMode stays only as a navigation alias for legacy callers
 // (hidden #btnClash) — it routes through navigateTo so the hash, sidebar
 // highlight and persisted page can never drift from the real mode.
+// A single loaded model is enough to run Clash when "Include results from a
+// single: Model" (self-clash) is checked — otherwise both A and B are
+// required, as before. Shared by enterClashMode, loadIFC's clash-mode
+// branch (section-visibility.ts), and the checkbox's own onchange so all
+// three stay in sync.
+export function updateClashRunButtonState(): void {
+  const btn = document.getElementById('btnRunClash') as HTMLButtonElement | null;
+  if (!btn) return;
+  const singleModel = (document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  const ok = singleModel ? !!appState.loadedModels[0] : !!(appState.loadedModels[0] && appState.loadedModels[1]);
+  btn.disabled = !ok;
+}
+window.updateClashRunButtonState = updateClashRunButtonState;
+
+// Duplicate detection compares Source against Target — meaningless in
+// self-clash mode where every element trivially "duplicates" its own
+// position, so the two options are mutually exclusive in the UI.
+export function clashSyncDuplicateUI(): void {
+  const single = (document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  const dupChk = document.getElementById('clashTypeDuplicate') as HTMLInputElement | null;
+  if (!dupChk) return;
+  dupChk.disabled = !!single;
+  if (single) dupChk.checked = false;
+}
+window.clashSyncDuplicateUI = clashSyncDuplicateUI;
+
 export function enterClashMode(): void {
   if (appState.clashMode) return;
   // The router exits compare before entering the clash page; this guard only
@@ -360,7 +388,8 @@ export function enterClashMode(): void {
 
   if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
   if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
-  (document.getElementById('btnRunClash') as HTMLButtonElement).disabled = !(appState.loadedModels[0] && appState.loadedModels[1]);
+  updateClashRunButtonState();
+  clashSyncDuplicateUI();
 
   // Initialize default rule rows (reads loaded model categories internally)
   initClashRulesDefault();
@@ -489,6 +518,77 @@ export function bboxGap(a: any, b: any): number {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+// ── Clash box size/volume filter — suppresses trivial hard clashes ──
+// (a wall's edge grazing a slab by 2mm) below a user-chosen threshold.
+// Only meaningful for hard clashes: clearances have no overlap box.
+export interface BoxFilterConfig {
+  sizeOn: boolean; sizeMm: number; side: 'shortest' | 'longest';
+  volOn: boolean; volM3: number;
+}
+export function passesBoxFilter(ox: number, oy: number, oz: number, cfg: BoxFilterConfig): boolean {
+  if (cfg.sizeOn) {
+    const sizeM = cfg.side === 'shortest' ? Math.min(ox, oy, oz) : Math.max(ox, oy, oz);
+    if (sizeM * 1000 < cfg.sizeMm) return false;
+  }
+  if (cfg.volOn) {
+    const volM3 = ox * oy * oz;
+    if (volM3 < cfg.volM3) return false;
+  }
+  return true;
+}
+
+// ── Duplicate detection — pure pairing logic ──
+// Given per-element geometry hashes (world-space, 1cm-quantized — see
+// lib/geometry-hash.ts) and IFC type names for two sets, finds every
+// (eidA, eidB) pair with equal hash AND equal type. Hash-bucketing keeps
+// this O(n+m) instead of the O(n*m) nested scan a naive version would need.
+// `sameSet` dedupes reciprocal pairs when comparing a set against itself
+// (single-model self-clash) — without it, (wallX,wallY) and (wallY,wallX)
+// would both appear when the two sides share elements.
+export interface HashedElement { hash: number; type: string; }
+export function findDuplicatePairs(
+  setA: Record<number, HashedElement>,
+  setB: Record<number, HashedElement>,
+  sameSet: boolean,
+): { eidA: number; eidB: number }[] {
+  const bucketB = new Map<number, number[]>();
+  for (const key of Object.keys(setB)) {
+    const eidB = Number(key);
+    const h = setB[eidB].hash;
+    let list = bucketB.get(h);
+    if (!list) { list = []; bucketB.set(h, list); }
+    list.push(eidB);
+  }
+  const pairs: { eidA: number; eidB: number }[] = [];
+  const seen = sameSet ? new Set<string>() : null;
+  for (const key of Object.keys(setA)) {
+    const eidA = Number(key);
+    const bucket = bucketB.get(setA[eidA].hash);
+    if (!bucket) continue;
+    for (const eidB of bucket) {
+      if (sameSet) {
+        if (eidA === eidB) continue;
+        const pairKey = eidA < eidB ? eidA + '_' + eidB : eidB + '_' + eidA;
+        if (seen!.has(pairKey)) continue;
+        seen!.add(pairKey);
+      }
+      if (setA[eidA].type !== setB[eidB].type) continue;
+      pairs.push({ eidA, eidB });
+    }
+  }
+  return pairs;
+}
+
+function clashBadge(cl: any): string {
+  if (cl.isDuplicate) return '👯';
+  return cl.isHard ? '⛔' : '⚠️';
+}
+
+function clashTypeLabel(cl: any): string {
+  if (cl.isDuplicate) return 'Duplicate';
+  return cl.isHard ? 'Hard' : 'Clearance';
+}
+
 // Precompute world-space vertices per expressID, once per model, for only the
 // eids that survived the bbox pre-filter. meshIntersectionTest() used to
 // traverse the ENTIRE model twice (once per direction) for every single
@@ -550,7 +650,12 @@ function meshIntersectionTest(elA: any, elB: any, vertsA: Map<number, THREE.Vect
 
 // ── Main Clash Detection ──
 window.runClashDetection = async function(): Promise<void> {
-  if (!appState.loadedModels[0] || !appState.loadedModels[1]) return;
+  // "Include results from a single: Model" self-clashes model A against
+  // itself instead of A vs B — the Target Set rules still apply, just
+  // evaluated against model 0's elements instead of model 1's.
+  const singleModelChk = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  const targetModelIdx = singleModelChk ? 0 : 1;
+  if (!appState.loadedModels[0] || !appState.loadedModels[targetModelIdx]) return;
   const lo = document.getElementById('loadOv')!, lt = document.getElementById('loadTxt')!, lf = document.getElementById('loadFill')!;
   lo.classList.add('on');
 
@@ -638,9 +743,9 @@ window.runClashDetection = async function(): Promise<void> {
   };
 
   const setA = await buildFilteredSet(0, catsA, filtersA);
-  lt.textContent = 'Building Target Set (Model B)...'; lf.style.width = '15%';
+  lt.textContent = singleModelChk ? 'Building Target Set...' : 'Building Target Set (Model B)...'; lf.style.width = '15%';
   await new Promise(r => setTimeout(r, 20));
-  const setB = await buildFilteredSet(1, catsB, filtersB);
+  const setB = await buildFilteredSet(targetModelIdx, catsB, filtersB);
 
   clashPropertyCacheA = setA.propCache;
   clashPropertyCacheB = setB.propCache;
@@ -655,7 +760,7 @@ window.runClashDetection = async function(): Promise<void> {
   await new Promise(r => setTimeout(r, 20));
 
   const allBBoxA = buildElementBBoxes(0);
-  const allBBoxB = buildElementBBoxes(1);
+  const allBBoxB = singleModelChk ? allBBoxA : buildElementBBoxes(targetModelIdx);
 
   // Filter to only Source/Target set elements
   const arrA = Object.values(allBBoxA).filter(e => sourceEids.has(e.eid));
@@ -669,9 +774,20 @@ window.runClashDetection = async function(): Promise<void> {
   const candidates: { a: any; b: any; penetration: number }[] = [];
   let checked = 0;
   const total = arrA.length * arrB.length;
+  // Self-clash: Source/Target categories can overlap (e.g. "Walls" on both
+  // sides), which would otherwise generate both (x,y) and (y,x) — the same
+  // pair twice. Dedupe by unordered eid pair; a pair with only one possible
+  // order (disjoint categories) is never seen twice so it's unaffected.
+  const seenSelfPairs = singleModelChk ? new Set<string>() : null;
 
   for (const a of arrA) {
     for (const b of arrB) {
+      if (singleModelChk) {
+        if (a.eid === b.eid) { checked++; continue; }
+        const pairKey = a.eid < b.eid ? a.eid + '_' + b.eid : b.eid + '_' + a.eid;
+        if (seenSelfPairs!.has(pairKey)) { checked++; continue; }
+        seenSelfPairs!.add(pairKey);
+      }
       if (bboxOverlap(a, b, tolerance)) {
         const pen = bboxPenetration(a, b);
         candidates.push({ a, b, penetration: pen });
@@ -700,7 +816,18 @@ window.runClashDetection = async function(): Promise<void> {
   const checkedEidsA = new Set<number>(), checkedEidsB = new Set<number>();
   for (let i = 0; i < maxCheck; i++) { checkedEidsA.add(candidates[i].a.eid); checkedEidsB.add(candidates[i].b.eid); }
   const vertsMapA = buildEidVertexMap(appState.loadedModels[0]!, checkedEidsA);
-  const vertsMapB = buildEidVertexMap(appState.loadedModels[1]!, checkedEidsB);
+  const vertsMapB = singleModelChk
+    ? buildEidVertexMap(appState.loadedModels[0]!, checkedEidsB)
+    : buildEidVertexMap(appState.loadedModels[targetModelIdx]!, checkedEidsB);
+
+  // Box size/volume filter config — only meaningful for hard clashes.
+  const boxFilterCfg: BoxFilterConfig = {
+    sizeOn: !!(document.getElementById('clashTolBoxSize') as HTMLInputElement | null)?.checked,
+    sizeMm: parseFloat((document.getElementById('clashTolBoxSizeVal') as HTMLInputElement | null)?.value || '0') || 0,
+    side: (document.getElementById('clashTolShortest') as HTMLInputElement | null)?.checked ? 'shortest' : 'longest',
+    volOn: !!(document.getElementById('clashTolBoxVol') as HTMLInputElement | null)?.checked,
+    volM3: parseFloat((document.getElementById('clashTolBoxVolVal') as HTMLInputElement | null)?.value || '0') || 0,
+  };
 
   for (let i = 0; i < maxCheck; i++) {
     const { a, b, penetration } = candidates[i];
@@ -727,10 +854,17 @@ window.runClashDetection = async function(): Promise<void> {
 
       if (skipTypes.has(typeA) || skipTypes.has(typeB)) continue;
 
+      if (isHard && (boxFilterCfg.sizeOn || boxFilterCfg.volOn)) {
+        const ox = Math.max(0, Math.min(a.mxX, b.mxX) - Math.max(a.mnX, b.mnX));
+        const oy = Math.max(0, Math.min(a.mxY, b.mxY) - Math.max(a.mnY, b.mnY));
+        const oz = Math.max(0, Math.min(a.mxZ, b.mxZ) - Math.max(a.mnZ, b.mnZ));
+        if (!passesBoxFilter(ox, oy, oz, boxFilterCfg)) continue;
+      }
+
       appState.clashResults.push({
         idx: appState.clashResults.length,
         elA: { eid: a.eid, name: entA.name || '', type: typeA, objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: a },
-        elB: { eid: b.eid, name: entB.name || '', type: typeB, objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: 1, bbox: b },
+        elB: { eid: b.eid, name: entB.name || '', type: typeB, objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: b },
         // For clearances the displayed distance is the gap; for hard clashes it's
         // the penetration depth. `gap` kept separately for reporting.
         penetration: isHard ? penetration : gap, gap, isHard,
@@ -760,6 +894,38 @@ window.runClashDetection = async function(): Promise<void> {
     _clashCapNote = '';
   }
 
+  // ── Duplicate detection — identical geometry (same hash + type) between
+  // Source and Target. Bypasses the bbox/mesh-intersection pipeline above
+  // entirely: duplicates are exact-position matches by definition, so there's
+  // nothing to sample-test. Skipped in single-model mode — there every
+  // element trivially "duplicates" its own position, which is meaningless.
+  if (cDuplicate && !singleModelChk) {
+    lt.textContent = 'Checking for duplicates...'; lf.style.width = '95%';
+    await new Promise(r => setTimeout(r, 20));
+    const hashesA = computeGeometryHashes(0);
+    const hashesB = computeGeometryHashes(targetModelIdx);
+    const hashedA: Record<number, HashedElement> = {};
+    for (const eid of sourceEids) if (hashesA[eid]) hashedA[eid] = { hash: hashesA[eid].hash, type: clashPropertyCacheA[eid]?.type || '' };
+    const hashedB: Record<number, HashedElement> = {};
+    for (const eid of targetEids) if (hashesB[eid]) hashedB[eid] = { hash: hashesB[eid].hash, type: clashPropertyCacheB[eid]?.type || '' };
+
+    const dupPairs = findDuplicatePairs(hashedA, hashedB, false);
+    for (const { eidA, eidB } of dupPairs) {
+      const entA = clashPropertyCacheA[eidA] || {};
+      const entB = clashPropertyCacheB[eidB] || {};
+      const c = hashesA[eidA].center;
+      appState.clashResults.push({
+        idx: appState.clashResults.length,
+        elA: { eid: eidA, name: entA.name || '', type: entA.type || '', objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: null },
+        elB: { eid: eidB, name: entB.name || '', type: entB.type || '', objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: null },
+        penetration: 0, gap: 0, isHard: true, isDuplicate: true,
+        verticesAinB: 0, verticesBinA: 0,
+        point: { x: c.x, y: c.y, z: c.z },
+      });
+    }
+    if (dupPairs.length) log(`Duplicate detection: ${dupPairs.length} pair(s) with identical geometry`);
+  }
+
   // Names were skipped in buildFilteredSet() for categories with no property
   // filter (see comment there) to avoid awaiting getItemProperties for every
   // candidate element. Backfill them now, but only for the actual result set
@@ -773,7 +939,7 @@ window.runClashDetection = async function(): Promise<void> {
     }
     if (!cl.elB.name) {
       try {
-        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[1] as any).modelID, cl.elB.eid, false);
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[targetModelIdx] as any).modelID, cl.elB.eid, false);
         if (p?.Name?.value) cl.elB.name = p.Name.value;
       } catch (e) {}
     }
@@ -870,10 +1036,13 @@ function showClashResults(): void {
   // Stats
   const hard = appState.clashResults.filter((c: any) => c.isHard).length;
   const near = appState.clashResults.length - hard;
+  const dup = appState.clashResults.filter((c: any) => c.isDuplicate).length;
   document.getElementById('clashStats')!.style.display = '';
   document.getElementById('clashTotal')!.textContent = String(appState.clashResults.length);
   document.getElementById('clashHard')!.textContent = String(hard);
   document.getElementById('clashNear')!.textContent = String(near);
+  const dupEl = document.getElementById('clashDup');
+  if (dupEl) dupEl.textContent = String(dup);
 
   // Snapshot theo thời gian (plan 2.4, giống Validate): lưu + so với lần chạy trước.
   try {
@@ -890,7 +1059,7 @@ function showClashResults(): void {
     const penMM = (cl.penetration * 1000).toFixed(0);
     html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
       <div class="cc-hdr">
-        <span class="cc-num">#${i + 1} ${cl.isHard ? '⛔' : '⚠️'}</span>
+        <span class="cc-num">#${i + 1} ${clashBadge(cl)}</span>
         <span class="cc-dist">${penMM}mm</span>
       </div>
       <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
@@ -915,7 +1084,7 @@ window.regroupClashes = function(): void {
     appState.clashResults.forEach((cl: any, i: number) => {
       const penMM = (cl.penetration * 1000).toFixed(0);
       html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
-        <div class="cc-hdr"><span class="cc-num">#${i + 1} ${cl.isHard ? '⛔' : '⚠️'}</span><span class="cc-dist">${penMM}mm</span></div>
+        <div class="cc-hdr"><span class="cc-num">#${i + 1} ${clashBadge(cl)}</span><span class="cc-dist">${penMM}mm</span></div>
         <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
         <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
         <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
@@ -956,7 +1125,7 @@ window.regroupClashes = function(): void {
     items.forEach(({ cl, origIdx }) => {
       const penMM = (cl.penetration * 1000).toFixed(0);
       html += `<div class="clash-card" id="clash-${origIdx}" onclick="focusClash(${origIdx})">
-        <div class="cc-hdr"><span class="cc-num">#${origIdx + 1} ${cl.isHard ? '⛔' : '⚠️'}</span><span class="cc-dist">${penMM}mm</span></div>
+        <div class="cc-hdr"><span class="cc-num">#${origIdx + 1} ${clashBadge(cl)}</span><span class="cc-dist">${penMM}mm</span></div>
         <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
         <div class="cc-el" style="margin-top:1px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
       </div>`;
@@ -1102,7 +1271,7 @@ window.exportClashCSV = function(): void {
     // malicious IFC name (commas, quotes, a leading =/+/-/@) can't corrupt rows
     // or execute in a spreadsheet.
     csv += [
-      i + 1, cl.isHard ? 'Hard' : 'Clearance', (cl.penetration * 1000).toFixed(1),
+      i + 1, clashTypeLabel(cl), (cl.penetration * 1000).toFixed(1),
       escapeCsv(cl.elA.name), escapeCsv(cl.elA.type), cl.elA.eid,
       escapeCsv(cl.elB.name), escapeCsv(cl.elB.type), cl.elB.eid,
       cl.point.x.toFixed(3), cl.point.y.toFixed(3), cl.point.z.toFixed(3)
@@ -1275,7 +1444,7 @@ window.exportClashBCF = async function(): Promise<void> {
       '</ClippingPlanes>';
 
     const penMM = (cl.penetration * 1000).toFixed(1);
-    const title = 'Clash #' + (i + 1) + ' ' + (cl.isHard ? 'HARD' : 'CLEARANCE') + ' (' + penMM + 'mm) — ' + (cl.elA.name || cl.elA.type) + ' vs ' + (cl.elB.name || cl.elB.type);
+    const title = 'Clash #' + (i + 1) + ' ' + clashTypeLabel(cl).toUpperCase() + ' (' + penMM + 'mm) — ' + (cl.elA.name || cl.elA.type) + ' vs ' + (cl.elB.name || cl.elB.type);
     const desc = 'Penetration: ' + penMM + 'mm | Source: ' + (cl.elA.name || '#' + cl.elA.eid) + ' (' + cl.elA.type + ') | Target: ' + (cl.elB.name || '#' + cl.elB.eid) + ' (' + cl.elB.type + ')';
 
     // Build schema-valid <Component> XML (same structure as compare BCF)
@@ -1310,7 +1479,7 @@ window.exportClashBCF = async function(): Promise<void> {
       '<CreationDate>' + now + '</CreationDate><CreationAuthor>IFC Delta</CreationAuthor>' +
       '<ModifiedDate>' + now + '</ModifiedDate>' +
       '<Priority>' + (cl.isHard ? 'Critical' : 'Normal') + '</Priority>' +
-      '<Labels><Label>Clash Detection</Label><Label>' + (cl.isHard ? 'Hard Clash' : 'Clearance') + '</Label></Labels>' +
+      '<Labels><Label>Clash Detection</Label><Label>' + (cl.isDuplicate ? 'Duplicate' : (cl.isHard ? 'Hard Clash' : 'Clearance')) + '</Label></Labels>' +
       '</Topic>\n' +
       '<Comment Guid="' + crypto.randomUUID() + '"><Date>' + now + '</Date><Author>IFC Delta</Author><Comment>' + (window as any).escXml(desc) + '</Comment><Viewpoint Guid="' + vid + '"/></Comment>\n' +
       '<Viewpoints Guid="' + vid + '"><Viewpoint>viewpoint.bcfv</Viewpoint><Snapshot>snapshot.png</Snapshot></Viewpoints>\n' +

@@ -165,7 +165,7 @@ export interface SectionState {
 }
 
 // ── Measure types ──────────────────────────────────────────────────────
-export type MeasureMode = 'distance' | 'level' | null;
+export type MeasureMode = 'distance' | 'level' | 'area' | 'angle' | null;
 
 export interface MeasurePoint {
   position: THREE.Vector3;
@@ -291,6 +291,13 @@ declare global {
     toggleMeasure?: () => void;
     clearMeasure?: () => void;
     setGlobalOpacity?: (val: number) => void;
+    finishAreaMeasure?: () => void;
+    measureShouldAutoClear?: () => boolean;
+
+    // Units (display preference: mm / m / ft-in)
+    cycleUnitPref?: () => void;
+    setUnitPrefFromUI?: () => void;
+    projFillSettingsUnits?: () => void;
 
     // Category filter
     toggleCatDropdown?: () => void;
@@ -342,6 +349,23 @@ declare global {
     fedHandleFile?: (ev: Event) => void;
     fedRemoveSlot?: (idx: number) => void;
     fedToggleVis?: (idx: number) => void;
+    unloadAllModels?: () => void;
+
+    // Viewpoints (saved camera + section + visibility, per project)
+    vpTogglePanel?: () => void;
+    vpSave?: () => void;
+    vpRestore?: (id: string) => void;
+    vpRename?: (id: string) => void;
+    vpDelete?: (id: string) => void;
+
+    // Projects (local-first project registry)
+    toggleProjectsPanel?: () => void;
+    projCreate?: () => void;
+    projRename?: (id: string) => void;
+    projDelete?: (id: string) => void;
+    projSwitch?: (id: string) => void;
+    projFillSettings?: () => void;
+    projSaveSettings?: () => void;
 
     // Clash
     addClashRow?: (side: 'A' | 'B') => void;
@@ -353,6 +377,8 @@ declare global {
     toggleClashMode?: () => void;
     exitClashMode?: () => void;
     runClashDetection?: () => Promise<void>;
+    updateClashRunButtonState?: () => void;
+    clashSyncDuplicateUI?: () => void;
     regroupClashes?: () => void;
     toggleClashGroup?: (gid: string) => void;
     focusClash?: (idx: number) => void;
@@ -362,6 +388,9 @@ declare global {
     // Walk
     toggleWalkMode?: () => void;
     walkTouchUD?: (dir: 'up' | 'down', pressed: boolean) => void;
+    walkGoToStorey?: (idx: number) => void;
+    walkCycleStorey?: (dir: number) => void;
+    walkToggleStoreyClip?: () => void;
 
     // Plan overlay
     togglePlanOverlay?: () => void;

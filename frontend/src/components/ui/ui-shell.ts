@@ -93,12 +93,15 @@ window.colorizeSetProp = function (v: string): void {
         input.value = savedLink;
         if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
       }
+      (window as any).projFillSettings?.();
+      (window as any).projFillSettingsUnits?.();
       el.style.display = 'flex';
     } else {
       const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
       if (input) {
         localStorage.setItem('projectDriveLink', input.value.trim());
       }
+      (window as any).projSaveSettings?.();
       el.style.display = 'none';
     }
   }
