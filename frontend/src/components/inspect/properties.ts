@@ -10,6 +10,7 @@ import { appState } from '../../store/index.js';
 import { log, ifcClassToRevitCategory } from '../core/ifc-category.js';
 import { IFC_NAMES } from '../../lib/constants.js';
 import { parseMaterialLayers, type MaterialLayerSet } from './material-layers.js';
+import { formatLengthMm, formatAreaM2, formatVolumeM3, getUnitPref } from '../../lib/units.js';
 
 function renderPropertiesAccordion(elementHeader: string, groups: any[]): void {
   const esc=(s: any)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -132,24 +133,22 @@ async function showProps(props: any, modelIdx: number): Promise<void> {
   };
   const spatial = (appState.loadedModels[modelIdx] as any)?.spatial || null;
 
-  // Format a number with unit. Length values get thousands-separator + mm
-  // suffix (e.g. "1,619 mm"). Area/volume show 2 decimals + unit.
+  // Format a number with unit. `units.*Factor` converts the raw IFC-internal
+  // value to mm/m²/m³ (per-model, from readProjectUnits) — the global
+  // display pref (mm/m/ft-in, Settings modal) only controls how that
+  // already-normalized value is *shown*, layered on top via lib/units.ts.
+  const pref = getUnitPref();
   const fmtLength=(raw: any): string=>{
     if(typeof raw!=='number'||isNaN(raw))return '';
-    const mm = raw * units.lengthFactor;
-    // Round to 0 decimals for mm (engineering convention)
-    const rounded = Math.round(mm);
-    return rounded.toLocaleString('en-US') + ' ' + units.lengthUnit;
+    return formatLengthMm(raw * units.lengthFactor, pref);
   };
   const fmtArea=(raw: any): string=>{
     if(typeof raw!=='number'||isNaN(raw))return '';
-    const m2 = raw * units.areaFactor;
-    return m2.toFixed(2) + ' ' + units.areaUnit;
+    return formatAreaM2(raw * units.areaFactor, pref);
   };
   const fmtVolume=(raw: any): string=>{
     if(typeof raw!=='number'||isNaN(raw))return '';
-    const m3 = raw * units.volumeFactor;
-    return m3.toFixed(3) + ' ' + units.volumeUnit;
+    return formatVolumeM3(raw * units.volumeFactor, pref);
   };
 
   // Pretty-print a property value of any IfcProperty* subtype.

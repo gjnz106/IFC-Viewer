@@ -148,6 +148,12 @@
     <div class="tb-brand">
       <span class="tb-brand-name">T3LAB<span class="tb-brand-dot">.</span>IFC</span>
     </div>
+
+    <!-- Project switcher chip -->
+    <button id="btnProjects" class="tb-proj-chip" onclick="toggleProjectsPanel()" title="Switch project">
+      <span id="tbProjectName">—</span>
+      <svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
     <span class="tb-brand-sep"></span>
 
     <!-- Mode switcher (Field / Compare / Clash) — v5 segmented pills -->
@@ -443,6 +449,21 @@
         </div>
       </div>
 
+      <div id="vpPanelSep" data-pages="viewer compare clash validate" style="height:1px;background:var(--border);margin:0 16px"></div>
+
+      <!-- Saved Viewpoints -->
+      <div class="od-panel" id="vpPanel" data-pages="viewer compare clash validate">
+        <button class="od-toggle" onclick="vpTogglePanel()">
+          <span class="od-toggle-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+          Viewpoints
+          <span class="od-toggle-badge" id="vpBadge">0</span>
+        </button>
+        <div class="od-body" id="vpBody">
+          <button class="od-login-btn" onclick="vpSave()">+ Save viewpoint</button>
+          <div class="vp-grid" id="vpGrid"></div>
+        </div>
+      </div>
+
       </div><!-- /lpFiles -->
 
       <!-- === MODEL section (Tree / Issues / Search) — shown by rail === -->
@@ -717,16 +738,28 @@
           <div style="display:flex;gap:2px;margin-right:6px">
             <button id="modeDistance" onclick="setMeasureMode('distance')" style="font-size:12px;padding:2px 8px;border:1px solid #3b82f6;border-radius:6px;background:#eff6ff;color:#3b82f6;cursor:pointer;font-weight:600"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M2 20L20 4"/><path d="M6 16l2-2m2-2l2-2"/></svg> Distance</button>
             <button id="modeLevel" onclick="setMeasureMode('level')" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-panel);color:var(--text-dim);cursor:pointer"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M3 12h18M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg> Level</button>
+            <button id="modeArea" onclick="setMeasureMode('area')" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-panel);color:var(--text-dim);cursor:pointer"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M4 6l8-3 8 3v8l-8 7-8-7z"/></svg> Area</button>
+            <button id="modeAngle" onclick="setMeasureMode('angle')" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-panel);color:var(--text-dim);cursor:pointer"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><path d="M4 20h16M4 20L4 8l12 12"/></svg> Angle</button>
           </div>
           <span style="font-family:'JetBrains Mono';font-size:13px;font-weight:600" id="measureText">Click 2 points to measure</span>
+          <button id="measureUnitBtn" onclick="cycleUnitPref()" title="Cycle display unit (mm / m / ft-in)" style="font-size:11px;padding:2px 7px;border:1px solid var(--border);border-radius:6px;background:var(--bg-panel);color:var(--text-dim);cursor:pointer;margin-left:6px;font-family:'JetBrains Mono';text-transform:uppercase">mm</button>
           <button onclick="clearMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-panel);color:var(--text-dim);cursor:pointer;margin-left:8px">Clear</button>
           <button onclick="toggleMeasure()" style="font-size:12px;padding:2px 8px;border:1px solid #ef4444;border-radius:6px;background:#fef2f2;color:#ef4444;cursor:pointer;margin-left:4px"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Exit</button>
+        </div>
+
+        <!-- Walk level picker — keyboard-first on desktop (pointer lock blocks
+             clicks), but pills stay clickable for Field Mode's touch walk. -->
+        <div id="walkLevels" style="display:none;position:absolute;bottom:112px;left:50%;transform:translateX(-50%);z-index:15;gap:6px;align-items:center;padding:6px 10px;background:rgba(44,36,32,.8);border-radius:10px;pointer-events:auto;backdrop-filter:blur(4px)">
+          <div id="walkLevelPills" style="display:flex;gap:4px;max-width:60vw;overflow-x:auto"></div>
+          <label style="display:flex;align-items:center;gap:4px;color:#fff;font-family:'JetBrains Mono';font-size:10.5px;white-space:nowrap;cursor:pointer;padding-left:6px;margin-left:2px;border-left:1px solid rgba(255,255,255,.2)">
+            <input type="checkbox" id="walkClipChk" checked onchange="walkToggleStoreyClip()"> Clip storey
+          </label>
         </div>
 
         <!-- Walk HUD -->
         <div id="walkHUD" style="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:15;padding:8px 16px;background:rgba(44,36,32,.8);border-radius:10px;color:#fff;font-family:'JetBrains Mono';font-size:11px;text-align:center;pointer-events:none;backdrop-filter:blur(4px)">
           <div style="font-size:13px;font-weight:700;margin-bottom:4px"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg> WALK MODE</div>
-          <div><b>WASD</b> Move · <b>QE</b> Up/Down · <b>Mouse</b> Look · <b>Shift</b> Sprint · <b>Scroll</b> Speed · <b>Esc</b> Exit</div>
+          <div><b>WASD</b> Move · <b>QE</b> Up/Down · <b>Mouse</b> Look · <b>Shift</b> Sprint · <b>Scroll</b> Speed · <b>⇞⇟</b> Level · <b>L</b> Clip · <b>Esc</b> Exit</div>
         </div>
 
         <!-- Walk crosshair -->
@@ -760,18 +793,18 @@
             <div class="clash-set-section">
               <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set <span class="clash-file-tag" id="clashFileA">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('A')">+</button><button class="clash-row-act" onclick="removeLastClashRow('A')">−</button></div></div>
               <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesA"></tbody></table>
-              <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsA" disabled title="Chưa hỗ trợ (roadmap)" checked> Include parts</label>
+              <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsA" disabled title="Not supported — element assemblies (IfcRelAggregates/Nests)" checked> Include parts</label>
             </div>
             <div class="clash-set-section">
               <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set <span class="clash-file-tag" id="clashFileB">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('B')">+</button><button class="clash-row-act" onclick="removeLastClashRow('B')">−</button></div></div>
               <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesB"></tbody></table>
-              <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsB" disabled title="Chưa hỗ trợ (roadmap)" checked> Include parts</label>
+              <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsB" disabled title="Not supported — element assemblies (IfcRelAggregates/Nests)" checked> Include parts</label>
             </div>
           </div>
           <div class="clash-config-grid">
-            <div class="clash-config-block"><div class="clash-config-title">Type</div><label class="clash-cb"><input type="checkbox" id="clashTypeClash" checked> Clash</label><label class="clash-cb"><input type="checkbox" id="clashTypeDuplicate" disabled title="Chưa hỗ trợ (roadmap)"> Duplicate</label><label class="clash-cb"><input type="checkbox" id="clashTypeDistance"> Distance</label></div>
-            <div class="clash-config-block"><div class="clash-config-title">Tolerances</div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxSize" disabled title="Chưa hỗ trợ (roadmap)"> Clash box size</label><input type="number" id="clashTolBoxSizeVal" disabled title="Chưa hỗ trợ (roadmap)" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div><div class="clash-tol-row clash-tol-sub"><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolShortest" disabled title="Chưa hỗ trợ (roadmap)"> Shortest side</label><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolLongest" disabled title="Chưa hỗ trợ (roadmap)" checked> Longest side</label></div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxVol" disabled title="Chưa hỗ trợ (roadmap)"> Clash box volume</label><input type="number" id="clashTolBoxVolVal" disabled title="Chưa hỗ trợ (roadmap)" class="clash-input-tiny" value="0" min="0" step="0.001"><span class="clash-unit">m³</span></div><div class="clash-tol-row"><label class="clash-tol-lbl">Minimum distance</label><input type="number" id="clashTolMinDist" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div></div>
-            <div class="clash-config-block"><div class="clash-config-title">Include results from a single:</div><label class="clash-cb"><input type="checkbox" id="clashSingleModel" disabled title="Chưa hỗ trợ (roadmap)" checked> Model</label><label class="clash-cb"><input type="checkbox" id="clashSingleSystem" disabled title="Chưa hỗ trợ (roadmap)"> System</label><label class="clash-cb"><input type="checkbox" id="clashSingleComponent" disabled title="Chưa hỗ trợ (roadmap)"> Component</label></div>
+            <div class="clash-config-block"><div class="clash-config-title">Type</div><label class="clash-cb"><input type="checkbox" id="clashTypeClash" checked> Clash</label><label class="clash-cb"><input type="checkbox" id="clashTypeDuplicate" title="Identical geometry (same shape + position) between Source and Target"> Duplicate</label><label class="clash-cb"><input type="checkbox" id="clashTypeDistance"> Distance</label></div>
+            <div class="clash-config-block"><div class="clash-config-title">Tolerances</div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxSize"> Clash box size</label><input type="number" id="clashTolBoxSizeVal" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div><div class="clash-tol-row clash-tol-sub"><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolShortest"> Shortest side</label><label class="clash-radio"><input type="radio" name="clashTolBoxSide" id="clashTolLongest" checked> Longest side</label></div><div class="clash-tol-row"><label class="clash-cb"><input type="checkbox" id="clashTolBoxVol"> Clash box volume</label><input type="number" id="clashTolBoxVolVal" class="clash-input-tiny" value="0" min="0" step="0.001"><span class="clash-unit">m³</span></div><div class="clash-tol-row"><label class="clash-tol-lbl">Minimum distance</label><input type="number" id="clashTolMinDist" class="clash-input-tiny" value="0" min="0" step="1"><span class="clash-unit">mm</span></div></div>
+            <div class="clash-config-block"><div class="clash-config-title">Include results from a single:</div><label class="clash-cb"><input type="checkbox" id="clashSingleModel" title="Self-clash: check Source/Target against model A only" onchange="updateClashRunButtonState();clashSyncDuplicateUI()"> Model</label><label class="clash-cb"><input type="checkbox" id="clashSingleSystem" disabled title="Not supported — requires an IfcSystem index"> System</label><label class="clash-cb"><input type="checkbox" id="clashSingleComponent" disabled title="Not supported — depends on Include parts"> Component</label></div>
           </div>
           <div class="clash-desc-block"><div class="clash-config-title">Description</div><textarea id="clashDescription" class="clash-desc" rows="2" placeholder="Optional rule description"></textarea></div>
         </div>
@@ -779,6 +812,7 @@
           <div class="cs-card"><div class="cs-val" id="clashTotal">0</div><div class="cs-lbl">Total</div></div>
           <div class="cs-card"><div class="cs-val" id="clashHard" style="color:#ef4444">0</div><div class="cs-lbl">Hard</div></div>
           <div class="cs-card"><div class="cs-val" id="clashNear" style="color:#f59e0b">0</div><div class="cs-lbl">Clearance</div></div>
+          <div class="cs-card"><div class="cs-val" id="clashDup" style="color:#a855f7">0</div><div class="cs-lbl">Duplicate</div></div>
         </div>
         <div class="clash-group-bar" id="clashGroupBar" style="display:none">
           <label>Group by</label>
@@ -941,12 +975,11 @@
     <div style="display:grid;gap:12px;font-size:13px">
       <div>
         <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Project Name</label>
-        <input type="text" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" value="City Tower Phase 1">
+        <input type="text" id="projName" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
       </div>
       <div>
         <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Project Code</label>
-        <input type="text" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" value="CT-P1">
-      </div>
+        <input type="text" id="projCode" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px"></div>
       <div>
         <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Active Modules</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
@@ -968,6 +1001,14 @@
           <button id="btnStreamB" class="btn btn-sm" style="flex:1;font-size:11px;padding:6px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:6px" onclick="streamProjectDrive(1)">Stream to Slot B</button>
           <button id="btnBrowseFolder" class="btn btn-sm" style="flex:1;font-size:11px;padding:6px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:6px;display:none" onclick="browseProjectDriveFolder()">Browse Folder</button>
         </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Display Units</label>
+        <select id="unitSelect" onchange="setUnitPrefFromUI()" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px;background:#fff">
+          <option value="mm">Millimetres (mm)</option>
+          <option value="m">Metres (m)</option>
+          <option value="ftin">Feet &amp; inches (ft-in)</option>
+        </select>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
@@ -1064,6 +1105,26 @@
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px">
       <button class="btn btn-primary btn-sm" onclick="toggleTeamPanel()" style="padding:6px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Projects Dialog (switch / create / rename / delete) -->
+<div class="modal-overlay" id="projectsOverlay" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);padding:16px" onclick="toggleProjectsPanel()">
+  <div class="modal-content" style="width:100%;max-width:460px;padding:24px 26px;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.15);color:#000" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0;font-size:16px;font-weight:700">Projects</h3>
+      <button class="tb-icon-btn" onclick="toggleProjectsPanel()" style="font-size:18px;border:none;background:transparent;cursor:pointer">×</button>
+    </div>
+    <div id="projList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;margin-bottom:16px"></div>
+    <div style="border-top:1px solid #eee;padding-top:14px">
+      <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">New project</label>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;margin-bottom:6px">
+        <input type="text" id="projNewName" placeholder="Project name" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
+        <input type="text" id="projNewCode" placeholder="Code" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
+      </div>
+      <input type="text" id="projNewDrive" placeholder="Google Drive link (optional)" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px;margin-bottom:8px">
+      <button class="btn btn-primary btn-sm" onclick="projCreate()" style="width:100%;justify-content:center;padding:8px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">+ Create &amp; switch</button>
     </div>
   </div>
 </div>
