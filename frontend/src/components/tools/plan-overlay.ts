@@ -608,15 +608,28 @@ function setupPlanInteraction(): void {
       return;
     }
 
-    const eyeY = appState.camera.position.y;
-    const targetY = appState.controls.target.y;
-    const offX = appState.camera.position.x - appState.controls.target.x;
-    const offZ = appState.camera.position.z - appState.controls.target.z;
-    appState.controls.target.set(wx, targetY, wz);
-    appState.camera.position.set(wx + offX, eyeY, wz + offZ);
+    // Dalux-style plan↔3D sync: clicking the plan drops the 3D camera to
+    // STAND at that point — eye height 1.5m above the selected storey's
+    // floor — instead of the old behavior (orbit target moved to the click
+    // point, camera kept its previous height/offset), which just re-centered
+    // the orbit rather than placing the viewer at that location. Heading is
+    // preserved from the current view so the jump doesn't also spin the
+    // camera around unexpectedly.
+    const s = planStoreys[planView.storey as number];
+    const cy = appState.sharedCenterOffset?.y || 0;
+    const eyeY = (s.elevation - cy) + 1.5;
+
+    const dx = appState.controls.target.x - appState.camera.position.x;
+    const dz = appState.controls.target.z - appState.camera.position.z;
+    const dirLen = Math.hypot(dx, dz) || 1;
+    const dirX = dx / dirLen, dirZ = dz / dirLen;
+    const LOOK_AHEAD = 5; // metres — how far out the orbit target sits so controls.update() has a horizontal look direction to hold
+
+    appState.camera.position.set(wx, eyeY, wz);
+    appState.controls.target.set(wx + dirX * LOOK_AHEAD, eyeY, wz + dirZ * LOOK_AHEAD);
     appState.controls.update();
     if (planView) planView.dirty = true;
-    log('Plan: jumped 3D camera to ' + wx.toFixed(1) + ', ' + wz.toFixed(1));
+    log('Plan: jumped 3D camera (eye-level) to ' + wx.toFixed(1) + ', ' + wz.toFixed(1));
   });
 }
 
