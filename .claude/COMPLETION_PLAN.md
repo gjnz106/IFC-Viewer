@@ -25,6 +25,7 @@
 | 8 | Measure area/angle + unit setting | ✅ Done |
 | 9 | Saved viewpoints (per-project) | ✅ Done |
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ✅ Done |
+| 11 | Sửa bug rà soát sau Phase 6–10 (crash duplicate clash, filter chéo type, viewpoint) | ⬜ Not started |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -413,3 +414,62 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 - **Done khi:** 3 option mới chạy đúng trên fixture Phase 5 (duplicate flag đúng cặp wall
   không đổi; box filter suppress clash nhỏ khi nâng ngưỡng; self-clash phát hiện
   self-overlap); typecheck + test + build pass, 0 pageerror.
+
+## Phase 11 — Sửa bug rà soát sau Phase 6–10
+**Status:** ⬜ Not started
+
+> Nguồn: rà soát toàn app 2026-07-09 (2 agent song song: đọc sâu code mới Phase 6–10 +
+> quét xung đột tích hợp với các fix Phase 0–5). Typecheck/test/build hiện pass, 0 duplicate
+> ID, không leak mới, XSS sạch (mọi chuỗi user-controlled đã qua escapeHtml) — các bug dưới
+> đây là phần còn sót.
+
+### 🔴 Cao — crash chắc chắn khi dùng tính năng mới
+- [ ] **Duplicate clash crash khi render kết quả:** kết quả duplicate được tạo với
+      `bbox: null` (clash.ts ~:919) nhưng `showClashResults()` truy cập `cl.elA.bbox.mnX`
+      không guard (~:988) → `TypeError` ngay khi Run Clash có ≥1 cặp duplicate, hỏng toàn bộ
+      marker + stats. Fix: guard null (skip marker cho duplicate, hoặc dùng element bbox làm
+      overlap box như ghi chú "overlap box = element box" trong plan Phase 10).
+- [ ] **Duplicate clash crash khi click card:** `focusClash()` cũng đọc `cl.elA.bbox.mnX`
+      không guard (~:1191) → crash khi bấm card duplicate. Fix cùng cách trên.
+
+### 🟡 Trung bình — sai kết quả / sai hành vi
+- [ ] **Clash property filter áp nhầm chéo element type:** `runClashDetection` dùng
+      `getClashFilters()` (flatten mọi rule thành 1 mảng) rồi `passesFilters()` AND tất cả
+      cho MỌI element bất kể type — trong khi `resolveClashFilters()` (per-type, đã có sẵn
+      ~:227) mới đúng ý đồ. Ví dụ: rule "Walls: Name contains X" + rule "Columns" → Columns
+      cũng bị lọc theo Name X. Fix: dùng bản per-type trong `buildFilteredSet`.
+- [ ] **Self-clash focus highlight sai model:** `focusClash()` hard-code `mi:1` cho element B
+      (~:1164) — ở self-clash cả A/B đều thuộc model 0 → B không highlight (slot 1 trống)
+      hoặc highlight nhầm model. Fix: dùng `cl.elB.modelIdx` (đã có trong result) thay hằng 1.
+- [ ] **`walkToggleStoreyClip` tắt clip làm mất section Y của user:** nhánh tắt toggle
+      (walk.ts ~:167) set thẳng `clipPlanes[2]/[3]=99999` kể cả khi `sectionActive` — bất
+      đối xứng với `walkRestoreClip()` (có check `sectionActive → updateSectionFromSliders()`).
+      Fix: thêm cùng check vào nhánh toggle-off.
+- [ ] **Viewpoint lưu trong walk/field storey-clip ghi sai section:** viewpoints chụp section
+      qua slider, nhưng walk/field clip ghi thẳng `clipPlanes` (by-design Phase 7, không sync
+      slider) → viewpoint lưu lúc đang clip tầng sẽ restore sai vùng cắt. Fix gọn: khi lưu
+      viewpoint mà walk/field storey-clip đang active, chụp thêm constant của `clipPlanes[2]/[3]`
+      (hoặc chặn lưu kèm cảnh báo) — chọn phương án khi làm.
+- [ ] **Viewpoint mất âm thầm khi vượt quota localStorage:** `saveViewpoints` nuốt lỗi quota
+      (`catch {}`, viewpoints-store.ts ~:89); thumbnail JPEG base64 nặng, cap 30 cái dễ vượt
+      5MB — UI báo "đã lưu" nhưng reload mất sạch. Fix: bắt lỗi → toast cảnh báo + thử lại
+      không thumbnail (hoặc giảm chất lượng/kích thước thumbnail).
+
+### 🟢 Thấp — phòng thủ / edge case
+- [ ] **`loadViewpoints` không validate mảng:** `JSON.parse` xong dùng ngay (~:82) — key bị
+      ghi đè bằng JSON không phải mảng → `.find/.map` crash. Fix: `Array.isArray` guard
+      (pattern đã có ở projects-store.ts).
+- [ ] **`planView.storey` stale khi đổi project:** `rebuildPlanStoreyList()` nhánh
+      storey-đã-chọn chỉ gọi `planFit()`, không re-validate index theo danh sách storey mới
+      → project mới ít tầng hơn thì index trỏ ra ngoài (guard sẵn nên không crash, nhưng
+      clip/marker sai). Fix: clamp/reset `planView.storey` khi rebuild.
+- [ ] **Walk storey-clip đè plan-cut Y (transient):** cả 2 cùng điều khiển `clipPlanes[2]/[3]`
+      — vào Walk đè clip của plan cut, outline section lệch cho tới khi thoát walk (restore
+      đúng vì sectionActive). Ghi nhận + xử lý chung với 2 mục viewpoint/toggle ở trên
+      (gốc rễ: 1 cặp plane Y, 2 chủ sở hữu).
+- [ ] **Đơn vị clash giả định world=mét:** `passesBoxFilter`/tolerance/penetration đều nhân
+      cứng ×1000 — model có project unit ≠ mét sẽ sai tỉ lệ ngưỡng mm/m³. Không phải
+      regression (pipeline cũ đã vậy, filter mới nhất quán theo) — sửa bằng
+      `units.lengthFactor` khi có fixture test đơn vị khác mét.
+- **Done khi:** Duplicate/self-clash dùng được không crash, filter per-type đúng, viewpoint
+  không mất dữ liệu âm thầm + restore đúng section, typecheck + test + build pass, 0 pageerror.
