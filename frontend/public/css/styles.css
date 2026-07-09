@@ -610,6 +610,9 @@ body.resizing{cursor:col-resize;user-select:none}
 .plan-resize{position:absolute;right:0;bottom:0;width:14px;height:14px;cursor:nwse-resize;z-index:5;background:linear-gradient(135deg,transparent 0%,transparent 45%,var(--border) 45%,var(--border) 55%,transparent 55%,transparent 100%);opacity:.6}
 .plan-resize:hover{opacity:1}
 .plan-info-bar{height:22px;display:flex;align-items:center;padding:0 8px;background:var(--bg-card);border-top:1px solid var(--border);font-size:10px;font-family:'JetBrains Mono';color:var(--text-muted);gap:10px;flex-shrink:0;justify-content:space-between}
+.plan-info-bar>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plan-cut-ctrl{display:flex;align-items:center;flex-shrink:0}
+.plan-cut-ctrl input{width:34px;height:15px;padding:0 2px;font-size:9px}
 
 /* ── Colorize panel ────────────────────────────────────────────────── */
 /* Floating panel anchored bottom-left of viewport. 2 modes:

@@ -399,6 +399,7 @@ declare global {
     planToggleFollow?: () => void;
     requestPlanRender?: () => void;
     requestPlanRebuild?: () => void;
+    planSetCutHeight?: (val: string | number) => void;
 
     // Validator
     toggleSGCheckPanel?: () => void;

@@ -52,6 +52,7 @@ interface PlanDragState {
 let planView: PlanView | null = null;
 let planStoreys: PlanStorey[] = [];
 let planDragState: PlanDragState | null = null;
+let planCutHeight = 1.5; // metres above the selected storey's floor — user-adjustable via #planCutHeight
 
 // ── True-north rotation ──────────────────────────────────────────────
 // The whole plan is aligned to True North (not just an indicator arrow):
@@ -210,6 +211,51 @@ window.planSelectStorey = function(idxStr: number | string): void {
     s.name + ' [' + s.elevation.toFixed(2) + ' → ' + s.topElev.toFixed(2) + 'm]';
   planFit();
   requestPlanRender();
+  applyPlanSectionCut();
+};
+
+// Sync the MAIN 3D viewport's own section box to a horizontal slice from the
+// selected storey's floor up to floor+planCutHeight — so opening a storey in
+// the 2D plan also shows a matching cut in 3D (X/Z stay fully open; only the
+// Y range is clipped). Reuses the same slider-driven section pipeline the
+// "Section" toggle already has (section-visibility.ts) instead of writing to
+// appState.clipPlanes directly, so the section UI (panel, sliders, 3D box
+// outline) stays in sync with what the plan just did.
+function applyPlanSectionCut(): void {
+  if (!planView || planView.storey === null) return;
+  const s = planStoreys[planView.storey];
+  if (!s) return;
+  const b = appState.modelBounds;
+  if (!b || !b.min || !b.max) return;
+  const sy = b.max.y - b.min.y;
+  if (sy <= 0) return;
+
+  const floorY = worldElev(s.elevation);
+  const topY = floorY + planCutHeight;
+  const toSl = (val: number, mn: number, range: number) => Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100)));
+
+  (document.getElementById('slXp') as HTMLInputElement).value = '100';
+  (document.getElementById('slXn') as HTMLInputElement).value = '0';
+  (document.getElementById('slZp') as HTMLInputElement).value = '100';
+  (document.getElementById('slZn') as HTMLInputElement).value = '0';
+  (document.getElementById('slYp') as HTMLInputElement).value = String(toSl(topY, b.min.y, sy));
+  (document.getElementById('slYn') as HTMLInputElement).value = String(toSl(floorY, b.min.y, sy));
+
+  if (!appState.sectionActive) {
+    appState.sectionActive = true;
+    document.getElementById('sectionPanel')?.classList.add('show');
+    document.getElementById('btnSection')?.classList.add('active');
+    (window as any).createSectionBox3D?.();
+  }
+  (window as any).updateSectionFromSliders?.();
+  log('Plan: 3D section cut ' + floorY.toFixed(2) + 'm → ' + topY.toFixed(2) + 'm (storey + ' + planCutHeight + 'm)');
+}
+
+window.planSetCutHeight = function(val: string | number): void {
+  const n = parseFloat(String(val));
+  if (!isFinite(n) || n <= 0) return;
+  planCutHeight = n;
+  applyPlanSectionCut();
 };
 
 window.planFit = function(): void {
