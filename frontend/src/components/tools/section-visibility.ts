@@ -733,8 +733,28 @@ window.toggleSectionBox=function(){
   }
 };
 
+// Make sure every mesh currently in the scene has appState.clipPlanes
+// wired up as its material's clippingPlanes. Model-load already does this
+// for every mesh at load time (loadIFC), and most subset-creation sites
+// (Compare diffs, Clash markers, Colorize, …) pass clippingPlanes in their
+// material constructor — but not all of them do, so this is a one-time
+// catch-all for whatever's missing it. Runs ONCE when section mode is
+// entered (createSectionBox3D, called from every "turn section on" site),
+// NOT on every slider/drag update — see updateSectionFromSliders() below,
+// which used to run this exact traverse on every single pointermove during
+// a handle drag (a full scene walk + material reassignment per mousemove,
+// often 100+ times/second) and was the actual cause of "dragging the
+// section box lags" reports. Mutating each THREE.Plane's normal/constant in
+// place (as updateSectionFromSliders does) is picked up by already-wired
+// materials automatically at render time — no re-traverse, no
+// material.needsUpdate, needed for that.
+function ensureSceneClippingAssigned(){
+  appState.scene.traverse(c=>{if((c as any).isMesh&&!(c as any).userData?.isHandle&&c.parent?.name!=='sectionBox'){const ms=Array.isArray((c as any).material)?(c as any).material:[(c as any).material];ms.forEach((m: any)=>{m.clippingPlanes=appState.clipPlanes;m.clipShadows=true;m.needsUpdate=true})}});
+}
+
 function createSectionBox3D(){
   if(sectionBox)removeSectionBox3D();
+  ensureSceneClippingAssigned();
   const b=appState.modelBounds;
   const group=new THREE.Group();
   group.name='sectionBox';
@@ -1000,14 +1020,19 @@ function updateSectionFromSliders(){
   document.getElementById('vZp')!.textContent=Math.round(zp*100)+'%';
   document.getElementById('vZn')!.textContent=Math.round(zn*100)+'%';
 
+  // Mutating each plane's normal/constant IN PLACE (not replacing the
+  // appState.clipPlanes array) — every material was already pointed at this
+  // same array object by ensureSceneClippingAssigned() when section mode
+  // was entered, so the renderer picks up these new values automatically
+  // next frame. No scene traverse needed here (see the comment on
+  // ensureSceneClippingAssigned for why that used to be here and made
+  // dragging a section-box handle lag badly).
   appState.clipPlanes[0].set(new THREE.Vector3(-1,0,0), mn.x+sx*xp);
   appState.clipPlanes[1].set(new THREE.Vector3(1,0,0),  -(mn.x+sx*xn));
   appState.clipPlanes[2].set(new THREE.Vector3(0,-1,0), mn.y+sy*yp);
   appState.clipPlanes[3].set(new THREE.Vector3(0,1,0),  -(mn.y+sy*yn));
   appState.clipPlanes[4].set(new THREE.Vector3(0,0,-1), mn.z+sz*zp);
   appState.clipPlanes[5].set(new THREE.Vector3(0,0,1),  -(mn.z+sz*zn));
-
-  appState.scene.traverse(c=>{if((c as any).isMesh&&!(c as any).userData?.isHandle&&c.parent?.name!=='sectionBox'){const ms=Array.isArray((c as any).material)?(c as any).material:[(c as any).material];ms.forEach((m: any)=>{m.clippingPlanes=appState.clipPlanes;m.clipShadows=true;m.needsUpdate=true})}});
 
   updateSectionBox3DPositions();
   if(window.requestPlanRender)window.requestPlanRender();

@@ -70,7 +70,7 @@ const _move = new THREE.Vector3();
   const b = appState.modelBounds;
   const modelScale = (b && b.min && b.max) ? b.max.distanceTo(b.min) : 10;
   const zoomDist = camera.position.distanceTo(controls.target);
-  const spd = Math.max(zoomDist, modelScale * 0.01, 0.05) * 0.9 * (flyKeys.shift ? 2.5 : 1) * dt;
+  const spd = Math.max(zoomDist, modelScale * 0.01, 0.05) * 0.45 * (flyKeys.shift ? 2.5 : 1) * dt;
 
   camera.getWorldDirection(_fwd);
   _right.crossVectors(_fwd, camera.up).normalize();
