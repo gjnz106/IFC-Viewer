@@ -25,6 +25,7 @@
 | 8 | Measure area/angle + unit setting | ✅ Done |
 | 9 | Saved viewpoints (per-project) | ✅ Done |
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ✅ Done |
+| 11 | Sửa bug rà soát sau Phase 6–10 (crash duplicate clash, filter chéo type, viewpoint) | ✅ Done — PR #57 |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -413,3 +414,57 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 - **Done khi:** 3 option mới chạy đúng trên fixture Phase 5 (duplicate flag đúng cặp wall
   không đổi; box filter suppress clash nhỏ khi nâng ngưỡng; self-clash phát hiện
   self-overlap); typecheck + test + build pass, 0 pageerror.
+
+## Phase 11 — Sửa bug rà soát sau Phase 6–10 ✅ Done
+**Status:** ✅ Done — PR #57 (2026-07-10)
+
+> Nguồn: rà soát toàn app 2026-07-09 (2 agent song song: đọc sâu code mới Phase 6–10 +
+> quét xung đột tích hợp với các fix Phase 0–5). Typecheck/test/build hiện pass, 0 duplicate
+> ID, không leak mới, XSS sạch (mọi chuỗi user-controlled đã qua escapeHtml) — các bug dưới
+> đây là phần còn sót.
+
+### 🔴 Cao — crash chắc chắn khi dùng tính năng mới
+- [x] **Duplicate clash crash khi render kết quả:** sửa bằng cách build `bbox` thật từ
+      `center`/`size` sẵn có trong `GeometryHashEntry` (thay vì `null`) khi tạo kết quả
+      duplicate — `showClashResults()`/`focusClash()` không cần sửa, chỉ cần dữ liệu hợp lệ.
+- [x] **Duplicate clash crash khi click card:** tự hết sau fix trên (cùng gốc `bbox: null`).
+
+### 🟡 Trung bình — sai kết quả / sai hành vi
+- [x] **Clash property filter áp nhầm chéo element type:** `runClashDetection` đổi sang dùng
+      `resolveClashFilters()` (per-type map) thay vì `getClashFilters()` (đã xoá, không còn
+      nơi gọi); `buildFilteredSet` tra filter riêng cho category đang lặp thay vì 1 mảng
+      phẳng dùng chung cho mọi type.
+- [x] **Self-clash focus highlight sai model:** `focusClash()` dùng `cl.elA.modelIdx` /
+      `cl.elB.modelIdx` (đã có sẵn trong result) thay vì hard-code `mi: 0`/`mi: 1`.
+- [x] **`walkToggleStoreyClip` tắt clip làm mất section Y của user:** thêm check
+      `appState.sectionActive` giống `walkRestoreClip()` — tắt toggle khi có section active
+      thì trả Y-plane về `updateSectionFromSliders()` thay vì set cứng `99999`.
+- [x] **Viewpoint mất âm thầm khi vượt quota localStorage:** `saveViewpoints` giờ trả về
+      `boolean`; lỗi quota tự động retry 1 lần bỏ thumbnail (phần lớn dung lượng) để giữ lại
+      camera/section/visibility; nếu vẫn thất bại, `vpSave` alert rõ ràng cho user thay vì
+      báo "đã lưu" rồi âm thầm mất sau reload.
+- [ ] **Viewpoint lưu trong walk/field storey-clip ghi sai section:** ĐÃ XEM XÉT, quyết định
+      không sửa — walk/field storey-clip không set `sectionActive`/slider, nên
+      `vp.section.active` vẫn đúng là `false` khi lưu (không claim có section), và không có
+      gì bị misrepresent; chỉ đơn giản là hiệu ứng clip tạm thời lúc walk không được ghi vào
+      viewpoint — hợp lý vì viewpoint là bookmark camera, không phải state ephemeral của
+      walk mode. Không coi là bug cần sửa nữa.
+
+### 🟢 Thấp — phòng thủ / edge case
+- [x] **`loadViewpoints` không validate mảng:** thêm `Array.isArray` guard (cùng pattern
+      `projects-store.ts`), trả `[]` nếu key bị ghi đè bằng JSON không phải mảng.
+- [x] **`planView.storey` stale khi đổi project:** `rebuildPlanStoreyList()` giờ reset
+      `planView.storey = null` khi index cũ vượt quá độ dài danh sách storey mới, để rơi
+      đúng vào nhánh auto-pick storey gần camera nhất thay vì giữ index rác.
+- [ ] **Walk storey-clip đè plan-cut Y (transient):** giữ nguyên, chỉ là hiệu ứng tạm thời
+      (outline lệch trong lúc Walk active, tự đúng lại khi thoát Walk vì `sectionActive` →
+      `updateSectionFromSliders()`) — rủi ro sửa (thêm 1 cơ chế "chủ sở hữu" cho cặp plane Y)
+      lớn hơn giá trị cho 1 edge case hiếm khi cả Plan cut và Walk cùng active.
+- [ ] **Đơn vị clash giả định world=mét:** giữ nguyên — không phải regression (pipeline cũ đã
+      vậy), chưa có fixture model đơn vị khác mét để test an toàn.
+- Thêm 5 test mới (`viewpoints-store.test.ts`): round-trip save/load, validate mảng khi
+  corrupt, fallback bỏ thumbnail khi quota, báo fail đúng khi retry cũng vượt quota.
+- **Done khi:** Duplicate/self-clash dùng được không crash, filter per-type đúng, viewpoint
+  không mất dữ liệu âm thầm + restore đúng section, typecheck + test + build pass, 0 pageerror. ✅
+  (Verify: typecheck sạch, 183/183 test (+5 mới), build OK, E2E headless Duplicate clash +
+  self-clash không crash, không hồi quy Compare/Clash/Walk/Plan.)

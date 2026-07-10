@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addViewpoint, removeViewpoint, renameViewpoint, remapCamera, modelsFingerprint, type Viewpoint } from './viewpoints-store.js';
+import { addViewpoint, removeViewpoint, renameViewpoint, remapCamera, modelsFingerprint, loadViewpoints, saveViewpoints, type Viewpoint } from './viewpoints-store.js';
 
 function makeVp(id: string, name: string): Viewpoint {
   return {
@@ -75,5 +75,55 @@ describe('modelsFingerprint', () => {
 
   it('differs when the file set actually differs', () => {
     expect(modelsFingerprint(['a.ifc'])).not.toBe(modelsFingerprint(['a.ifc', 'b.ifc']));
+  });
+});
+
+describe('loadViewpoints / saveViewpoints (localStorage glue)', () => {
+  it('round-trips a saved list', () => {
+    const list = [makeVp('1', 'a')];
+    expect(saveViewpoints('proj-x', list)).toBe(true);
+    expect(loadViewpoints('proj-x')).toEqual(list);
+  });
+
+  it('returns an empty list for a project with nothing saved', () => {
+    expect(loadViewpoints('proj-never-saved')).toEqual([]);
+  });
+
+  it('treats non-array JSON at the key as empty instead of returning it raw', () => {
+    // A key overwritten by something else (manual edit, an older/incompatible
+    // version) can be valid JSON that isn't an array — every caller does
+    // list.find/.map/.slice, which throws on a bare object.
+    localStorage.setItem('ifc.viewpoints.proj-corrupt', JSON.stringify({ not: 'an array' }));
+    expect(loadViewpoints('proj-corrupt')).toEqual([]);
+  });
+
+  it('falls back to stripping thumbnails when the full payload exceeds quota', () => {
+    const list = [makeVp('1', 'a')];
+    const realSetItem = localStorage.setItem.bind(localStorage);
+    let calls = 0;
+    localStorage.setItem = (k: string, v: string) => {
+      calls++;
+      if (calls === 1) throw new DOMException('quota', 'QuotaExceededError');
+      realSetItem(k, v);
+    };
+    try {
+      expect(saveViewpoints('proj-quota', list)).toBe(true);
+      const saved = loadViewpoints('proj-quota');
+      expect(saved[0].thumb).toBe('');
+      expect(saved[0].id).toBe('1'); // the rest of the data survived
+    } finally {
+      localStorage.setItem = realSetItem;
+    }
+  });
+
+  it('reports failure (does not throw) when even the stripped retry exceeds quota', () => {
+    const list = [makeVp('1', 'a')];
+    const realSetItem = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = () => { throw new DOMException('quota', 'QuotaExceededError'); };
+    try {
+      expect(saveViewpoints('proj-full', list)).toBe(false);
+    } finally {
+      localStorage.setItem = realSetItem;
+    }
   });
 });

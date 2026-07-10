@@ -308,9 +308,10 @@ window.swapClashSets = function(): void {
 
 // Compatibility shim — old code referenced these but they're no longer in UI.
 function getSelectedCats(side: string): string[] { return [...resolveClashElementTypes(side)]; }
+// Evaluates one category's own filter clauses against an entity —
+// buildFilteredSet() looks these up per-type via resolveClashFilters() so a
+// rule scoped to one element type never leaks onto another.
 function passesFilters(entity: any, filters: any[]): boolean {
-  // Old function — replaced by passesClashFiltersForType. Kept for any
-  // remaining call sites.
   if (!filters || !filters.length) return true;
   for (const f of filters) {
     const v = String(entity[f.prop] || entity[f.prop?.toLowerCase?.() ] || '').toLowerCase();
@@ -326,16 +327,6 @@ function passesFilters(entity: any, filters: any[]): boolean {
     if (!pass) return false;
   }
   return true;
-}
-function getClashFilters(side: string): any[] {
-  // Old API: a flat list of filter objects. Build by flattening all
-  // elementType-keyed filters from the new rule rows.
-  const byType = resolveClashFilters(side);
-  const flat: any[] = [];
-  for (const t in byType) {
-    for (const f of byType[t]) flat.push({ ...f, elementType: t });
-  }
-  return flat;
 }
 
 // Enter/exit are the primitives the router reconciles page state against.
@@ -684,8 +675,14 @@ window.runClashDetection = async function(): Promise<void> {
   // ── Collect filter configuration from rule rows ──
   const catsA = resolveClashElementTypes('A');
   const catsB = resolveClashElementTypes('B');
-  const filtersA = getClashFilters('A');
-  const filtersB = getClashFilters('B');
+  // Per-type filter maps (resolveClashFilters keys each clause by the IFC
+  // class it applies to) — buildFilteredSet below must look a category's
+  // OWN filters up by key, not flatten every rule across every type. The
+  // flat getClashFilters() shape used to be passed straight through and
+  // ANDed against every element regardless of category (a "Walls: Name
+  // contains X" rule silently also filtered Columns).
+  const filtersA = resolveClashFilters('A');
+  const filtersB = resolveClashFilters('B');
 
   if (catsA.size === 0 || catsB.size === 0) {
     lo.classList.remove('on');
@@ -693,7 +690,8 @@ window.runClashDetection = async function(): Promise<void> {
     return;
   }
 
-  log('Clash config: Source types=' + catsA.size + ', Target types=' + catsB.size + ', filtersA=' + filtersA.length + ', filtersB=' + filtersB.length + ', tolerance=' + tolerance + 'm, type=' + clashTypeFilter);
+  const filterCount = (m: Record<string, any[]>) => Object.values(m).reduce((n, arr) => n + arr.length, 0);
+  log('Clash config: Source types=' + catsA.size + ', Target types=' + catsB.size + ', filtersA=' + filterCount(filtersA) + ', filtersB=' + filterCount(filtersB) + ', tolerance=' + tolerance + 'm, type=' + clashTypeFilter);
 
   // ── Phase 1: Build filtered element sets ──
   lt.textContent = 'Building Source Set (Model A)...'; lf.style.width = '5%';
@@ -703,12 +701,16 @@ window.runClashDetection = async function(): Promise<void> {
   const api = appState.ifcLoader?.ifcManager?.state?.api;
 
   // Build element properties for filtering
-  const buildFilteredSet = async (modelIdx: number, selectedCats: Set<string>, propFilters: any[]) => {
+  const buildFilteredSet = async (modelIdx: number, selectedCats: Set<string>, propFiltersByType: Record<string, { prop: string; op: string; val: string }[]>) => {
     const elements: Record<number, any> = {};
     const propCache: Record<number, any> = {};
     for (const cat of selectedCats) {
       const ids = catIDs[cat]?.[modelIdx];
       if (!ids) continue;
+      // Only this category's own filter clauses apply — a rule scoped to
+      // "Walls" must never affect "Columns" just because both were flattened
+      // into one array.
+      const propFilters = propFiltersByType[cat] || [];
       for (const eid of ids) {
         // Get properties for filter matching — skip the (awaited) IFC lookup
         // entirely when this category has no property filters, since
@@ -910,14 +912,23 @@ window.runClashDetection = async function(): Promise<void> {
     for (const eid of targetEids) if (hashesB[eid]) hashedB[eid] = { hash: hashesB[eid].hash, type: clashPropertyCacheB[eid]?.type || '' };
 
     const dupPairs = findDuplicatePairs(hashedA, hashedB, false);
+    // showClashResults()/focusClash() dereference elA.bbox.mnX unconditionally
+    // to draw the clash-zone marker and frame the camera — bbox can't be null
+    // here. Build one from the geometry hash's own center/size (duplicates are
+    // identical-position matches by definition, so A's and B's boxes coincide).
+    const bboxFromHash = (h: { center: { x: number; y: number; z: number }; size: { x: number; y: number; z: number } }) => ({
+      mnX: h.center.x - h.size.x / 2, mxX: h.center.x + h.size.x / 2,
+      mnY: h.center.y - h.size.y / 2, mxY: h.center.y + h.size.y / 2,
+      mnZ: h.center.z - h.size.z / 2, mxZ: h.center.z + h.size.z / 2,
+    });
     for (const { eidA, eidB } of dupPairs) {
       const entA = clashPropertyCacheA[eidA] || {};
       const entB = clashPropertyCacheB[eidB] || {};
       const c = hashesA[eidA].center;
       appState.clashResults.push({
         idx: appState.clashResults.length,
-        elA: { eid: eidA, name: entA.name || '', type: entA.type || '', objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: null },
-        elB: { eid: eidB, name: entB.name || '', type: entB.type || '', objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: null },
+        elA: { eid: eidA, name: entA.name || '', type: entA.type || '', objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: bboxFromHash(hashesA[eidA]) },
+        elB: { eid: eidB, name: entB.name || '', type: entB.type || '', objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: bboxFromHash(hashesB[eidB]) },
         penetration: 0, gap: 0, isHard: true, isDuplicate: true,
         verticesAinB: 0, verticesBinA: 0,
         point: { x: c.x, y: c.y, z: c.z },
@@ -1161,9 +1172,14 @@ window.focusClash = function(idx: number): void {
   const matFocusA = new THREE.MeshPhongMaterial({ color: 0xef4444, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: true, clippingPlanes: appState.clipPlanes });
   const matFocusB = new THREE.MeshPhongMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: true, clippingPlanes: appState.clipPlanes });
 
+  // Use each element's own modelIdx rather than hard-coding 0/1 — in
+  // self-clash mode (single model checked) both A and B live in model 0, so
+  // a hard-coded mi:1 for B either found nothing (slot 1 empty) or
+  // highlighted the wrong element on whatever model happened to be loaded
+  // there.
   [
-    { mi: 0, eid: cl.elA.eid, mat: matFocusA },
-    { mi: 1, eid: cl.elB.eid, mat: matFocusB }
+    { mi: cl.elA.modelIdx, eid: cl.elA.eid, mat: matFocusA },
+    { mi: cl.elB.modelIdx, eid: cl.elB.eid, mat: matFocusB }
   ].forEach(({ mi, eid, mat }) => {
     if (!appState.loadedModels[mi]) return;
     try {

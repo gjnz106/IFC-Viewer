@@ -104,9 +104,14 @@ window.vpSave = function (): void {
   };
 
   vpList = addViewpoint(vpList, vp);
-  saveViewpoints(currentProjectId(), vpList);
+  const ok = saveViewpoints(currentProjectId(), vpList);
   renderVpGallery();
-  log('Viewpoint saved: ' + name);
+  if (ok) {
+    log('Viewpoint saved: ' + name);
+  } else {
+    alert('Could not save "' + name + '" — browser storage is full. It will disappear after reload; delete some older viewpoints and try again.');
+    log('Viewpoint save FAILED (storage quota): ' + name);
+  }
 };
 
 window.vpRestore = function (id: string): void {
