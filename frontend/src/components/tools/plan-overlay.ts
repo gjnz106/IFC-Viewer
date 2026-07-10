@@ -148,6 +148,14 @@ function rebuildPlanStoreyList(): void {
     const elevStr = s.elevation >= 0 ? '+' + s.elevation.toFixed(2) + 'm' : s.elevation.toFixed(2) + 'm';
     return `<option value="${i}">${s.name} (${elevStr})</option>`;
   }).join('');
+  // A previously-selected storey index can outlive the storey list it was
+  // chosen from — e.g. switching to a project with fewer storeys (project
+  // switch calls requestPlanRebuild → here) — so re-pick automatically
+  // instead of leaving a stale out-of-range index that only the length
+  // guards elsewhere (planStoreys[idx] undefined checks) keep from crashing.
+  if (planView && planView.storey !== null && planView.storey >= planStoreys.length) {
+    planView.storey = null;
+  }
   if (planView && planView.storey === null) {
     const camY = appState.camera.position.y;
     let bestI = 0, bestD = Infinity;

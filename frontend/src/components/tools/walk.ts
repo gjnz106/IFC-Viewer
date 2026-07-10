@@ -165,8 +165,17 @@ function renderWalkLevelPills(): void {
   if (walkClipEnabled && walkLevelIdx >= 0) {
     (window as any).walkGoToStorey(walkLevelIdx); // re-apply clip for the current level
   } else if (!walkClipEnabled && appState.clipPlanes.length >= 6) {
-    appState.clipPlanes[2].constant = 99999;
-    appState.clipPlanes[3].constant = 99999;
+    // Same choice walkRestoreClip() makes on walk-exit: if the user has their
+    // own section box active, hand the Y planes back to it instead of
+    // blowing it open to 99999 — this toggle used to always force fully
+    // open, silently discarding the user's section whenever they turned
+    // storey-clip off mid-walk.
+    if (appState.sectionActive) {
+      (window as any).updateSectionFromSliders?.();
+    } else {
+      appState.clipPlanes[2].constant = 99999;
+      appState.clipPlanes[3].constant = 99999;
+    }
   }
   const clipChk = document.getElementById('walkClipChk') as HTMLInputElement | null;
   if (clipChk) clipChk.checked = walkClipEnabled;

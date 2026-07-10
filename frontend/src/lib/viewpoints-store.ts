@@ -82,13 +82,33 @@ function keyFor(projectId: string): string {
 export function loadViewpoints(projectId: string): Viewpoint[] {
   try {
     const raw = localStorage.getItem(keyFor(projectId));
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    // A key overwritten by something else (manual edit, an older/incompatible
+    // version) can be valid JSON that isn't an array — every caller does
+    // list.find/.map/.slice on the result, which throws on a bare object.
+    return Array.isArray(parsed) ? parsed : [];
   } catch { return []; }
 }
 
-export function saveViewpoints(projectId: string, list: Viewpoint[]): void {
-  try { localStorage.setItem(keyFor(projectId), JSON.stringify(list)); }
-  catch { /* quota/private mode */ }
+// Returns whether the save actually landed. Callers should surface a warning
+// on false — silently swallowing quota errors used to mean vpSave() reported
+// "Viewpoint saved" while the write failed underneath, so the viewpoint
+// vanished on the next reload with no indication anything went wrong.
+export function saveViewpoints(projectId: string, list: Viewpoint[]): boolean {
+  try {
+    localStorage.setItem(keyFor(projectId), JSON.stringify(list));
+    return true;
+  } catch {
+    // Thumbnails (base64 JPEG) are the bulk of the payload — retry once
+    // without them so at least the camera/section/visibility data survives
+    // a near-quota save instead of losing the whole viewpoint.
+    try {
+      const stripped = list.map(v => ({ ...v, thumb: '' }));
+      localStorage.setItem(keyFor(projectId), JSON.stringify(stripped));
+      return true;
+    } catch { return false; }
+  }
 }
 
 export function deleteProjectViewpoints(projectId: string): void {
