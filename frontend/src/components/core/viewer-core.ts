@@ -778,6 +778,11 @@ export function initThree(): void {
     // (and wheel-zoom) here as well makes the two fight over the camera each
     // frame, which reads as stutter. Skip them while walking.
     if(!appState.walkActive){
+      // WASD/QE fly navigation (fly-nav.ts) — Dalux-style movement in the
+      // normal orbit view, no pointer lock or mode switch required. Must run
+      // BEFORE controls.update() so the just-moved camera/target feed into
+      // this frame's orbit damping instead of lagging a frame behind.
+      if(typeof (window as any)._applyFlyMovement==='function')(window as any)._applyFlyMovement();
       // Apply any pending smooth wheel-zoom BEFORE controls.update() so that
       // damping picks up the small camera movement each frame — gives Revit-
       // like glide instead of a series of instant steps.

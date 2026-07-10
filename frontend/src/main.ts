@@ -19,6 +19,7 @@ import './components/compare/clash.js';
 import './components/compare/cross-discipline-run.js';
 import './components/compare/compare-slider.js';
 import './components/tools/walk.js';
+import './components/tools/fly-nav.js';
 import './components/tools/plan-overlay.js';
 import './components/validate/validator-rules.js';
 import './components/validate/validator-json-loader.js';
