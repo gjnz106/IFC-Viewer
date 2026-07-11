@@ -26,6 +26,9 @@
 | 9 | Saved viewpoints (per-project) | ✅ Done |
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ✅ Done |
 | 11 | Sửa bug rà soát sau Phase 6–10 (crash duplicate clash, filter chéo type, viewpoint) | ✅ Done — PR #57 |
+| 12 | ☁ Cloud projects: Firestore registry + Security Rules + rules CI | ⬜ Not started |
+| 13 | ☁ File IFC trên Storage + auto-load khi vào dự án (lõi Dalux) | ⬜ Not started |
+| 14 | ☁ Share team theo email + cache IndexedDB + polish | ⬜ Not started |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -468,3 +471,100 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
   không mất dữ liệu âm thầm + restore đúng section, typecheck + test + build pass, 0 pageerror. ✅
   (Verify: typecheck sạch, 183/183 test (+5 mới), build OK, E2E headless Duplicate clash +
   self-clash không crash, không hồi quy Compare/Clash/Walk/Plan.)
+
+---
+
+# HƯỚNG A — Cloud Projects kiểu Dalux (Firestore + Firebase Storage)
+
+> Người dùng chốt 2026-07-10: **Hướng A** — dự án lưu trên cloud theo tài khoản, file IFC
+> upload lên Firebase Storage, vào dự án (từ bất kỳ máy nào / thành viên được share) thì
+> **tự động tải + load file IFC có sẵn** — giống Dalux. Hướng B (IndexedDB cache local)
+> giữ lại làm bước tăng tốc ở Phase 14, KHÔNG thay thế cloud.
+>
+> **Hạ tầng dùng lại:** Firebase project `ifc-delta` (đã chạy Auth + Hosting), bucket
+> `ifc-delta.firebasestorage.app` (đã khai trong `firebaseConfig`), SDK `firebase@^10`
+> (đã có sẵn module firestore/storage — không thêm dependency), secret
+> `FIREBASE_SERVICE_ACCOUNT` (đã có trong GitHub Actions cho hosting deploy).
+> **Nguyên tắc:** local-first hiện tại (Phase 6) GIỮ NGUYÊN làm fallback — dự án local
+> vẫn hoạt động offline; cloud là lớp thêm vào, gated theo đăng nhập.
+
+## Phase 12 — Nền cloud: Firestore registry + Security Rules + rules deploy CI
+**Status:** ⬜ Not started
+
+**Việc người dùng phải làm trước (tôi sẽ nhắc lại từng bước khi chạy phase):**
+1. Firebase Console → Build → **Firestore Database** → Create database → production mode,
+   region `asia-southeast1` (Singapore — gần VN nhất).
+2. Firebase Console → Build → **Storage** → Get started (giữ production mode).
+   (Rules sẽ do CI deploy tự động ở bước dưới — không cần dán tay.)
+
+- [ ] **Data model Firestore** (file mới `frontend/src/lib/cloud-projects.ts`, pure logic +
+      glue mỏng):
+      - `projects/{projectId}`: `{ name, code, ownerUid, ownerEmail, memberEmails: string[]
+        (LUÔN chứa ownerEmail — rules chỉ cần check 1 mảng), settings: { units, driveLink },
+        createdAt, updatedAt }`
+      - `projects/{projectId}/files/{fileId}`: `{ name, size, slot: 'A'|'B'|number (fed),
+        storagePath, contentType: 'application/x-step', uploadedBy, uploadedAt }`
+      - ID dùng `crypto.randomUUID()` (cùng convention projects-store.ts hiện tại).
+- [ ] **Security Rules** — 2 file mới trong repo `firestore.rules` + `storage.rules`:
+      - Firestore: đọc/ghi `projects/{id}` + subcollection `files` chỉ khi
+        `request.auth.token.email in resource.data.memberEmails` (create: check
+        `request.resource.data`); bắt buộc `request.auth.token.email_verified == true`
+        (app đã enforce verify email ở Auth).
+      - Storage: path `projects/{projectId}/{fileName}` — dùng **cross-service rules**
+        (`firestore.get(/databases/(default)/documents/projects/$(projectId))`) để check
+        membership từ chính doc Firestore → 1 nguồn chân lý duy nhất, không nhân đôi ACL.
+      - Giới hạn upload: `request.resource.size < 500 * 1024 * 1024` (500MB/file) +
+        contentType whitelist.
+- [ ] **CI deploy rules:** sửa `firebase.json` thêm khối `firestore.rules` + `storage.rules`;
+      thêm step vào `.github/workflows/firebase-deploy.yml`: dựng `GOOGLE_APPLICATION_CREDENTIALS`
+      từ secret `FIREBASE_SERVICE_ACCOUNT` có sẵn → `npx firebase-tools deploy
+      --only firestore:rules,storage --project ifc-delta` (service account cần role
+      Firebase Admin — nhắc user check IAM nếu step fail).
+- [ ] **Cloud registry sync** (glue trong `cloud-projects.ts`, lazy `import('firebase/firestore')`
+      kiểu ai.ts để không phình chunk chính ~300KB):
+      - Sau đăng nhập: `getDocs(query(projects, where('memberEmails', 'array-contains', email)))`
+        → merge vào project switcher UI (Phase 6), phân biệt badge `☁ Cloud` vs `💻 Local`.
+      - Tạo/đổi tên/xoá project cloud → ghi Firestore (optimistic UI + rollback khi lỗi).
+      - Nút **"Đưa dự án local lên cloud"** trên mỗi project local (migrate: copy name/code/
+        settings; file IFC upload ở Phase 13).
+      - Offline/lỗi mạng → toast + rơi về registry local, KHÔNG chặn app.
+- [ ] Test Vitest: pure helpers (build doc payload, validate memberEmails luôn chứa owner,
+      merge cloud+local registry không trùng id, quyền theo email case-insensitive).
+- **Done khi:** đăng nhập trên 2 trình duyệt khác nhau thấy cùng danh sách dự án cloud;
+  tạo/xoá đồng bộ; user ngoài memberEmails bị Firestore từ chối (test bằng tài khoản thứ 2);
+  rules deploy tự động qua CI; typecheck + test + build pass.
+
+## Phase 13 — File IFC trên Storage + auto-load khi vào dự án (lõi "giống Dalux")
+**Status:** ⬜ Not started (phụ thuộc Phase 12)
+
+- [ ] **Upload:** trong dự án cloud, khi user load file IFC vào slot (A/B/federation —
+      `handleFile`/`fedHandleFile`) → sau khi load local xong, upload nền lên
+      `projects/{projectId}/{fileId}.ifc` bằng `uploadBytesResumable` (lazy
+      `import('firebase/storage')`): progress % trên chip file, retry 1 lần, toast khi xong/lỗi.
+      Ghi doc `files/{fileId}` kèm `slot`. Thay file cùng slot → ghi đè doc + xoá blob cũ.
+      Gỡ file/xoá project → xoá cả doc + blob (best-effort, log lỗi mồ côi).
+- [ ] **Auto-load khi mở dự án:** switch sang dự án cloud → đọc `files` →
+      `getDownloadURL` → `fetch` → `File` → đi qua đúng pipeline `loadIFC(idx)` hiện có
+      (giữ nguyên dispose/bounds/spatial). Loading overlay theo % tải; lỗi 1 file không chặn
+      file khác. Slot mapping: A/B trước, federation sau.
+- [ ] **Trạng thái đồng bộ:** chip mỗi slot hiện `☁ synced` / `⬆ uploading n%` / `⚠ local-only`
+      (dự án local hoặc upload fail). Confirm trước khi ghi đè file cloud do người khác up.
+- [ ] Test: helpers thuần (slot mapping, quyết định ghi đè/giữ, format progress); E2E headless
+      mock fetch cho luồng auto-load (không gọi mạng thật trong sandbox).
+- **Done khi:** máy 1 up 2 file vào dự án cloud → máy 2 (cùng account hoặc account được share)
+  mở dự án → 2 file tự tải + tự load vào đúng slot, không thao tác tay — flow Dalux hoàn chỉnh.
+
+## Phase 14 — Share team + cache IndexedDB + polish
+**Status:** ⬜ Not started (phụ thuộc Phase 13)
+
+- [ ] **Share theo email:** UI "Members" trong project settings (nhập email → thêm vào
+      `memberEmails`; chỉ owner được thêm/xoá; xoá owner bị chặn). Nút Invite hiện có (giữ từ
+      redraw UI) nối vào flow này thay vì demo tĩnh.
+- [ ] **Cache IndexedDB (Hướng B làm tầng tăng tốc):** blob IFC cache theo
+      `storagePath + updatedAt` — mở lại dự án trên cùng máy: đọc cache, bỏ qua download nếu
+      chưa đổi; LRU ~2GB; nút "Clear cache" trong Settings.
+- [ ] **Polish:** viewpoints/units per-project (localStorage hiện tại) sync thêm lên doc
+      Firestore của project cloud (best-effort, local vẫn là nguồn khi offline); quota guard
+      (file > 500MB → báo trước khi upload); hiển thị dung lượng đã dùng của project.
+- **Done khi:** share email cho đồng nghiệp → họ đăng nhập thấy dự án + auto-load; mở lần 2
+  cùng máy không tải lại từ mạng; không hồi quy dự án local/offline.
