@@ -367,6 +367,14 @@ declare global {
     projFillSettings?: () => void;
     projSaveSettings?: () => void;
 
+    // Cloud projects (Phase 12 — Firestore registry layered on the above)
+    getAuthUser?: () => { uid: string; email: string; emailVerified: boolean } | null;
+    projMigrateToCloud?: (id: string) => void;
+    projCreateCloud?: () => void;
+    projSwitchCloud?: (id: string) => void;
+    projRenameCloud?: (id: string) => void;
+    projDeleteCloud?: (id: string) => void;
+
     // Clash
     addClashRow?: (side: 'A' | 'B') => void;
     removeLastClashRow?: (side: 'A' | 'B') => void;

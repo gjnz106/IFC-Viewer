@@ -256,6 +256,14 @@ window.signOutFromVerify = async function () {
   try { return await auth.currentUser.getIdToken(); } catch { return null; }
 };
 
+// Used by cloud-projects.ts / the project switcher (Phase 12) to know who
+// to fetch/create cloud projects as, without importing firebase/auth twice.
+(window as any).getAuthUser = function (): { uid: string; email: string; emailVerified: boolean } | null {
+  const user = auth?.currentUser;
+  if (!user || !user.email) return null;
+  return { uid: user.uid, email: user.email, emailVerified: user.emailVerified };
+};
+
 // ── Minimal role gate ────────────────────────────────────────────────────
 // No backend persistence/Firestore in this app today, so there is no shared
 // resource for a full RBAC system to protect — every viewer/export/delete
