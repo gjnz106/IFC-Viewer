@@ -12,7 +12,9 @@ service firebase.storage {
 
     function isProjectMember(projectId) {
       let proj = firestore.get(/databases/(default)/documents/projects/$(projectId));
-      return proj.data.memberEmails is list && request.auth.token.email in proj.data.memberEmails;
+      // Lowercased to match how the client normalizes/stores memberEmails.
+      return proj.data.memberEmails is list
+        && request.auth.token.email.lower() in proj.data.memberEmails;
     }
 
     // Reasonable IFC-related content types — browsers send inconsistent

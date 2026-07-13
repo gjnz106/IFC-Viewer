@@ -89,13 +89,15 @@ export function buildCloudProjectDoc(
   settings: CloudProjectSettings = {},
 ): Omit<CloudProject, 'id'> {
   const now = Date.now();
+  const cleanSettings: CloudProjectSettings = { driveLink: (settings.driveLink || '').trim() };
+  if (settings.units) cleanSettings.units = settings.units;
   return {
     name: name.trim() || 'Untitled Project',
     code: code.trim(),
     ownerUid,
     ownerEmail: normEmail(ownerEmail),
     memberEmails: normalizeMemberEmails(ownerEmail, []),
-    settings: { units: settings.units, driveLink: (settings.driveLink || '').trim() },
+    settings: cleanSettings,
     createdAt: now,
     updatedAt: now,
   };
@@ -187,7 +189,7 @@ export async function syncProjectSettings(id: string, settings: Partial<CloudPro
     const { doc, updateDoc } = await import('firebase/firestore');
     const db = await getDb();
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    for (const [k, v] of Object.entries(settings)) patch['settings.' + k] = v;
+    for (const [k, v] of Object.entries(settings)) if (v !== undefined) patch['settings.' + k] = v;
     await updateDoc(doc(db, 'projects', id), patch);
   } catch (e) {
     console.warn('[cloud-projects] syncProjectSettings failed (best-effort, ignored):', e);

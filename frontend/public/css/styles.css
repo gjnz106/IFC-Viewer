@@ -288,7 +288,11 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
   background: var(--green); border: 1.5px solid var(--bg-panel);
 }
 .account-menu {
-  position: absolute; top: calc(100% + 8px); right: 0;
+  /* fixed (not absolute) + JS-computed top/right in toggleUserMenu() —
+     .topbar's overflow-x:auto implicitly makes overflow-y auto too (CSS
+     spec), which clipped an absolutely-positioned dropdown extending past
+     the 64px topbar height. */
+  position: fixed; top: 60px; right: 12px;
   width: 240px; z-index: 1100;
   background: var(--bg-panel);
   border: 1px solid var(--border);

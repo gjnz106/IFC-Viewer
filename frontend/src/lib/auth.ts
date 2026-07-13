@@ -316,9 +316,19 @@ const ADMIN_EMAILS = new Set(['trantienthanh909@gmail.com']);
 window.toggleUserMenu = function (ev?: Event) {
   ev?.stopPropagation();
   const menu = document.querySelector('.account-menu') as HTMLElement;
-  if (!menu) return;
+  const trigger = document.getElementById('userBadge');
+  if (!menu || !trigger) return;
   const isOpen = menu.style.display !== 'none';
-  menu.style.display = isOpen ? 'none' : 'block';
+  if (isOpen) {
+    menu.style.display = 'none';
+    return;
+  }
+  // position:fixed dropdown — compute placement from the trigger button so
+  // it escapes .topbar's clipping (overflow-x:auto implies overflow-y:auto).
+  const rect = trigger.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 8) + 'px';
+  menu.style.right = (window.innerWidth - rect.right) + 'px';
+  menu.style.display = 'block';
 };
 document.addEventListener('click', e => {
   const menu = document.querySelector('.account-menu') as HTMLElement;
