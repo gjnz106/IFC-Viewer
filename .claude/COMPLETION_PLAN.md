@@ -28,7 +28,7 @@
 | 11 | Sửa bug rà soát sau Phase 6–10 (crash duplicate clash, filter chéo type, viewpoint) | ✅ Done — PR #57 |
 | 12 | ☁ Cloud projects: Firestore registry + Security Rules + rules CI | ✅ Done — PR #60 |
 | 13 | ☁ File IFC trên Storage + auto-load khi vào dự án (lõi Dalux) | ✅ Done — PR #61 |
-| 14 | ☁ Share team theo email + cache IndexedDB + polish | ⬜ Not started |
+| 14 | ☁ Share team theo email + cache IndexedDB + polish | ✅ Done — PR #62 |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -555,7 +555,7 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
   mở dự án → 2 file tự tải + tự load vào đúng slot, không thao tác tay — flow Dalux hoàn chỉnh.
 
 ## Phase 14 — Share team + cache IndexedDB + polish
-**Status:** ⬜ Not started (phụ thuộc Phase 13)
+**Status:** ✅ Done — PR #62 (kèm fix bảo mật: chỉ owner được sửa `memberEmails`)
 
 - [ ] **Share theo email:** UI "Members" trong project settings (nhập email → thêm vào
       `memberEmails`; chỉ owner được thêm/xoá; xoá owner bị chặn). Nút Invite hiện có (giữ từ

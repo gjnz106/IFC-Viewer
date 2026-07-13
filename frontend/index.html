@@ -1016,6 +1016,14 @@
           <option value="ftin">Feet &amp; inches (ft-in)</option>
         </select>
       </div>
+      <div id="projStorageUsageRow" style="display:none;font-size:11.5px;color:#8590a6">
+        Cloud storage used: <span id="projStorageUsage" style="font-weight:600;color:#2C2421">—</span>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Local File Cache</label>
+        <button class="btn btn-sm" onclick="ifcCacheClear()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer" title="Wipes the local IndexedDB blob cache for cloud project files">Clear cache</button>
+        <span id="ifcCacheClearStatus" style="font-size:11px;color:#8590a6;margin-left:8px"></span>
+      </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn btn-sm" onclick="toggleSettingsPanel()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:none;cursor:pointer">Cancel</button>
@@ -1138,57 +1146,31 @@
   </div>
 </div>
 
-<!-- Invite Members Dialog -->
+<!-- Invite / Members Dialog (Phase 14: real member sharing for cloud projects) -->
 <div class="modal-overlay" id="inviteOverlay" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);padding:16px" onclick="toggleInvitePanel()">
   <div class="modal-content" style="width:100%;max-width:460px;padding:24px 26px;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.15);color:#000" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3 style="margin:0;font-size:16px;font-weight:700">Invite Team Member</h3>
+      <h3 style="margin:0;font-size:16px;font-weight:700">Project Members</h3>
       <button class="tb-icon-btn" onclick="toggleInvitePanel()" style="font-size:18px;border:none;background:transparent;cursor:pointer">×</button>
     </div>
-    
-    <div style="display:flex;gap:4px;padding:3px;border-radius:9px;background:rgba(0,0,0,0.045);margin-bottom:14px">
-      <button id="btnTierMember" class="btn btn-sm" style="flex:1;justify-content:center;font-size:11.5px;border:none;background:#fff;font-weight:700;color:#009668;cursor:pointer;padding:6px 0;border-radius:6px" onclick="setInviteTier('member')">👤 Member</button>
-      <button id="btnTierGuest" class="btn btn-sm" style="flex:1;justify-content:center;font-size:11.5px;border:none;background:transparent;font-weight:500;color:#8590a6;cursor:pointer;padding:6px 0;border-radius:6px" onclick="setInviteTier('guest')">🔍 Guest</button>
+
+    <div id="inviteNotCloud" style="display:none;padding:10px 12px;border-radius:8px;background:rgba(0,0,0,0.03);font-size:12.5px;color:#556">
+      Member sharing is only available for <strong>☁ cloud projects</strong>. Switch to (or create) a cloud project first.
     </div>
 
-    <div id="guestWarning" style="display:none;padding:8px 12px;border-radius:6px;background:rgba(183,90,0,0.07);font-size:11.5px;color:#7a3b00;margin-bottom:14px">
-      <strong>Guest:</strong> Limited read-only access. You can configure module overrides after inviting.
-    </div>
-
-    <div style="display:grid;gap:12px;font-size:13px">
-      <div>
-        <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Full Name</label>
-        <input type="text" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" placeholder="Jane Smith">
+    <div id="inviteCloudBody" style="display:none">
+      <div id="inviteReadOnlyNote" style="display:none;padding:8px 12px;border-radius:6px;background:rgba(0,88,190,0.06);font-size:11.5px;color:#0058be;margin-bottom:12px">
+        Only the project owner can add or remove members.
       </div>
-      <div>
-        <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Email</label>
-        <input type="email" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" placeholder="jane@example.com">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Role</label>
-          <select style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px">
-            <option>Manager</option>
-            <option selected>Architect</option>
-            <option>Engineer</option>
-            <option>Consultant</option>
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Trade</label>
-          <select style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px">
-            <option selected>ARC</option>
-            <option>STR</option>
-            <option>MEP</option>
-            <option>PC</option>
-          </select>
-        </div>
+      <div id="projMemberList" style="display:grid;gap:6px;max-height:260px;overflow-y:auto"></div>
+      <div id="inviteAddRow" style="display:flex;gap:8px;margin-top:14px">
+        <input type="email" id="projMemberEmail" placeholder="teammate@example.com" style="flex:1;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" onkeydown="if(event.key==='Enter')projAddMember()">
+        <button class="btn btn-primary btn-sm" onclick="projAddMember()" style="padding:8px 14px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Add</button>
       </div>
     </div>
 
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
-      <button class="btn btn-sm" onclick="toggleInvitePanel()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:none;cursor:pointer">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="alert('Mock invite sent!');toggleInvitePanel()" style="padding:6px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Invite Member</button>
+      <button class="btn btn-sm" onclick="toggleInvitePanel()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:none;cursor:pointer">Close</button>
     </div>
   </div>
 </div>

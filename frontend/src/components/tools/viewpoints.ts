@@ -106,6 +106,7 @@ window.vpSave = function (): void {
   vpList = addViewpoint(vpList, vp);
   const ok = saveViewpoints(currentProjectId(), vpList);
   renderVpGallery();
+  window.dispatchEvent(new CustomEvent('ifc:viewpointschange', { detail: { count: vpList.length } }));
   if (ok) {
     log('Viewpoint saved: ' + name);
   } else {
@@ -170,6 +171,7 @@ window.vpRename = function (id: string): void {
   vpList = renameViewpoint(vpList, id, name);
   saveViewpoints(currentProjectId(), vpList);
   renderVpGallery();
+  window.dispatchEvent(new CustomEvent('ifc:viewpointschange', { detail: { count: vpList.length } }));
 };
 
 window.vpDelete = function (id: string): void {
@@ -179,6 +181,7 @@ window.vpDelete = function (id: string): void {
   vpList = removeViewpoint(vpList, id);
   saveViewpoints(currentProjectId(), vpList);
   renderVpGallery();
+  window.dispatchEvent(new CustomEvent('ifc:viewpointschange', { detail: { count: vpList.length } }));
 };
 
 // Re-read the gallery whenever the active project changes (Phase 6 dispatches

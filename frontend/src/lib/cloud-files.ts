@@ -62,6 +62,28 @@ export function syncChipLabel(status: SyncStatus, progress?: number): string {
   }
 }
 
+// Matches the Storage rules cap (storage.rules: `request.resource.size < 500 * 1024 * 1024`)
+// — used to warn BEFORE attempting an upload that would be rejected server-side anyway.
+export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+
+export function exceedsUploadQuota(size: number): boolean {
+  return size >= MAX_UPLOAD_BYTES;
+}
+
+// Sum of `files` subcollection doc `size` fields — simple totalling, no
+// real-time Storage API usage query (per Phase 14 spec).
+export function sumStorageUsage(files: CloudProjectFile[]): number {
+  return files.reduce((sum, f) => sum + (f.size || 0), 0);
+}
+
+export function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const val = bytes / Math.pow(1024, i);
+  return (i === 0 ? val.toFixed(0) : val.toFixed(val < 10 ? 2 : 1)) + ' ' + units[i];
+}
+
 // Builds the doc payload for `projects/{id}/files/{fileId}` create — pure.
 export function buildCloudFileDoc(
   name: string,

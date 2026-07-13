@@ -375,6 +375,12 @@ declare global {
     projRenameCloud?: (id: string) => void;
     projDeleteCloud?: (id: string) => void;
 
+    // Member sharing (Phase 14 — Invite button repurposed for cloud projects)
+    renderMembersPanel?: () => void;
+    projAddMember?: () => Promise<void>;
+    projRemoveMember?: (email: string) => Promise<void>;
+    ifcCacheClear?: () => Promise<void>;
+
     // Clash
     addClashRow?: (side: 'A' | 'B') => void;
     removeLastClashRow?: (side: 'A' | 'B') => void;
