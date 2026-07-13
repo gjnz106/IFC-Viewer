@@ -27,7 +27,7 @@
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ✅ Done |
 | 11 | Sửa bug rà soát sau Phase 6–10 (crash duplicate clash, filter chéo type, viewpoint) | ✅ Done — PR #57 |
 | 12 | ☁ Cloud projects: Firestore registry + Security Rules + rules CI | ✅ Done — PR #60 |
-| 13 | ☁ File IFC trên Storage + auto-load khi vào dự án (lõi Dalux) | ⬜ Not started |
+| 13 | ☁ File IFC trên Storage + auto-load khi vào dự án (lõi Dalux) | ✅ Done — PR #61 |
 | 14 | ☁ Share team theo email + cache IndexedDB + polish | ⬜ Not started |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
@@ -535,7 +535,7 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
   rules deploy tự động qua CI; typecheck + test + build pass.
 
 ## Phase 13 — File IFC trên Storage + auto-load khi vào dự án (lõi "giống Dalux")
-**Status:** ⬜ Not started (phụ thuộc Phase 12)
+**Status:** ✅ Done — PR #61
 
 - [ ] **Upload:** trong dự án cloud, khi user load file IFC vào slot (A/B/federation —
       `handleFile`/`fedHandleFile`) → sau khi load local xong, upload nền lên
