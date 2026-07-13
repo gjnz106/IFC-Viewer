@@ -1,0 +1,14 @@
+[
+  {
+    "origin": [
+      "https://ifc.t3lab.space",
+      "https://ifc-delta.web.app",
+      "https://ifc-delta.firebaseapp.com",
+      "http://localhost:5173",
+      "http://localhost:8941"
+    ],
+    "method": ["GET"],
+    "responseHeader": ["Content-Type", "Content-Length", "Content-Range", "Accept-Ranges"],
+    "maxAgeSeconds": 3600
+  }
+]
