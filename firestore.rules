@@ -12,8 +12,11 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email_verified == true;
     }
 
+    // Lowercased to match how the client normalizes/stores memberEmails
+    // (cloud-projects.ts's normEmail) — a raw-case mismatch here would
+    // make Firestore reject the whole query, not just deny matching docs.
     function email() {
-      return request.auth.token.email;
+      return request.auth.token.email.lower();
     }
 
     function isMember(data) {
