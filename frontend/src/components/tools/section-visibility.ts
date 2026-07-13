@@ -33,6 +33,7 @@ import { setStatus } from './focus-highlight.js';
 import { fedRenderSlots } from '../compare/federation-load.js';
 import { disposeModel } from '../core/viewer-core.js';
 import { IFC_NAMES } from '../../lib/constants.js';
+import { syncUploadSlot } from '../ui/projects.js';
 
 // ── Section Plan parallel to clicked face (Dalux-style) ──
 // Only creates ONE clipping plane at the face position. All other directions stay fully open.
@@ -1046,6 +1047,7 @@ window.handleFile=async function(idx: number){
   document.getElementById('fs'+idx)!.textContent=(f.size/1048576).toFixed(2)+' MB';
   if(!appState.ifcLoader){if(!await initIFC())return}
   await loadIFC(idx);
+  syncUploadSlot(idx,f).catch((e: unknown)=>console.warn('syncUploadSlot error:',e));
 };
 [0,1].forEach(idx=>{
   const el=document.getElementById('uc'+idx)!;
@@ -1054,7 +1056,7 @@ window.handleFile=async function(idx: number){
   el.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();(el as HTMLElement).style.borderColor='';
     const f=(e as DragEvent).dataTransfer!.files[0];if(f&&f.name.toLowerCase().endsWith('.ifc')){appState.files[idx]=f;el.classList.add('loaded');
     document.getElementById('fn'+idx)!.textContent=f.name;document.getElementById('fs'+idx)!.textContent=(f.size/1048576).toFixed(2)+' MB';
-    (async()=>{if(!appState.ifcLoader){if(!await initIFC())return}await loadIFC(idx)})()}});
+    (async()=>{if(!appState.ifcLoader){if(!await initIFC())return}await loadIFC(idx);syncUploadSlot(idx,f).catch((e: unknown)=>console.warn('syncUploadSlot error:',e))})()}});
 });
 
 // ── Expose cross-module callers on window ──

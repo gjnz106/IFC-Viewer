@@ -12,6 +12,8 @@ import { FED_COLORS, IFC_NAMES } from '../../lib/constants.js';
 import { runCompare as computeDiff } from './compare.js';
 import { log } from '../core/ifc-category.js';
 import { disposeModel } from '../core/viewer-core.js';
+import { syncUploadSlot } from '../ui/projects.js';
+import { syncChipLabel } from '../../lib/cloud-files.js';
 
 // ══ Federation file management (slots 2+) ══════════════════════════
 let _fedPendingSlot = -1;
@@ -33,6 +35,7 @@ window.fedHandleFile = function(ev: Event){
     if(!appState.ifcLoader){if(!await (window as any).initIFC()) return}
     await (window as any).loadIFC(idx);
     fedRenderSlots();
+    syncUploadSlot(idx, f).catch((e: unknown)=>console.warn('syncUploadSlot error:', e));
   })().catch((e: unknown)=>console.error('fedHandleFile error:', e));
   // Reset input so same file can be reloaded
   (ev.target as HTMLInputElement).value = '';
@@ -95,11 +98,13 @@ export function fedRenderSlots(): void {
     // federation file finishes loading) used to always mark the checkbox
     // checked, silently re-showing a model the user had just hidden.
     const isVisible = loaded && appState.loadedModels[i]!.visible !== false;
+    const syncSt = appState.cloudSyncStatus[i];
+    const syncChip = appState.activeCloudProjectId && syncSt ? syncChipLabel(syncSt.status, syncSt.progress) : '';
     html += `<div class="fed-slot ${loaded?'loaded':''}">
       <div class="fed-slot-color" style="background:${color}"></div>
       <div class="fed-slot-info">
         <div class="fed-slot-name" title="${(window as any).escapeHtml(fname)}">${(window as any).escapeHtml(fname)}</div>
-        <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}</div>
+        <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}${syncChip ? ' · '+syncChip : ''}</div>
       </div>
       <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${isVisible?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">
       <button class="fed-slot-rm" onclick="fedRemoveSlot(${i})" title="Remove this file">✕</button>
