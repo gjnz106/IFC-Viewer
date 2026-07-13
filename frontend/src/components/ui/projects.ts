@@ -17,12 +17,15 @@ import {
 import { deleteProjectViewpoints } from '../../lib/viewpoints-store.js';
 import {
   fetchCloudProjects, createCloudProject, renameCloudProject, deleteCloudProject,
-  migrateLocalToCloud, type CloudProject, type CloudProjectFile,
+  migrateLocalToCloud, addMemberEmail, removeMemberEmail, updateProjectMembers, syncProjectSettings,
+  type CloudProject, type CloudProjectFile,
 } from '../../lib/cloud-projects.js';
 import {
   fetchProjectFiles, downloadProjectFile, uploadProjectFile,
   orderFilesForAutoLoad, keyToSlotIndex, shouldConfirmOverwrite, syncChipLabel,
+  exceedsUploadQuota, sumStorageUsage, formatBytes,
 } from '../../lib/cloud-files.js';
+import { getCachedFile, putCachedFile, clearCache } from '../../lib/ifc-cache.js';
 import { log } from '../core/ifc-category.js';
 
 function persist(): void {
@@ -254,6 +257,15 @@ export async function syncUploadSlot(idx: number, file: File): Promise<void> {
   const user = currentAuthUser();
   if (!user || !user.emailVerified) return;
 
+  // Storage rules reject any file >= 500MB — warn up front instead of
+  // letting the upload run and fail server-side with a cryptic error.
+  if (exceedsUploadQuota(file.size)) {
+    alert(`"${file.name}" is ${(file.size / 1048576).toFixed(0)} MB, over the 500 MB cloud upload limit. It stays local-only for this project.`);
+    appState.cloudSyncStatus[idx] = { status: 'local-only' };
+    renderSyncChip(idx);
+    return;
+  }
+
   const existing = appState.cloudFileRecords[idx];
   if (shouldConfirmOverwrite(existing)) {
     const ok = confirm(`This will replace the cloud file '${existing!.name}' uploaded by ${existing!.uploadedBy}. Continue?`);
@@ -305,7 +317,13 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
     if (lt) lt.textContent = `Downloading ${rec.name} (${i + 1}/${ordered.length})…`;
     if (lf) lf.style.width = Math.round(((i + 0.3) / ordered.length) * 100) + '%';
     try {
-      const file = await downloadProjectFile(rec);
+      let file = await getCachedFile(rec);
+      if (file) {
+        log(`Cloud auto-load: ${rec.name} served from local cache`);
+      } else {
+        file = await downloadProjectFile(rec);
+        putCachedFile(rec, file); // best-effort, fire-and-forget
+      }
       appState.files[idx] = file;
       if (idx < 2) {
         document.getElementById('uc' + idx)?.classList.add('loaded');
@@ -431,5 +449,121 @@ window.projSaveSettings = function (): void {
   persist();
   chipLabel();
 };
+
+// ── Member sharing (Phase 14) ─────────────────────────────────────────────
+// The Invite button (index.html #btnInvite) opens this instead of the old
+// static demo dialog. Owner-only add/remove; non-owners viewing a shared
+// cloud project get a read-only list. No-op (shows the "not a cloud
+// project" message) for local projects — there is no memberEmails to manage.
+function activeCloudProject(): CloudProject | undefined {
+  return cloudList.find(c => c.id === appState.activeCloudProjectId);
+}
+
+(window as any).renderMembersPanel = function (): void {
+  const notCloud = document.getElementById('inviteNotCloud');
+  const body = document.getElementById('inviteCloudBody');
+  const listEl = document.getElementById('projMemberList');
+  const addRow = document.getElementById('inviteAddRow');
+  const readOnlyNote = document.getElementById('inviteReadOnlyNote');
+  if (!notCloud || !body || !listEl || !addRow || !readOnlyNote) return;
+
+  const proj = activeCloudProject();
+  if (!proj) {
+    notCloud.style.display = 'block';
+    body.style.display = 'none';
+    return;
+  }
+  notCloud.style.display = 'none';
+  body.style.display = 'block';
+
+  const user = currentAuthUser();
+  const isOwner = !!user && user.email?.toLowerCase() === proj.ownerEmail.toLowerCase();
+  addRow.style.display = isOwner ? 'flex' : 'none';
+  readOnlyNote.style.display = isOwner ? 'none' : 'block';
+
+  listEl.innerHTML = proj.memberEmails.map(email => {
+    const owner = email === proj.ownerEmail;
+    const canRemove = isOwner && !owner;
+    return `<div class="proj-row">
+      <div class="proj-row-dot" style="background:${owner ? '#2563eb' : '#8590a6'}"></div>
+      <div class="proj-row-info">
+        <div class="proj-row-name">${escapeHtml(email)}</div>
+        <div class="proj-row-sub">${owner ? 'Owner' : 'Member'}</div>
+      </div>
+      <div class="proj-row-actions">
+        ${canRemove ? `<button class="proj-row-btn proj-row-btn-danger" onclick="projRemoveMember('${escapeHtml(email)}')" title="Remove">✕</button>` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<div class="proj-empty">No members yet.</div>';
+};
+
+(window as any).projAddMember = async function (): Promise<void> {
+  const proj = activeCloudProject();
+  if (!proj) return;
+  const input = document.getElementById('projMemberEmail') as HTMLInputElement | null;
+  const email = input?.value.trim() || '';
+  if (!email) { input?.focus(); return; }
+  const updated = addMemberEmail(proj.memberEmails, email);
+  if (updated === proj.memberEmails) { if (input) input.value = ''; return; } // already a member
+  const ok = await updateProjectMembers(proj.id, updated);
+  if (!ok) { alert('Could not add member. Check your connection and try again.'); return; }
+  proj.memberEmails = updated;
+  if (input) input.value = '';
+  (window as any).renderMembersPanel?.();
+};
+
+(window as any).projRemoveMember = async function (email: string): Promise<void> {
+  const proj = activeCloudProject();
+  if (!proj) return;
+  if (!confirm(`Remove ${email} from this project?`)) return;
+  const updated = removeMemberEmail(proj.memberEmails, proj.ownerEmail, email);
+  if (updated === proj.memberEmails) return; // owner or not a member — no-op
+  const ok = await updateProjectMembers(proj.id, updated);
+  if (!ok) { alert('Could not remove member. Check your connection and try again.'); return; }
+  proj.memberEmails = updated;
+  (window as any).renderMembersPanel?.();
+};
+
+// ── Storage usage display (Phase 14) ──────────────────────────────────────
+async function refreshStorageUsage(): Promise<void> {
+  const row = document.getElementById('projStorageUsageRow');
+  const el = document.getElementById('projStorageUsage');
+  if (!row || !el) return;
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) { row.style.display = 'none'; return; }
+  row.style.display = 'block';
+  el.textContent = '…';
+  const files = await fetchProjectFiles(projectId);
+  el.textContent = formatBytes(sumStorageUsage(files));
+}
+window.addEventListener('ifc:projectchange', () => { refreshStorageUsage(); });
+
+// ── IndexedDB cache "Clear cache" button (Settings) ───────────────────────
+(window as any).ifcCacheClear = async function (): Promise<void> {
+  const status = document.getElementById('ifcCacheClearStatus');
+  if (status) status.textContent = 'Clearing…';
+  await clearCache();
+  if (status) { status.textContent = 'Cache cleared.'; setTimeout(() => { status.textContent = ''; }, 2500); }
+};
+
+// ── Best-effort cloud settings mirror (Phase 14 polish) ───────────────────
+// Local (localStorage) always remains the source of truth — these listeners
+// only push a convenience copy up to the cloud doc when online; network
+// errors are swallowed inside syncProjectSettings itself.
+window.addEventListener('ifc:unitschange', (ev: any) => {
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  syncProjectSettings(projectId, { units: ev?.detail?.pref });
+});
+window.addEventListener('ifc:viewpointschange', (ev: any) => {
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  syncProjectSettings(projectId, { viewpointCount: ev?.detail?.count });
+});
+
+// Open the Settings dialog also refreshes the storage figure (in addition
+// to the projectchange-triggered refresh above, for the first open of a
+// session before any switch has fired).
+document.getElementById('btnSettings')?.addEventListener('click', () => refreshStorageUsage());
 
 chipLabel();

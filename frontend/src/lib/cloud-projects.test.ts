@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildCloudProjectDoc, buildMigrationDoc, normalizeMemberEmails, canAccess,
-  mergeProjectRegistries, displayKey, type CloudProject,
+  mergeProjectRegistries, displayKey, addMemberEmail, removeMemberEmail, type CloudProject,
 } from './cloud-projects.js';
 import { createProject, type ProjectRegistry } from './projects-store.js';
 
@@ -103,5 +103,40 @@ describe('cloud-projects — mergeProjectRegistries', () => {
     const withLocalActive = mergeProjectRegistries(cloud, reg.list, localId, null);
     expect(withLocalActive.find(i => i.source === 'cloud')?.active).toBe(false);
     expect(withLocalActive.find(i => i.source === 'local')?.active).toBe(true);
+  });
+});
+
+describe('cloud-projects — addMemberEmail', () => {
+  it('adds a new email, normalized to lower case', () => {
+    const out = addMemberEmail(['owner@x.com'], 'Bob@Y.com');
+    expect(out).toEqual(['owner@x.com', 'bob@y.com']);
+  });
+
+  it('is a no-op (same reference) for a duplicate, case-insensitive', () => {
+    const list = ['owner@x.com', 'bob@y.com'];
+    const out = addMemberEmail(list, 'BOB@Y.COM');
+    expect(out).toBe(list);
+  });
+
+  it('is a no-op for a blank email', () => {
+    const list = ['owner@x.com'];
+    expect(addMemberEmail(list, '  ')).toBe(list);
+  });
+});
+
+describe('cloud-projects — removeMemberEmail', () => {
+  it('removes a non-owner member', () => {
+    const out = removeMemberEmail(['owner@x.com', 'bob@y.com'], 'owner@x.com', 'bob@y.com');
+    expect(out).toEqual(['owner@x.com']);
+  });
+
+  it('refuses to remove the owner, even with different case', () => {
+    const list = ['owner@x.com', 'bob@y.com'];
+    expect(removeMemberEmail(list, 'Owner@X.com', 'OWNER@X.COM')).toBe(list);
+  });
+
+  it('is a no-op for a non-member email', () => {
+    const list = ['owner@x.com', 'bob@y.com'];
+    expect(removeMemberEmail(list, 'owner@x.com', 'eve@z.com')).toBe(list);
   });
 });

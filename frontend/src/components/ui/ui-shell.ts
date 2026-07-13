@@ -132,35 +132,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 };
 
+// Real member-management body populated by projects.ts (renderMembersPanel)
+// — kept a no-op here on open (projects.ts owns the cloud-project state
+// needed to decide owner-vs-readonly, so it hooks its own render on top).
 (window as any).toggleInvitePanel = function (): void {
   const el = document.getElementById('inviteOverlay');
   if (el) {
     const open = el.style.display !== 'none';
+    if (!open) (window as any).renderMembersPanel?.();
     el.style.display = open ? 'none' : 'flex';
-  }
-};
-
-(window as any).setInviteTier = function (tier: 'member' | 'guest'): void {
-  const btnM = document.getElementById('btnTierMember');
-  const btnG = document.getElementById('btnTierGuest');
-  const warning = document.getElementById('guestWarning');
-  if (!btnM || !btnG || !warning) return;
-  if (tier === 'member') {
-    btnM.style.background = '#fff';
-    btnM.style.fontWeight = '700';
-    btnM.style.color = '#009668';
-    btnG.style.background = 'transparent';
-    btnG.style.fontWeight = '500';
-    btnG.style.color = '#8590a6';
-    warning.style.display = 'none';
-  } else {
-    btnG.style.background = '#fff';
-    btnG.style.fontWeight = '700';
-    btnG.style.color = '#b75a00';
-    btnM.style.background = 'transparent';
-    btnM.style.fontWeight = '500';
-    btnM.style.color = '#8590a6';
-    warning.style.display = 'block';
   }
 };
 

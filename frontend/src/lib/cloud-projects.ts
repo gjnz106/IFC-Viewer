@@ -145,6 +145,55 @@ export function displayKey(item: MergedProjectItem): string {
   return item.source + ':' + item.id;
 }
 
+// ── Member sharing (Phase 14) ────────────────────────────────────────────
+
+// Adds an email to memberEmails — dedupes case-insensitively, never grows
+// the array for a no-op add. Returns the SAME array reference when nothing
+// changed so callers can skip a Firestore write.
+export function addMemberEmail(memberEmails: string[], email: string): string[] {
+  const target = normEmail(email);
+  if (!target || canAccess(memberEmails, target)) return memberEmails;
+  return [...memberEmails, target];
+}
+
+// Removing the owner's own email is never allowed — the owner is always a
+// member (see normalizeMemberEmails). No-op (same reference) if the email
+// isn't a member or is the owner.
+export function removeMemberEmail(memberEmails: string[], ownerEmail: string, email: string): string[] {
+  const target = normEmail(email);
+  if (!target || target === normEmail(ownerEmail)) return memberEmails;
+  if (!canAccess(memberEmails, target)) return memberEmails;
+  return memberEmails.filter(m => normEmail(m) !== target);
+}
+
+export async function updateProjectMembers(id: string, memberEmails: string[]): Promise<boolean> {
+  try {
+    const { doc, updateDoc } = await import('firebase/firestore');
+    const db = await getDb();
+    await updateDoc(doc(db, 'projects', id), { memberEmails, updatedAt: Date.now() });
+    return true;
+  } catch (e) {
+    console.warn('[cloud-projects] updateProjectMembers failed:', e);
+    return false;
+  }
+}
+
+// Best-effort mirror of per-project settings (units, and later viewpoints)
+// up to the cloud doc — never blocks the local-first flow (Phase 6/8/9
+// remain the source of truth; this is purely an additive sync for
+// cross-machine convenience). Swallows all errors.
+export async function syncProjectSettings(id: string, settings: Partial<CloudProjectSettings> & Record<string, unknown>): Promise<void> {
+  try {
+    const { doc, updateDoc } = await import('firebase/firestore');
+    const db = await getDb();
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    for (const [k, v] of Object.entries(settings)) patch['settings.' + k] = v;
+    await updateDoc(doc(db, 'projects', id), patch);
+  } catch (e) {
+    console.warn('[cloud-projects] syncProjectSettings failed (best-effort, ignored):', e);
+  }
+}
+
 // ── Firestore glue (lazy-imported SDK — never in the main bundle) ───────
 
 async function getDb() {

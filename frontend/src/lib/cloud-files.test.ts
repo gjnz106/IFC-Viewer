@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   slotIndexToKey, keyToSlotIndex, orderFilesForAutoLoad,
   formatUploadProgress, shouldConfirmOverwrite, syncChipLabel, buildCloudFileDoc,
+  exceedsUploadQuota, sumStorageUsage, formatBytes, MAX_UPLOAD_BYTES,
 } from './cloud-files.js';
 import type { CloudProjectFile } from './cloud-projects.js';
 
@@ -69,5 +70,33 @@ describe('buildCloudFileDoc', () => {
     expect(doc.slot).toBe('A');
     expect(doc.contentType).toBe('application/x-step');
     expect(doc.uploadedBy).toBe('me@x.com');
+  });
+});
+
+describe('exceedsUploadQuota', () => {
+  it('matches the Storage rules 500MB cap', () => {
+    expect(exceedsUploadQuota(MAX_UPLOAD_BYTES - 1)).toBe(false);
+    expect(exceedsUploadQuota(MAX_UPLOAD_BYTES)).toBe(true);
+    expect(exceedsUploadQuota(MAX_UPLOAD_BYTES + 1)).toBe(true);
+  });
+});
+
+describe('sumStorageUsage', () => {
+  it('sums the size field across records', () => {
+    const files = [mkFile('A'), mkFile('B'), mkFile(2)].map((f, i) => ({ ...f, size: (i + 1) * 100 }));
+    expect(sumStorageUsage(files)).toBe(600);
+  });
+  it('returns 0 for an empty list', () => {
+    expect(sumStorageUsage([])).toBe(0);
+  });
+});
+
+describe('formatBytes', () => {
+  it('formats across unit ranges', () => {
+    expect(formatBytes(0)).toBe('0 B');
+    expect(formatBytes(512)).toBe('512 B');
+    expect(formatBytes(1536)).toBe('1.50 KB');
+    expect(formatBytes(5 * 1024 * 1024)).toBe('5.00 MB');
+    expect(formatBytes(2.5 * 1024 * 1024 * 1024)).toBe('2.50 GB');
   });
 });
