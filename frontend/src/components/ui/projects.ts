@@ -8,7 +8,7 @@
 import { appState } from '../../store/index.js';
 import { escapeHtml } from '../../lib/escape.js';
 import { navigateTo } from './router.js';
-import { getLoadedModelCount } from '../compare/federation-load.js';
+import { getLoadedModelCount, fedRenderSlots } from '../compare/federation-load.js';
 import {
   loadRegistry, saveRegistry, mirrorActiveDriveLink,
   createProject, renameProject, deleteProject, setActive, getActiveProject,
@@ -17,8 +17,13 @@ import {
 import { deleteProjectViewpoints } from '../../lib/viewpoints-store.js';
 import {
   fetchCloudProjects, createCloudProject, renameCloudProject, deleteCloudProject,
-  migrateLocalToCloud, type CloudProject,
+  migrateLocalToCloud, type CloudProject, type CloudProjectFile,
 } from '../../lib/cloud-projects.js';
+import {
+  fetchProjectFiles, downloadProjectFile, uploadProjectFile,
+  orderFilesForAutoLoad, keyToSlotIndex, shouldConfirmOverwrite, syncChipLabel,
+} from '../../lib/cloud-files.js';
+import { log } from '../core/ifc-category.js';
 
 function persist(): void {
   saveRegistry(registry);
@@ -209,6 +214,10 @@ window.projSwitch = function (id: string): void {
   saveOutgoingState();
   registry = setActive(registry, id);
   appState.activeCloudProjectId = null;
+  appState.cloudFileRecords = {};
+  appState.cloudSyncStatus = {};
+  document.getElementById('syncChip0')!.textContent = '';
+  document.getElementById('syncChip1')!.textContent = '';
   finishActivation();
   window.toggleProjectsPanel?.();
 };
@@ -222,10 +231,107 @@ window.projFillSettings = function (): void {
   if (codeEl) codeEl.value = active?.code || '';
 };
 
-// ── Cloud project actions (Phase 12) ──────────────────────────────────────
-// Cloud projects don't have file auto-load yet (Phase 13) — switching just
-// marks the cloud project active for chip/UI purposes and, like a local
-// switch, unloads any currently-loaded models so the workspace starts clean.
+// ── Cloud sync (Phase 13) ─────────────────────────────────────────────────
+// Per-slot chip element: 0/1 use the fixed #syncChip0/#syncChip1 spots next
+// to the upload cards; federation slots (2+) get theirs re-rendered inline
+// by fedRenderSlots() itself, so there's nothing to poke here for those.
+function renderSyncChip(idx: number): void {
+  if (idx >= 2) { fedRenderSlots(); return; }
+  const el = document.getElementById('syncChip' + idx);
+  if (!el) return;
+  const st = appState.cloudSyncStatus[idx];
+  if (!appState.activeCloudProjectId || !st) { el.textContent = ''; return; }
+  el.textContent = syncChipLabel(st.status, st.progress);
+}
+
+// Background-uploads a just-loaded slot file to the active cloud project.
+// No-op for local projects. Called after handleFile/fedHandleFile finish
+// their local load — never from the auto-load path itself (that would
+// re-upload the very file it just downloaded).
+export async function syncUploadSlot(idx: number, file: File): Promise<void> {
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  const user = currentAuthUser();
+  if (!user || !user.emailVerified) return;
+
+  const existing = appState.cloudFileRecords[idx];
+  if (shouldConfirmOverwrite(existing)) {
+    const ok = confirm(`This will replace the cloud file '${existing!.name}' uploaded by ${existing!.uploadedBy}. Continue?`);
+    if (!ok) {
+      appState.cloudSyncStatus[idx] = { status: 'local-only' };
+      renderSyncChip(idx);
+      return;
+    }
+  }
+
+  appState.cloudSyncStatus[idx] = { status: 'uploading', progress: 0 };
+  renderSyncChip(idx);
+  const record = await uploadProjectFile(projectId, idx, file, user.email, existing, pct => {
+    appState.cloudSyncStatus[idx] = { status: 'uploading', progress: pct };
+    renderSyncChip(idx);
+  });
+  if (record) {
+    appState.cloudFileRecords[idx] = record;
+    appState.cloudSyncStatus[idx] = { status: 'synced' };
+    log(`Cloud sync: ${file.name} uploaded to slot ${idx}`);
+  } else {
+    appState.cloudSyncStatus[idx] = { status: 'error' };
+    log(`Cloud sync: upload failed for ${file.name} (slot ${idx})`);
+  }
+  renderSyncChip(idx);
+}
+
+// Downloads + loads every file already on Storage for a cloud project, in
+// slot order (A/B first, federation ascending) — the "open on another
+// machine and everything's just there" flow. One file's failure doesn't
+// block the rest.
+async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
+  appState.cloudFileRecords = {};
+  appState.cloudSyncStatus = {};
+  const records = await fetchProjectFiles(projectId);
+  if (records.length === 0) return;
+  const ordered = orderFilesForAutoLoad(records);
+
+  const lo = document.getElementById('loadOv');
+  const lt = document.getElementById('loadTxt');
+  const lf = document.getElementById('loadFill') as HTMLElement | null;
+  lo?.classList.add('on');
+
+  for (let i = 0; i < ordered.length; i++) {
+    const rec = ordered[i];
+    const idx = keyToSlotIndex(rec.slot);
+    appState.cloudFileRecords[idx] = rec;
+    appState.cloudSyncStatus[idx] = { status: 'synced' };
+    if (lt) lt.textContent = `Downloading ${rec.name} (${i + 1}/${ordered.length})…`;
+    if (lf) lf.style.width = Math.round(((i + 0.3) / ordered.length) * 100) + '%';
+    try {
+      const file = await downloadProjectFile(rec);
+      appState.files[idx] = file;
+      if (idx < 2) {
+        document.getElementById('uc' + idx)?.classList.add('loaded');
+        const fn = document.getElementById('fn' + idx); if (fn) fn.textContent = file.name;
+        const fs = document.getElementById('fs' + idx); if (fs) fs.textContent = (file.size / 1048576).toFixed(1) + ' MB';
+      } else {
+        appState.fedNextSlot = Math.max(appState.fedNextSlot, idx + 1);
+      }
+      if (!appState.ifcLoader) {
+        if (!await (window as any).initIFC?.()) throw new Error('IFC init failed');
+      }
+      if (lt) lt.textContent = `Loading ${rec.name} (${i + 1}/${ordered.length})…`;
+      await (window as any).loadIFC?.(idx);
+      log(`Cloud auto-load: ${rec.name} loaded into slot ${idx}`);
+    } catch (e: any) {
+      console.warn('[cloud-files] auto-load failed for', rec.name, e);
+      appState.cloudSyncStatus[idx] = { status: 'error' };
+      log(`Cloud auto-load failed for ${rec.name}: ${e?.message || e}`);
+    }
+    renderSyncChip(idx);
+  }
+  if (lf) lf.style.width = '100%';
+  lo?.classList.remove('on');
+}
+
+// ── Cloud project actions (Phase 12/13) ───────────────────────────────────
 window.projSwitchCloud = function (id: string): void {
   if (id === appState.activeCloudProjectId) { window.toggleProjectsPanel?.(); return; }
   const loadOv = document.getElementById('loadOv');
@@ -240,6 +346,7 @@ window.projSwitchCloud = function (id: string): void {
   chipLabel();
   renderProjectList();
   window.dispatchEvent(new CustomEvent('ifc:projectchange'));
+  autoLoadCloudProjectFiles(id).catch(e => console.warn('[cloud-files] autoLoadCloudProjectFiles failed:', e));
   window.toggleProjectsPanel?.();
 };
 
