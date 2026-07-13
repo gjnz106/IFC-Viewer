@@ -95,6 +95,12 @@ export const appState = {
   // ── Clash ────────────────────────────────────────────────────────────
   clashMode: false,
   clashResults: [] as any[],
+
+  // ── Cloud projects (Phase 12) ───────────────────────────────────────
+  // Set when the active project switcher selection is a cloud project
+  // instead of a local one; null means "local" (the pre-Phase-12 default).
+  // File auto-load against this id is Phase 13's job.
+  activeCloudProjectId: null as string | null,
 };
 
 export type AppState = typeof appState;

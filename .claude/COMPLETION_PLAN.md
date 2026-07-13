@@ -26,7 +26,7 @@
 | 9 | Saved viewpoints (per-project) | ✅ Done |
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ✅ Done |
 | 11 | Sửa bug rà soát sau Phase 6–10 (crash duplicate clash, filter chéo type, viewpoint) | ✅ Done — PR #57 |
-| 12 | ☁ Cloud projects: Firestore registry + Security Rules + rules CI | ⬜ Not started |
+| 12 | ☁ Cloud projects: Firestore registry + Security Rules + rules CI | ✅ Done — PR #60 |
 | 13 | ☁ File IFC trên Storage + auto-load khi vào dự án (lõi Dalux) | ⬜ Not started |
 | 14 | ☁ Share team theo email + cache IndexedDB + polish | ⬜ Not started |
 
@@ -489,7 +489,7 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 > vẫn hoạt động offline; cloud là lớp thêm vào, gated theo đăng nhập.
 
 ## Phase 12 — Nền cloud: Firestore registry + Security Rules + rules deploy CI
-**Status:** ⬜ Not started
+**Status:** ✅ Done — PR #60 (Firestore + Storage đã bật trên Blaze, region `asia-southeast1`)
 
 **Việc người dùng phải làm trước (tôi sẽ nhắc lại từng bước khi chạy phase):**
 1. Firebase Console → Build → **Firestore Database** → Create database → production mode,

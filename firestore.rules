@@ -1,0 +1,51 @@
+rules_version = '2';
+
+// IFC Delta — Cloud Projects (Phase 12).
+// Single source of truth for membership: `projects/{projectId}.memberEmails`
+// (always includes ownerEmail — see frontend/src/lib/cloud-projects.ts's
+// normalizeMemberEmails). Storage rules cross-reference this same doc so
+// there is exactly one ACL to keep correct.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isVerified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function email() {
+      return request.auth.token.email;
+    }
+
+    function isMember(data) {
+      return data.memberEmails is list && email() in data.memberEmails;
+    }
+
+    function memberEmailsIncludeOwner(data) {
+      return data.ownerEmail is string
+        && data.memberEmails is list
+        && data.ownerEmail in data.memberEmails;
+    }
+
+    match /projects/{projectId} {
+      allow read: if isVerified() && isMember(resource.data);
+
+      allow create: if isVerified()
+        && request.resource.data.ownerEmail == email()
+        && memberEmailsIncludeOwner(request.resource.data)
+        && isMember(request.resource.data);
+
+      allow update: if isVerified()
+        && isMember(resource.data)
+        && memberEmailsIncludeOwner(request.resource.data)
+        // Ownership can't be handed off by a plain update (no UI for it yet).
+        && request.resource.data.ownerEmail == resource.data.ownerEmail;
+
+      allow delete: if isVerified() && isMember(resource.data);
+
+      match /files/{fileId} {
+        allow read, write: if isVerified()
+          && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
+      }
+    }
+  }
+}

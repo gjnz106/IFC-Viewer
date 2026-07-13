@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// IFC Delta — Cloud Projects (Phase 12) / IFC file storage (Phase 13).
+// ACL reads from the Firestore `projects/{projectId}` doc (memberEmails)
+// so Storage and Firestore never drift out of sync with two separate ACLs.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isVerified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isProjectMember(projectId) {
+      let proj = firestore.get(/databases/(default)/documents/projects/$(projectId));
+      return proj.data.memberEmails is list && request.auth.token.email in proj.data.memberEmails;
+    }
+
+    // Reasonable IFC-related content types — browsers send inconsistent
+    // contentType for .ifc uploads (often application/octet-stream), so we
+    // allow-list broadly rather than hard-fail legitimate uploads.
+    function isAllowedIfcContentType() {
+      return request.resource.contentType in [
+        'application/octet-stream',
+        'application/x-step',
+        'application/ifc',
+        'text/plain',
+        'application/vnd.ifc',
+      ];
+    }
+
+    match /projects/{projectId}/{allPaths=**} {
+      allow read: if isVerified() && isProjectMember(projectId);
+
+      allow write: if isVerified()
+        && isProjectMember(projectId)
+        && request.resource.size < 500 * 1024 * 1024
+        && isAllowedIfcContentType();
+    }
+  }
+}
