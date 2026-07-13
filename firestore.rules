@@ -19,8 +19,16 @@ service cloud.firestore {
       return request.auth.token.email.lower();
     }
 
+    // No `data.memberEmails is list` type-guard here on purpose: Firestore
+    // can't statically prove an `array-contains` LIST query satisfies a rule
+    // that type-checks the field first, and rejects the whole query with
+    // permission-denied (confirmed via the Firestore emulator) — memberEmails
+    // is always written as an array by the client, so the guard is
+    // redundant for reads. Writes keep the stricter check (see
+    // memberEmailsIncludeOwner) since single-document writes aren't subject
+    // to this list-query limitation.
     function isMember(data) {
-      return data.memberEmails is list && email() in data.memberEmails;
+      return email() in data.memberEmails;
     }
 
     function memberEmailsIncludeOwner(data) {
