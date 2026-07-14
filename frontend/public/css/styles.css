@@ -984,6 +984,8 @@ body.resizing{cursor:col-resize;user-select:none}
 .clash-desc:focus{border-color:var(--blue)}
 .cs-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
 .clash-file-tag{font-size:10px;font-weight:400;color:var(--text-muted);margin-left:auto;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:none;letter-spacing:0}
+select.clash-model-sel{background:var(--bg-2,#1a1d24);border:1px solid var(--border);border-radius:4px;padding:1px 3px}
+select.clash-model-sel:disabled{opacity:.6;cursor:not-allowed}
 .clash-set-body{padding:5px 10px 8px}
 .clash-field{display:flex;flex-direction:column;gap:2px;margin-bottom:5px}
 .clash-field>label{font-family:'JetBrains Mono';font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)}

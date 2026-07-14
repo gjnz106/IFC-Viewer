@@ -393,6 +393,9 @@ declare global {
     runClashDetection?: () => Promise<void>;
     updateClashRunButtonState?: () => void;
     clashSyncDuplicateUI?: () => void;
+    clashEffectiveTargetIdx?: () => number;
+    setClashSourceModel?: (v: string) => void;
+    setClashTargetModel?: (v: string) => void;
     regroupClashes?: () => void;
     toggleClashGroup?: (gid: string) => void;
     focusClash?: (idx: number) => void;

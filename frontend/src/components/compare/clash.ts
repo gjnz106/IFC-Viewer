@@ -89,9 +89,25 @@ const CLASH_PROPERTIES = [
 // + IfcCurtainWall separately. The reverse map (category → ifc classes)
 // is built alongside so resolveClashElementTypes can expand a category
 // pick back to the full IFC class set when running clash.
+// Resolves the "side" label ('A'=Source / 'B'=Target) used throughout the
+// rule-row UI to the actual loaded-model slot index the user picked via the
+// Source/Target dropdowns (appState.clashSourceIdx/clashTargetIdx) — self-clash
+// collapses Target onto Source so both sides read the same model.
+function clashSideModelIdx(side: string): number {
+  return side === 'A' ? appState.clashSourceIdx : clashEffectiveTargetIdx();
+}
+
+// Effective Target model index: mirrors Source when "single model" (self-clash)
+// is checked, otherwise the user's own Target Set selection.
+export function clashEffectiveTargetIdx(): number {
+  const single = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  return single ? appState.clashSourceIdx : appState.clashTargetIdx;
+}
+window.clashEffectiveTargetIdx = clashEffectiveTargetIdx;
+
 function getClashElementTypes(side: string): string[] {
   const catIDs: Record<string, any[]> = (window as any)._catModelIDs || {};
-  const mi = side === 'A' ? 0 : 1;
+  const mi = clashSideModelIdx(side);
   const revitCats = new Set<string>();
   Object.entries(catIDs).forEach(([ifcClass, models]) => {
     if (models[mi] && models[mi].length > 0) {
@@ -106,7 +122,7 @@ function getClashElementTypes(side: string): string[] {
 // category (Walls = IfcWall + IfcWallStandardCase + IfcCurtainWall).
 function revitCategoryToIfcClasses(catLabel: string, side: string): Set<string> {
   const catIDs: Record<string, any[]> = (window as any)._catModelIDs || {};
-  const mi = side === 'A' ? 0 : 1;
+  const mi = clashSideModelIdx(side);
   const out = new Set<string>();
   Object.entries(catIDs).forEach(([ifcClass, models]) => {
     if (!models[mi] || !models[mi].length) return;
@@ -343,10 +359,58 @@ export function updateClashRunButtonState(): void {
   const btn = document.getElementById('btnRunClash') as HTMLButtonElement | null;
   if (!btn) return;
   const singleModel = (document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
-  const ok = singleModel ? !!appState.loadedModels[0] : !!(appState.loadedModels[0] && appState.loadedModels[1]);
+  const ok = singleModel
+    ? !!appState.loadedModels[appState.clashSourceIdx]
+    : !!(appState.loadedModels[appState.clashSourceIdx] && appState.loadedModels[appState.clashTargetIdx]);
   btn.disabled = !ok;
 }
 window.updateClashRunButtonState = updateClashRunButtonState;
+
+// ── Source/Target model dropdowns ──
+// Pure helper (no DOM) — enumerates every currently-loaded model slot as a
+// {idx, label} option, same "files[i] present or loadedModels[i] present"
+// pattern used by fedRenderSlots() (federation-load.ts) to enumerate slots.
+export interface ClashModelOption { idx: number; label: string; }
+export function buildClashModelOptions(files: (File | null)[], loadedModels: (any | null)[]): ClashModelOption[] {
+  const out: ClashModelOption[] = [];
+  const len = Math.max(files.length, loadedModels.length);
+  for (let i = 0; i < len; i++) {
+    if (!loadedModels[i]) continue;
+    out.push({ idx: i, label: files[i]?.name || `Model ${i}` });
+  }
+  return out;
+}
+
+function renderClashModelSelects(): void {
+  const opts = buildClashModelOptions(appState.files, appState.loadedModels);
+  const single = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  const selA = document.getElementById('clashFileA') as HTMLSelectElement | null;
+  const selB = document.getElementById('clashFileB') as HTMLSelectElement | null;
+  if (selA) {
+    selA.innerHTML = opts.map(o => `<option value="${o.idx}"${o.idx === appState.clashSourceIdx ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') || '<option value="0">—</option>';
+  }
+  if (selB) {
+    const targetIdx = clashEffectiveTargetIdx();
+    selB.innerHTML = opts.map(o => `<option value="${o.idx}"${o.idx === targetIdx ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') || '<option value="0">—</option>';
+    selB.disabled = single;
+  }
+}
+
+window.setClashSourceModel = function(v: string): void {
+  appState.clashSourceIdx = parseInt(v, 10) || 0;
+  const single = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  if (single) appState.clashTargetIdx = appState.clashSourceIdx;
+  renderClashModelSelects();
+  renderClashRules('A'); renderClashRules('B');
+  updateClashRunButtonState();
+};
+
+window.setClashTargetModel = function(v: string): void {
+  appState.clashTargetIdx = parseInt(v, 10) || 0;
+  renderClashModelSelects();
+  renderClashRules('B');
+  updateClashRunButtonState();
+};
 
 // Duplicate detection compares Source against Target — meaningless in
 // self-clash mode where every element trivially "duplicates" its own
@@ -354,6 +418,10 @@ window.updateClashRunButtonState = updateClashRunButtonState;
 export function clashSyncDuplicateUI(): void {
   const single = (document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
   const dupChk = document.getElementById('clashTypeDuplicate') as HTMLInputElement | null;
+  // Self-clash mirrors Target onto Source (see clashEffectiveTargetIdx) —
+  // reflect that in the Target dropdown too, disabling it while checked so
+  // the UI doesn't imply an independent Target choice is in effect.
+  renderClashModelSelects();
   if (!dupChk) return;
   dupChk.disabled = !!single;
   if (single) dupChk.checked = false;
@@ -378,8 +446,13 @@ export function enterClashMode(): void {
   document.getElementById('btnRunClash')!.style.display = '';
   document.getElementById('btnCompare')!.style.display = 'none';
 
-  if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
-  if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
+  // Default Source/Target to slots 0/1 (preserves pre-Phase-16 A vs B
+  // behaviour) — but fall back to whatever single model is loaded if only
+  // one of A/B is present, consistent with self-clash semantics.
+  const firstLoadedIdx = appState.loadedModels.findIndex(m => m);
+  appState.clashSourceIdx = appState.loadedModels[0] ? 0 : Math.max(firstLoadedIdx, 0);
+  appState.clashTargetIdx = appState.loadedModels[1] ? 1 : appState.clashSourceIdx;
+  renderClashModelSelects();
   updateClashRunButtonState();
   clashSyncDuplicateUI();
 
@@ -420,9 +493,13 @@ export function exitClashMode(): void {
   appState.scene.traverse(c => { if ((c as any).userData?.clashFocus) oldFocus.push(c); });
   oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); disposeModel(c); });
 
-  for (let i = 0; i < 2; i++) {
-    if (!appState.loadedModels[i]) continue;
-    const vis = (document.getElementById(i === 0 ? 'visA' : 'visB') as HTMLInputElement).checked;
+  // Restore visibility for whichever slots the last run actually used —
+  // Source/Target can be any loaded slot (federation included), not just 0/1.
+  const exitClashIndices = new Set<number>([0, 1, appState.clashSourceIdx, appState.clashTargetIdx]);
+  exitClashIndices.forEach(i => {
+    if (!appState.loadedModels[i]) return;
+    const visEl = document.getElementById(i === 0 ? 'visA' : i === 1 ? 'visB' : '') as HTMLInputElement | null;
+    const vis = visEl ? visEl.checked : true;
     appState.loadedModels[i]!.visible = vis;
     appState.loadedModels[i]!.traverse(c => {
       if ((c as any).isMesh) {
@@ -430,7 +507,7 @@ export function exitClashMode(): void {
         (c as any).visible = true;
       }
     });
-  }
+  });
 
   document.getElementById('clashStats')!.style.display = 'none';
   document.getElementById('clashList')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div>';
@@ -646,8 +723,9 @@ window.runClashDetection = async function(): Promise<void> {
   // itself instead of A vs B — the Target Set rules still apply, just
   // evaluated against model 0's elements instead of model 1's.
   const singleModelChk = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
-  const targetModelIdx = singleModelChk ? 0 : 1;
-  if (!appState.loadedModels[0] || !appState.loadedModels[targetModelIdx]) return;
+  const sourceModelIdx = appState.clashSourceIdx;
+  const targetModelIdx = singleModelChk ? sourceModelIdx : appState.clashTargetIdx;
+  if (!appState.loadedModels[sourceModelIdx] || !appState.loadedModels[targetModelIdx]) return;
   const lo = document.getElementById('loadOv')!, lt = document.getElementById('loadTxt')!, lf = document.getElementById('loadFill')!;
   lo.classList.add('on');
 
@@ -721,7 +799,7 @@ window.runClashDetection = async function(): Promise<void> {
         let entity: any = { expressID: eid, type: cat, name: '', objectType: '', tag: '', description: '', predefinedType: '' };
         if (propFilters.length) {
           try {
-            const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[modelIdx] as any).modelID, eid, false);
+            const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[modelIdx] as any)!.modelID, eid, false);
             if (p) {
               entity.name = p.Name?.value || '';
               entity.objectType = p.ObjectType?.value || '';
@@ -745,7 +823,7 @@ window.runClashDetection = async function(): Promise<void> {
     return { elements, propCache };
   };
 
-  const setA = await buildFilteredSet(0, catsA, filtersA);
+  const setA = await buildFilteredSet(sourceModelIdx, catsA, filtersA);
   lt.textContent = singleModelChk ? 'Building Target Set...' : 'Building Target Set (Model B)...'; lf.style.width = '15%';
   await new Promise(r => setTimeout(r, 20));
   const setB = await buildFilteredSet(targetModelIdx, catsB, filtersB);
@@ -762,7 +840,7 @@ window.runClashDetection = async function(): Promise<void> {
   lt.textContent = 'Computing bounding boxes...'; lf.style.width = '20%';
   await new Promise(r => setTimeout(r, 20));
 
-  const allBBoxA = buildElementBBoxes(0);
+  const allBBoxA = buildElementBBoxes(sourceModelIdx);
   const allBBoxB = singleModelChk ? allBBoxA : buildElementBBoxes(targetModelIdx);
 
   // Filter to only Source/Target set elements
@@ -818,9 +896,9 @@ window.runClashDetection = async function(): Promise<void> {
 
   const checkedEidsA = new Set<number>(), checkedEidsB = new Set<number>();
   for (let i = 0; i < maxCheck; i++) { checkedEidsA.add(candidates[i].a.eid); checkedEidsB.add(candidates[i].b.eid); }
-  const vertsMapA = buildEidVertexMap(appState.loadedModels[0]!, checkedEidsA);
+  const vertsMapA = buildEidVertexMap(appState.loadedModels[sourceModelIdx]!, checkedEidsA);
   const vertsMapB = singleModelChk
-    ? buildEidVertexMap(appState.loadedModels[0]!, checkedEidsB)
+    ? buildEidVertexMap(appState.loadedModels[sourceModelIdx]!, checkedEidsB)
     : buildEidVertexMap(appState.loadedModels[targetModelIdx]!, checkedEidsB);
 
   // Box size/volume filter config — only meaningful for hard clashes.
@@ -866,7 +944,7 @@ window.runClashDetection = async function(): Promise<void> {
 
       appState.clashResults.push({
         idx: appState.clashResults.length,
-        elA: { eid: a.eid, name: entA.name || '', type: typeA, objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: a },
+        elA: { eid: a.eid, name: entA.name || '', type: typeA, objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: sourceModelIdx, bbox: a },
         elB: { eid: b.eid, name: entB.name || '', type: typeB, objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: b },
         // For clearances the displayed distance is the gap; for hard clashes it's
         // the penetration depth. `gap` kept separately for reporting.
@@ -905,7 +983,7 @@ window.runClashDetection = async function(): Promise<void> {
   if (cDuplicate && !singleModelChk) {
     lt.textContent = 'Checking for duplicates...'; lf.style.width = '95%';
     await new Promise(r => setTimeout(r, 20));
-    const hashesA = computeGeometryHashes(0);
+    const hashesA = computeGeometryHashes(sourceModelIdx);
     const hashesB = computeGeometryHashes(targetModelIdx);
     const hashedA: Record<number, HashedElement> = {};
     for (const eid of sourceEids) if (hashesA[eid]) hashedA[eid] = { hash: hashesA[eid].hash, type: clashPropertyCacheA[eid]?.type || '' };
@@ -928,7 +1006,7 @@ window.runClashDetection = async function(): Promise<void> {
       const c = hashesA[eidA].center;
       appState.clashResults.push({
         idx: appState.clashResults.length,
-        elA: { eid: eidA, name: entA.name || '', type: entA.type || '', objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: bboxFromHash(hashesA[eidA]) },
+        elA: { eid: eidA, name: entA.name || '', type: entA.type || '', objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: sourceModelIdx, bbox: bboxFromHash(hashesA[eidA]) },
         elB: { eid: eidB, name: entB.name || '', type: entB.type || '', objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: bboxFromHash(hashesB[eidB]) },
         penetration: 0, gap: 0, isHard: true, isDuplicate: true,
         verticesAinB: 0, verticesBinA: 0,
@@ -945,13 +1023,13 @@ window.runClashDetection = async function(): Promise<void> {
   for (const cl of appState.clashResults) {
     if (!cl.elA.name) {
       try {
-        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[0] as any).modelID, cl.elA.eid, false);
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[cl.elA.modelIdx] as any).modelID, cl.elA.eid, false);
         if (p?.Name?.value) cl.elA.name = p.Name.value;
       } catch (e) {}
     }
     if (!cl.elB.name) {
       try {
-        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[targetModelIdx] as any).modelID, cl.elB.eid, false);
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[cl.elB.modelIdx] as any).modelID, cl.elB.eid, false);
         if (p?.Name?.value) cl.elB.name = p.Name.value;
       } catch (e) {}
     }
@@ -992,9 +1070,11 @@ function showClashResults(): void {
   document.getElementById('clashGroupBar')!.style.display = 'flex';
   if (appState.clashResults.length > 0) { document.getElementById('btnExportClashCSV')!.style.display = ''; document.getElementById('btnExportClashBCF')!.style.display = ''; }
 
-  // Keep models mostly visible — only slightly fade them
-  for (let i = 0; i < 2; i++) {
-    if (!appState.loadedModels[i]) continue;
+  // Keep models mostly visible — only slightly fade the ones actually used
+  // as Source/Target (which may be federation slots, not just A/B).
+  const shownIndices = new Set<number>([appState.clashSourceIdx, clashEffectiveTargetIdx()]);
+  shownIndices.forEach(i => {
+    if (!appState.loadedModels[i]) return;
     appState.loadedModels[i]!.traverse(c => {
       if ((c as any).isMesh) {
         if (!(c as any).userData._clashOrigMats) {
@@ -1007,7 +1087,7 @@ function showClashResults(): void {
         });
       }
     });
-  }
+  });
 
   // ── Create clash zone markers at each intersection point ──
   // For each clash, create a glowing box at the overlap region (not the full element)
@@ -1342,8 +1422,10 @@ window.exportClashBCF = async function(): Promise<void> {
   // the model offset back without doing the axis swap, so all viewpoint
   // coordinates were in Three-space. Result: BCF Reader saw "viewpoint near
   // origin" → no zoom-to-issue and the snapshot framing camera was also wrong.
+  const bcfSourceIdx = appState.clashSourceIdx;
+  const bcfTargetIdx = clashEffectiveTargetIdx();
   const mdlPos = { x: 0, y: 0, z: 0 };
-  for (let i = 0; i < 2; i++) { if (appState.loadedModels[i]) { mdlPos.x = appState.loadedModels[i]!.position.x; mdlPos.y = appState.loadedModels[i]!.position.y; mdlPos.z = appState.loadedModels[i]!.position.z; break; } }
+  for (const i of [bcfSourceIdx, bcfTargetIdx, 0, 1]) { if (appState.loadedModels[i]) { mdlPos.x = appState.loadedModels[i]!.position.x; mdlPos.y = appState.loadedModels[i]!.position.y; mdlPos.z = appState.loadedModels[i]!.position.z; break; } }
   // Three (x,y,z) → IFC (x, z, -y): reverse offset first, then swap Y↔Z, negate Y.
   const threeToIfc = (x: number, y: number, z: number) => {
     const tx = x - mdlPos.x, ty = y - mdlPos.y, tz = z - mdlPos.z;
@@ -1376,11 +1458,11 @@ window.exportClashBCF = async function(): Promise<void> {
     // GlobalIds for both elements
     let guidA = '', guidB = '';
     try {
-      const pA = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[0] as any).modelID, cl.elA.eid, false);
+      const pA = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[cl.elA.modelIdx] as any).modelID, cl.elA.eid, false);
       if (pA?.GlobalId?.value) guidA = pA.GlobalId.value;
     } catch (e) {}
     try {
-      const pB = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[1] as any).modelID, cl.elB.eid, false);
+      const pB = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[cl.elB.modelIdx] as any).modelID, cl.elB.eid, false);
       if (pB?.GlobalId?.value) guidB = pB.GlobalId.value;
     } catch (e) {}
 
@@ -1507,8 +1589,8 @@ window.exportClashBCF = async function(): Promise<void> {
     // markup.bcf — Header with file references for BCF Reader to resolve elements
     zip.file(tid + '/markup.bcf', '<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n' +
       '<Header>' +
-      (appState.files[0] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[0]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
-      (appState.files[1] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[1]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
+      (appState.files[bcfSourceIdx] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[bcfSourceIdx]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
+      (appState.files[bcfTargetIdx] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[bcfTargetIdx]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
       '</Header>\n' +
       '<Topic Guid="' + tid + '" TopicType="Clash" TopicStatus="Active">' +
       '<Title>' + (window as any).escXml(title) + '</Title>' +
