@@ -26,6 +26,12 @@ import {
   exceedsUploadQuota, sumStorageUsage, formatBytes,
 } from '../../lib/cloud-files.js';
 import { getCachedFile, putCachedFile, clearCache } from '../../lib/ifc-cache.js';
+import {
+  fetchResultMetadata, downloadResult, buildModelSignature, signaturesMatch, outdatedBadgeLabel,
+  type ResultKind,
+} from '../../lib/cloud-results.js';
+import { restoreCompareResult } from '../compare/federation-load.js';
+import { restoreClashResult } from '../compare/clash.js';
 import { log } from '../core/ifc-category.js';
 
 function persist(): void {
@@ -347,6 +353,45 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
   }
   if (lf) lf.style.width = '100%';
   lo?.classList.remove('on');
+
+  await restoreSavedResults(projectId);
+}
+
+// Best-effort restore of a previously-saved Compare/Clash result (Phase 15).
+// Cheap Firestore metadata read first; only downloads the (potentially
+// large) result JSON from Storage if the saved modelSignature still matches
+// what's actually loaded. A mismatch (files changed) surfaces a small
+// "Outdated — re-run" badge instead of silently applying stale data. Any
+// failure here must never disturb the just-completed file auto-load.
+async function restoreSavedResults(projectId: string): Promise<void> {
+  const currentSignature = buildModelSignature(appState.files);
+  const kinds: { kind: ResultKind; badgeId: string }[] = [
+    { kind: 'compare', badgeId: 'compareOutdatedBadge' },
+    { kind: 'clash', badgeId: 'clashOutdatedBadge' },
+  ];
+  for (const { kind, badgeId } of kinds) {
+    const badge = document.getElementById(badgeId);
+    if (badge) { badge.style.display = 'none'; badge.title = ''; }
+    try {
+      const meta = await fetchResultMetadata(projectId, kind);
+      if (!meta) continue;
+      if (!signaturesMatch(meta.modelSignature, currentSignature)) {
+        if (badge) { badge.style.display = ''; badge.textContent = outdatedBadgeLabel(); }
+        continue;
+      }
+      // Compare and Clash rendering both restyle the loaded models' materials
+      // — mutually exclusive, same as the live-run modes. Compare is
+      // processed first (kinds order above); skip Clash if it already won.
+      if (kind === 'clash' && appState.compareResult) continue;
+      const data = await downloadResult(projectId, kind);
+      if (!data) continue;
+      if (kind === 'compare') await restoreCompareResult(data);
+      else restoreClashResult(data as any[]);
+      log(`Cloud: restored saved ${kind} result (unchanged since last run)`);
+    } catch (e) {
+      console.warn(`[cloud-results] restoreSavedResults(${kind}) failed:`, e);
+    }
+  }
 }
 
 // ── Cloud project actions (Phase 12/13) ───────────────────────────────────

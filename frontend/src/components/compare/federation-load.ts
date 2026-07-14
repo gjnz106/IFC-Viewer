@@ -14,6 +14,7 @@ import { log } from '../core/ifc-category.js';
 import { disposeModel } from '../core/viewer-core.js';
 import { syncUploadSlot } from '../ui/projects.js';
 import { syncChipLabel } from '../../lib/cloud-files.js';
+import { saveResult, buildModelSignature, formatCompareCounts, buildResultMetadata } from '../../lib/cloud-results.js';
 
 // ══ Federation file management (slots 2+) ══════════════════════════
 let _fedPendingSlot = -1;
@@ -249,9 +250,31 @@ window.runCompare=async function(){
     // ── Color-coded subsets per entity status ──
     await applyDiffColors();
     (window as any).showResultsUI();
+    saveCompareResultToCloud();
   }catch(e: any){log('Compare err:',e.message);lt.textContent='Error: '+e.message}
   lo.classList.remove('on');
 };
+
+// Applies a compare result fetched from cloud storage (Phase 15 restore) —
+// same rendering path as a live runCompare(), minus the property extraction.
+export async function restoreCompareResult(result: any): Promise<void> {
+  appState.compareResult = result;
+  await applyDiffColors();
+  (window as any).showResultsUI();
+}
+
+// Best-effort background persist of the just-computed compare result — no-op
+// for local (non-cloud) projects, never blocks/errors the UI on failure.
+function saveCompareResultToCloud(): void {
+  const projectId = appState.activeCloudProjectId;
+  const result = appState.compareResult;
+  if (!projectId || !result) return;
+  const user = (window as any).getAuthUser?.();
+  const signature = buildModelSignature(appState.files);
+  const counts = formatCompareCounts(result as any);
+  const metadata = buildResultMetadata(user?.email || '', counts, signature);
+  saveResult(projectId, 'compare', result, metadata).catch(e => console.warn('[cloud-results] saveCompareResultToCloud failed:', e));
+}
 
 // createSubset() keys each subset by (modelID, material.uuid, customID) — since
 // applyDiffColors() builds a fresh material every run, re-running Compare never

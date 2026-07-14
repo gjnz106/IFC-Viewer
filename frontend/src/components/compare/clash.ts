@@ -8,6 +8,7 @@ import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
 import { escapeHtml, escapeCsv } from '../../lib/escape.js';
 import { disposeModel } from '../core/viewer-core.js';
 import { computeGeometryHashes } from '../../lib/geometry-hash.js';
+import { saveResult, buildModelSignature, formatClashCounts, buildResultMetadata } from '../../lib/cloud-results.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
 (window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
@@ -962,7 +963,27 @@ window.runClashDetection = async function(): Promise<void> {
   lo.classList.remove('on');
 
   showClashResults();
+  saveClashResultToCloud();
 };
+
+// Applies a clash result fetched from cloud storage (Phase 15 restore) —
+// same rendering path as a live run, minus the detection pipeline.
+export function restoreClashResult(results: any[]): void {
+  appState.clashResults = results;
+  showClashResults();
+}
+
+// Best-effort background persist of the just-computed clash result — no-op
+// for local (non-cloud) projects, never blocks/errors the UI on failure.
+function saveClashResultToCloud(): void {
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  const user = (window as any).getAuthUser?.();
+  const signature = buildModelSignature(appState.files);
+  const counts = formatClashCounts(appState.clashResults as any);
+  const metadata = buildResultMetadata(user?.email || '', counts, signature);
+  saveResult(projectId, 'clash', appState.clashResults, metadata).catch(e => console.warn('[cloud-results] saveClashResultToCloud failed:', e));
+}
 
 function showClashResults(): void {
   document.getElementById('btnExitClash')!.style.display = '';

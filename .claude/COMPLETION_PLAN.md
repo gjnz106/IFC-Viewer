@@ -568,3 +568,33 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
       (file > 500MB → báo trước khi upload); hiển thị dung lượng đã dùng của project.
 - **Done khi:** share email cho đồng nghiệp → họ đăng nhập thấy dự án + auto-load; mở lần 2
   cùng máy không tải lại từ mạng; không hồi quy dự án local/offline.
+
+## Phase 15 — Lưu kết quả Compare/Clash lên cloud project (chốt 2026-07-13, theo yêu cầu user)
+**Status:** ✅ Done — PR #66
+
+> User báo: chạy Compare/Clash xong, chuyển project hoặc reload trang thì mất kết quả (đúng —
+> `appState.compareResult`/`clashResults` chỉ tồn tại trong bộ nhớ tạm, chưa từng persist).
+> User muốn: lưu lại trên cloud project, mở lại là thấy ngay, giống Dalux.
+
+- [ ] **Lưu kết quả (Storage, không phải Firestore):** sau khi Compare (`compare.ts`,
+      `appState.compareResult`) hoặc Clash (`clash.ts`, `appState.clashResults`) chạy xong trong
+      1 cloud project, background-upload JSON kết quả lên
+      `projects/{projectId}/results/{kind}.json` (`kind` = `compare` | `clash`) qua
+      `uploadBytesResumable`, lazy `import('firebase/storage')`. Không lưu Firestore vì kết quả
+      có thể hàng nghìn phần tử, vượt giới hạn 1MB/doc.
+- [ ] **Metadata nhẹ (Firestore):** doc `projects/{projectId}/results/{kind}` (Firestore, tách
+      biệt path với Storage) chứa `{ ranAt, ranBy, counts: {...}, modelSignature }` —
+      `modelSignature` là hash/id đơn giản của cặp file A/B (hoặc set clash) tại thời điểm chạy,
+      để khi mở lại biết kết quả cũ có còn khớp với file hiện tại hay không.
+- [ ] **storage.rules:** thêm `application/json` vào allow-list contentType (path
+      `projects/{projectId}/{allPaths=**}` đã match sẵn, không cần thêm match block).
+- [ ] **Khôi phục khi mở project:** sau `autoLoadCloudProjectFiles` (Phase 13) load xong file,
+      kiểm tra có kết quả đã lưu không — nếu `modelSignature` khớp file hiện tại, tự động tải
+      JSON + gán vào `appState.compareResult`/`clashResults` + render lại UI Compare/Clash y hệt
+      như vừa chạy xong. Nếu không khớp (file đã đổi), hiện badge "Outdated — re-run" thay vì tự
+      áp kết quả cũ.
+- [ ] Test Vitest: modelSignature builder (thuần, không cần model thật), so khớp
+      signature cũ/mới, format counts hiển thị badge. Không test SDK thật.
+- **Done khi:** chạy Compare/Clash trong cloud project → tải lại trang hoặc mở từ máy khác →
+  thấy lại đúng kết quả không cần chạy lại (miễn file chưa đổi); dự án local không đổi hành vi;
+  typecheck + test + build pass.

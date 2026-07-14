@@ -27,6 +27,9 @@ service firebase.storage {
         'application/ifc',
         'text/plain',
         'application/vnd.ifc',
+        // Compare/Clash result JSON (Phase 15) — same path pattern
+        // (projects/{projectId}/{allPaths=**}) already covers results/*.json.
+        'application/json',
       ];
     }
 
