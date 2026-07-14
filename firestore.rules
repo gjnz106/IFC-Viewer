@@ -61,6 +61,15 @@ service cloud.firestore {
         allow read, write: if isVerified()
           && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
       }
+
+      // Phase 15: saved Compare/Clash result metadata. Firestore rules don't
+      // cascade into subcollections, so this needs its own block — without it
+      // the default deny made saveResult()'s metadata write and
+      // fetchResultMetadata()'s read both fail, so restore never fired.
+      match /results/{resultId} {
+        allow read, write: if isVerified()
+          && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
+      }
     }
   }
 }
