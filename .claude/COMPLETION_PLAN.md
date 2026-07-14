@@ -570,7 +570,7 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
   cùng máy không tải lại từ mạng; không hồi quy dự án local/offline.
 
 ## Phase 15 — Lưu kết quả Compare/Clash lên cloud project (chốt 2026-07-13, theo yêu cầu user)
-**Status:** ⬜ Not started (phụ thuộc Phase 13)
+**Status:** ✅ Done — PR #66
 
 > User báo: chạy Compare/Clash xong, chuyển project hoặc reload trang thì mất kết quả (đúng —
 > `appState.compareResult`/`clashResults` chỉ tồn tại trong bộ nhớ tạm, chưa từng persist).
