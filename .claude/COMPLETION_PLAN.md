@@ -600,7 +600,7 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
   typecheck + test + build pass.
 
 ## Phase 16 — Clash: chọn model cho Source/Target set (chốt 2026-07-14, theo yêu cầu user)
-**Status:** ⬜ Not started
+**Status:** ✅ Done — PR #68
 
 > User báo: Clash Detection hiện cố định Source = Version A (slot 0), Target = Version B
 > (slot 1) hoặc self-clash (A vs A) — không thể chọn model federation (slot ≥2, nạp qua
