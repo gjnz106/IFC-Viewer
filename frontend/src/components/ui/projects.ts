@@ -232,10 +232,21 @@ window.projSwitch = function (id: string): void {
 };
 
 // ── Settings modal integration (Project Name/Code fields) ────────────────
+// Must read/write the ACTIVE project — which is the active cloud project
+// when one is set, not the local registry's active entry. Filling (and
+// worse, saving) from the wrong source silently mis-targets edits: a rename
+// while inside a cloud project would otherwise rename the unrelated local
+// "Default Project" instead.
 window.projFillSettings = function (): void {
-  const active = getActiveProject(registry);
   const nameEl = document.getElementById('projName') as HTMLInputElement | null;
   const codeEl = document.getElementById('projCode') as HTMLInputElement | null;
+  if (appState.activeCloudProjectId) {
+    const cp = activeCloudProject();
+    if (nameEl) nameEl.value = cp?.name || '';
+    if (codeEl) codeEl.value = cp?.code || '';
+    return;
+  }
+  const active = getActiveProject(registry);
   if (nameEl) nameEl.value = active?.name || '';
   if (codeEl) codeEl.value = active?.code || '';
 };
@@ -480,10 +491,23 @@ window.projMigrateToCloud = async function (id: string): Promise<void> {
 };
 
 window.projSaveSettings = function (): void {
-  const active = getActiveProject(registry);
-  if (!active) return;
   const nameEl = document.getElementById('projName') as HTMLInputElement | null;
   const codeEl = document.getElementById('projCode') as HTMLInputElement | null;
+  if (appState.activeCloudProjectId) {
+    const cp = activeCloudProject();
+    if (!cp) return;
+    const name = nameEl?.value ?? cp.name;
+    const code = codeEl?.value ?? cp.code;
+    renameCloudProject(cp.id, name, code).then(ok => {
+      if (!ok) return;
+      cp.name = name.trim(); cp.code = code.trim();
+      renderProjectList();
+      chipLabel();
+    });
+    return;
+  }
+  const active = getActiveProject(registry);
+  if (!active) return;
   registry = renameProject(registry, active.id, nameEl?.value ?? active.name, codeEl?.value ?? active.code);
   // Settings' own drive-link input writes the legacy key just before this
   // runs (ui-shell.ts's toggleSettingsPanel close-path) — mirror it into the

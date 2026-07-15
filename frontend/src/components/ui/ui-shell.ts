@@ -31,11 +31,27 @@ window.toggleRightPanel = function (): void {
   setPanel('rightPanel', 'btnToggleRight', 'right-collapsed', getComputedStyle(p).display === 'none');
 };
 
+// .topbar sets only overflow-x, which per the CSS spec implicitly computes
+// overflow-y to auto too — any position:absolute dropdown nested inside it
+// (export/help/notification menus) gets silently clipped past the topbar's
+// height instead of showing (same root cause fixed for the account-menu
+// dropdown in auth.ts's toggleUserMenu). Switch to position:fixed with
+// placement computed from the trigger button so it escapes that clip box.
+function positionDropdownFixed(el: HTMLElement, trigger: HTMLElement): void {
+  const rect = trigger.getBoundingClientRect();
+  el.style.position = 'fixed';
+  el.style.top = (rect.bottom + 8) + 'px';
+  el.style.right = (window.innerWidth - rect.right) + 'px';
+  el.style.left = 'auto';
+}
+
 window.toggleExportMenu = function (): void {
   const d = document.getElementById('exportMenuDrop') as HTMLElement | null;
   const bg = document.getElementById('exportMenuBg') as HTMLElement | null;
+  const btn = document.getElementById('btnExportMenu') as HTMLElement | null;
   if (!d || !bg) return;
   const open = d.style.display !== 'none';
+  if (!open && btn) positionDropdownFixed(d, btn);
   d.style.display = open ? 'none' : 'block';
   bg.style.display = open ? 'none' : 'block';
 };
@@ -145,10 +161,12 @@ document.addEventListener('DOMContentLoaded', () => {
 };
 
 (window as any).toggleNotifMenu = function (): void {
-  const el = document.getElementById('notifMenuDrop');
+  const el = document.getElementById('notifMenuDrop') as HTMLElement | null;
   const bg = document.getElementById('notifMenuBg');
+  const btn = document.getElementById('btnNotif') as HTMLElement | null;
   if (el && bg) {
     const open = el.style.display !== 'none';
+    if (!open && btn) positionDropdownFixed(el, btn);
     el.style.display = open ? 'none' : 'block';
     bg.style.display = open ? 'none' : 'block';
     const badge = document.getElementById('notifBadge');
@@ -157,10 +175,12 @@ document.addEventListener('DOMContentLoaded', () => {
 };
 
 (window as any).toggleHelpMenu = function (): void {
-  const el = document.getElementById('helpMenuDrop');
+  const el = document.getElementById('helpMenuDrop') as HTMLElement | null;
   const bg = document.getElementById('helpMenuBg');
+  const btn = document.getElementById('btnHelp') as HTMLElement | null;
   if (el && bg) {
     const open = el.style.display !== 'none';
+    if (!open && btn) positionDropdownFixed(el, btn);
     el.style.display = open ? 'none' : 'block';
     bg.style.display = open ? 'none' : 'block';
   }
