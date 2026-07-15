@@ -598,3 +598,29 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 - **Done khi:** chạy Compare/Clash trong cloud project → tải lại trang hoặc mở từ máy khác →
   thấy lại đúng kết quả không cần chạy lại (miễn file chưa đổi); dự án local không đổi hành vi;
   typecheck + test + build pass.
+
+## Phase 16 — Clash: chọn model cho Source/Target set (chốt 2026-07-14, theo yêu cầu user)
+**Status:** ✅ Done — PR #68
+
+> User báo: Clash Detection hiện cố định Source = Version A (slot 0), Target = Version B
+> (slot 1) hoặc self-clash (A vs A) — không thể chọn model federation (slot ≥2, nạp qua
+> "+ Add more files") làm Source/Target. User muốn thêm filter/dropdown chọn model.
+
+- [ ] **UI:** 2 dropdown chọn model bên cạnh tiêu đề "Source Set" / "Target Set" trong
+      `clashPanel` (`frontend/index.html`), liệt kê mọi slot đang có model load
+      (`appState.loadedModels[i]` không null, tên lấy từ `appState.files[i].name`), thay cho
+      tag tĩnh `#clashFileA`/`#clashFileB` hiện tại (dòng 381-382 `clash.ts`, `enterClashMode`).
+- [ ] **State:** thêm `appState.clashSourceIdx`/`clashTargetIdx` (mặc định 0/1 nếu có ≥2 model,
+      giữ hành vi cũ khi chỉ có A/B). Đổi mọi chỗ hardcode `appState.loadedModels[0]` (Source) và
+      `targetModelIdx` (Target, hiện tính từ checkbox self-clash) trong `clash.ts` sang đọc từ 2
+      field này — bao gồm `runClashDetection`, `buildFilteredSet`, `buildElementBBoxes`,
+      `buildEidVertexMap`, `computeGeometryHashes`, property lookup cho export BCF
+      (dòng ~1379/1383), `updateClashRunButtonState`.
+- [ ] **Self-clash tương thích:** checkbox "single model" hiện set `targetModelIdx = 0`; sau khi
+      đổi, set `targetModelIdx = clashSourceIdx` (self-clash theo đúng model đang chọn làm
+      Source, không cứng slot 0).
+- [ ] Test Vitest nếu tách được logic thuần (map slot→tên hiển thị); phần còn lại review kỹ vì
+      clash.ts không có test integration.
+- **Done khi:** load ≥3 model (A, B, + 1 federation) → chọn Source = model federation, Target =
+  Version B (hoặc bất kỳ cặp nào) → Run Clash chạy đúng cặp đã chọn, không còn cố định A vs B;
+  hành vi cũ (chỉ có A/B) không đổi; typecheck + build pass.

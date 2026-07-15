@@ -799,12 +799,12 @@
           </div>
           <div class="clash-bottom-grid">
             <div class="clash-set-section">
-              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set <span class="clash-file-tag" id="clashFileA">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('A')">+</button><button class="clash-row-act" onclick="removeLastClashRow('A')">−</button></div></div>
+              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set <select class="clash-file-tag clash-model-sel" id="clashFileA" onchange="setClashSourceModel(this.value)"></select></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('A')">+</button><button class="clash-row-act" onclick="removeLastClashRow('A')">−</button></div></div>
               <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesA"></tbody></table>
               <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsA" disabled title="Not supported — element assemblies (IfcRelAggregates/Nests)" checked> Include parts</label>
             </div>
             <div class="clash-set-section">
-              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set <span class="clash-file-tag" id="clashFileB">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('B')">+</button><button class="clash-row-act" onclick="removeLastClashRow('B')">−</button></div></div>
+              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set <select class="clash-file-tag clash-model-sel" id="clashFileB" onchange="setClashTargetModel(this.value)"></select></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('B')">+</button><button class="clash-row-act" onclick="removeLastClashRow('B')">−</button></div></div>
               <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesB"></tbody></table>
               <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsB" disabled title="Not supported — element assemblies (IfcRelAggregates/Nests)" checked> Include parts</label>
             </div>
