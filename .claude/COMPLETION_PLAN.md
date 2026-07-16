@@ -32,7 +32,7 @@
 | 15 | ☁ Lưu kết quả Compare/Clash lên cloud project | ✅ Done — PR #66 |
 | 16 | Clash: chọn model cho Source/Target set | ✅ Done — PR #68 |
 | 17 | 🔒 Audit fix: toàn vẹn dữ liệu cloud + quyền (race switch, orphan blob, delete) | ✅ Done — PR #71 |
-| 18 | 🩺 Audit fix: SG Validate engine (rules skip toàn bộ, THREE, SCDF/NPARKS ẩn) | ⬜ Not started |
+| 18 | 🩺 Audit fix: SG Validate engine (rules skip toàn bộ, THREE, SCDF/NPARKS ẩn) | ✅ Done — PR #72 |
 | 19 | 🧰 Audit fix: Clash UX/correctness (restore markers, checkbox, model selection) | ⬜ Not started |
 | 20 | ⚡ Perf getAllProps + audit nốt core viewer/tools + UI shell | ⬜ Not started |
 
@@ -674,19 +674,19 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
   file; xoá project dọn hết file con + blob; sign-out sạch state; typecheck + test + build pass.
 
 ## Phase 18 — 🩺 SG Validate engine (từ audit — hiện gần như chết)
-**Status:** ⬜ Not started
+**Status:** ✅ Done — PR #72 (2026-07-16)
 
-- [ ] **Bug nghiêm trọng nhất app: mọi rule theo class silently skip.** `sgBuildContext`
+- [x] **Bug nghiêm trọng nhất app: mọi rule theo class silently skip.** `sgBuildContext`
       (validator-json-loader.ts:558) đưa `p.type` (STRING như 'IfcWall' từ getAllProps) qua
       `sgIfcCodeToClass` (map theo MÃ SỐ) → mọi entity rơi vào bucket sai → `ctx.byClass.get('IfcWall')`
       rỗng → rules trả "No X elements found". Sửa: nếu `typeof p.type === 'string'` dùng thẳng.
       Thêm test với context giả để không tái phát.
-- [ ] **FED-006 luôn fail:** validator-rules.ts dùng `declare const THREE` nhưng không ai gán
+- [x] **FED-006 luôn fail:** validator-rules.ts dùng `declare const THREE` nhưng không ai gán
       `window.THREE` → ReferenceError bị nuốt thành "Rule execution failed". Sửa: import three.
-- [ ] **SCDF/NPARKS chạy nhưng không bao giờ hiển thị:** `AGENCY_ORDER` cố định 6 agency, render
+- [x] **SCDF/NPARKS chạy nhưng không bao giờ hiển thị:** `AGENCY_ORDER` cố định 6 agency, render
       loop chỉ duyệt list đó → rules SCDF/NPARKS đếm vào stats nhưng không có row nào trong UI.
       Append các agency còn lại từ `byAgency`.
-- [ ] **FED-002 crash khi storey elevation null:** filter/flag trước khi so + `.toFixed`.
+- [x] **FED-002 crash khi storey elevation null:** filter/flag trước khi so + `.toFixed`.
 - **Done khi:** chạy SG Check trên model thật cho kết quả từng class đúng (không còn "No elements
   found" hàng loạt), FED-006 chạy thật, SCDF/NPARKS hiện trong list; test mới pass.
 

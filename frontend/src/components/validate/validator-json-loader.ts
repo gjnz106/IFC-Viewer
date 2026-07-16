@@ -670,7 +670,14 @@ async function sgBuildContext(): Promise<any> {
 }
 
 // Map IFC type code → class name.
-function sgIfcCodeToClass(code: number): string {
+// getAllProps (federation-load.ts) stores `type` as a class-name STRING already
+// (e.g. 'IfcWall'), so the common path just passes it through; the numeric
+// code→name lookup below only runs for legacy callers that pass a raw type code.
+function sgIfcCodeToClass(code: number | string): string {
+  if (typeof code === 'string') {
+    const s = code.trim();
+    return s || ('Ifc#unknown');
+  }
   // Primary map uses constants from the global scope if available
   const w = window as any;
   const MAP: Record<number, string> = {};
@@ -792,7 +799,12 @@ function sgRenderResults(): void {
   }
   let html = '';
   const AGENCY_ORDER = ['GENERAL', 'BCA', 'URA', 'NEA', 'LTA', 'PUB'];
-  for (const ag of AGENCY_ORDER) {
+  // Append any agencies present in the results but not in the fixed order
+  // (e.g. SCDF, NPARKS from the built-in extended rules) so their rows render
+  // instead of being counted in stats yet silently dropped from the list.
+  const agencyOrder = [...AGENCY_ORDER];
+  for (const ag of byAgency.keys()) if (!agencyOrder.includes(ag)) agencyOrder.push(ag);
+  for (const ag of agencyOrder) {
     if (!byAgency.has(ag)) continue;
     const items = byAgency.get(ag)!;
     const passCnt = items.filter(r => r.failed.length === 0 && r.passed.length > 0).length;
