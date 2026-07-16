@@ -1,9 +1,8 @@
 // ══════════════════════════════════════════════════════════════════════
 // ── CORENET X / IFC-SG VALIDATOR ──────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════
+import * as THREE from 'three';
 import { appState } from '../../store/index.js';
-
-declare const THREE: any;
 
 // ── Compound angle measure → decimal degrees ───────────────────────
 export function compoundToDeg(v: any): number {
@@ -699,11 +698,15 @@ export const SG_RULES: any[] = [
       }
       const modelStoreys = models.map((m: any) => ({
         name: m.spatial?.modelName || ('Model ' + m.modelIdx),
-        storeys: (m.spatial?.storeys || []).map((s: any) => ({
-          name: (s.name || '').trim().toUpperCase(),
-          origName: s.name || '',
-          elevation: s.elevation
-        }))
+        storeys: (m.spatial?.storeys || [])
+          // Storeys without a numeric elevation can't be matched by elevation
+          // and would make abs-diff/.toFixed() throw — GEN-006 already flags them.
+          .filter((s: any) => s.elevation != null && !isNaN(Number(s.elevation)))
+          .map((s: any) => ({
+            name: (s.name || '').trim().toUpperCase(),
+            origName: s.name || '',
+            elevation: Number(s.elevation)
+          }))
       })).filter((m: any) => m.storeys.length > 0);
 
       if (modelStoreys.length < 2) {
