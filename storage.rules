@@ -36,10 +36,15 @@ service firebase.storage {
     match /projects/{projectId}/{allPaths=**} {
       allow read: if isVerified() && isProjectMember(projectId);
 
-      allow write: if isVerified()
+      // Split from a single `allow write`: on delete `request.resource` is
+      // null, so the size/contentType checks error out and every
+      // deleteObject() was denied — orphaned blobs accrued forever.
+      allow create, update: if isVerified()
         && isProjectMember(projectId)
         && request.resource.size < 500 * 1024 * 1024
         && isAllowedIfcContentType();
+
+      allow delete: if isVerified() && isProjectMember(projectId);
     }
   }
 }

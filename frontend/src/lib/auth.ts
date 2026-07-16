@@ -13,6 +13,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth';
+import { appState } from '../store/index.js';
 
 // ⚠️  REPLACE THIS CONFIG with your Firebase project's config from
 //     Firebase Console → Project settings → General → Your apps.
@@ -136,6 +137,16 @@ if (auth) {
       if (acMenu) acMenu.style.display = 'none';
       const profileOverlay = document.getElementById('profileOverlay');
       if (profileOverlay) profileOverlay.style.display = 'none';
+      // Clear the cloud session — otherwise the next user (or the logged-out
+      // screen behind the overlay) still sees the previous user's models and
+      // any further upload would land in the previous user's project.
+      if (appState.activeCloudProjectId || Object.keys(appState.cloudFileRecords).length) {
+        appState.activeCloudProjectId = null;
+        appState.cloudFileRecords = {};
+        appState.cloudSyncStatus = {};
+        (window as any).unloadAllModels?.();
+      }
+      window.dispatchEvent(new CustomEvent('ifc:signout'));
       return;
     }
     setAuth(user);
@@ -231,6 +242,10 @@ $('verifyCheck').addEventListener('click', async () => {
   try {
     await auth.currentUser.reload();
     if (auth.currentUser.emailVerified) {
+      // Force-refresh the ID token: the cached one still carries
+      // email_verified:false for up to ~1h, silently denying all
+      // Firestore/Storage rules until then.
+      await auth.currentUser.getIdToken(true).catch(() => {});
       overlay.classList.add('hidden');
       showLoggedInUser(auth.currentUser);
     } else {

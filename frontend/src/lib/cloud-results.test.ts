@@ -1,8 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildModelSignature, signaturesMatch, formatCompareCounts, formatClashCounts,
-  buildResultMetadata, outdatedBadgeLabel,
+  buildResultMetadata, outdatedBadgeLabel, resultStoragePath, RESULT_KINDS,
 } from './cloud-results.js';
+
+describe('resultStoragePath / RESULT_KINDS', () => {
+  it('matches the Storage layout saveResult writes to', () => {
+    expect(resultStoragePath('p1', 'compare')).toBe('projects/p1/results/compare.json');
+    expect(resultStoragePath('p1', 'clash')).toBe('projects/p1/results/clash.json');
+  });
+  it('enumerates every result kind exactly once (deep-delete relies on this)', () => {
+    expect([...RESULT_KINDS].sort()).toEqual(['clash', 'compare']);
+  });
+});
 
 describe('buildModelSignature', () => {
   it('is deterministic for the same inputs', () => {

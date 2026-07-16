@@ -82,6 +82,14 @@ export function outdatedBadgeLabel(): string {
   return '⚠ Outdated — re-run';
 }
 
+// Single source of truth for where a saved result's JSON lives in Storage —
+// saveResult/downloadResult and the project deep-delete all derive from it.
+export function resultStoragePath(projectId: string, kind: ResultKind): string {
+  return `projects/${projectId}/results/${kind}.json`;
+}
+
+export const RESULT_KINDS: ResultKind[] = ['compare', 'clash'];
+
 // ── Firestore/Storage glue (lazy-imported SDKs — never in the main bundle) ──
 
 async function getDb() {
@@ -115,7 +123,7 @@ export async function saveResult(
   try {
     const { ref, uploadBytesResumable } = await import('firebase/storage');
     const storage = await getBucket();
-    const storagePath = `projects/${projectId}/results/${kind}.json`;
+    const storagePath = resultStoragePath(projectId, kind);
     const blob = new Blob([JSON.stringify(resultData)], { type: 'application/json' });
     const task = uploadBytesResumable(ref(storage, storagePath), blob, { contentType: 'application/json' });
     await new Promise<void>((resolve, reject) => {
@@ -129,6 +137,18 @@ export async function saveResult(
   } catch (e) {
     console.warn(`[cloud-results] saveResult(${kind}) failed (best-effort, ignored):`, e);
     return false;
+  }
+}
+
+// Best-effort — deletes the metadata doc for a saved result (the JSON blob
+// in Storage is deleted separately via cloud-files' deleteProjectFileBlob).
+export async function deleteResultRecord(projectId: string, kind: ResultKind): Promise<void> {
+  try {
+    const { doc, deleteDoc } = await import('firebase/firestore');
+    const db = await getDb();
+    await deleteDoc(doc(db, 'projects', projectId, 'results', kind));
+  } catch (e) {
+    console.warn(`[cloud-results] deleteResultRecord(${kind}) failed:`, e);
   }
 }
 
@@ -149,7 +169,7 @@ export async function downloadResult<T = unknown>(projectId: string, kind: Resul
   try {
     const { ref, getDownloadURL } = await import('firebase/storage');
     const storage = await getBucket();
-    const storagePath = `projects/${projectId}/results/${kind}.json`;
+    const storagePath = resultStoragePath(projectId, kind);
     const url = await getDownloadURL(ref(storage, storagePath));
     const r = await fetch(url);
     if (!r.ok) throw new Error('Download failed: ' + r.status);

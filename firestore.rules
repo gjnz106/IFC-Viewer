@@ -55,7 +55,9 @@ service cloud.firestore {
         && (request.resource.data.memberEmails == resource.data.memberEmails
             || email() == resource.data.ownerEmail);
 
-      allow delete: if isVerified() && isMember(resource.data);
+      // Owner-only: any member deleting the shared project (plus every
+      // teammate's files) is too destructive to leave open.
+      allow delete: if isVerified() && email() == resource.data.ownerEmail;
 
       match /files/{fileId} {
         allow read, write: if isVerified()
