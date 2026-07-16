@@ -29,6 +29,12 @@
 | 12 | ☁ Cloud projects: Firestore registry + Security Rules + rules CI | ✅ Done — PR #60 |
 | 13 | ☁ File IFC trên Storage + auto-load khi vào dự án (lõi Dalux) | ✅ Done — PR #61 |
 | 14 | ☁ Share team theo email + cache IndexedDB + polish | ✅ Done — PR #62 |
+| 15 | ☁ Lưu kết quả Compare/Clash lên cloud project | ✅ Done — PR #66 |
+| 16 | Clash: chọn model cho Source/Target set | ✅ Done — PR #68 |
+| 17 | 🔒 Audit fix: toàn vẹn dữ liệu cloud + quyền (race switch, orphan blob, delete) | ⬜ Not started |
+| 18 | 🩺 Audit fix: SG Validate engine (rules skip toàn bộ, THREE, SCDF/NPARKS ẩn) | ⬜ Not started |
+| 19 | 🧰 Audit fix: Clash UX/correctness (restore markers, checkbox, model selection) | ⬜ Not started |
+| 20 | ⚡ Perf getAllProps + audit nốt core viewer/tools + UI shell | ⬜ Not started |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -624,3 +630,101 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 - **Done khi:** load ≥3 model (A, B, + 1 federation) → chọn Source = model federation, Target =
   Version B (hoặc bất kỳ cặp nào) → Run Clash chạy đúng cặp đã chọn, không còn cố định A vs B;
   hành vi cũ (chỉ có A/B) không đổi; typecheck + build pass.
+
+---
+
+# AUDIT TOÀN APP (2026-07-15) — Phase 17-20
+
+> Rà soát bằng 2 audit agent hoàn chỉnh (cloud stack; compare/clash/validate) + sweep wiring
+> handler (132/132 handler HTML đều có định nghĩa — sạch). 2 mảng chưa audit xong do giới hạn
+> phiên: core viewer/tools và UI shell chi tiết → gộp vào Phase 20.
+> Finding then chốt: **SG Validate hiện gần như không hoạt động** (mọi rule theo class silently
+> skip) và **cloud có 3 lỗi toàn vẹn dữ liệu** (orphan blob không thể xoá, race khi switch nhanh,
+> delete project để lại rác vĩnh viễn).
+
+## Phase 17 — 🔒 Cloud data-integrity + quyền (từ audit)
+**Status:** ⬜ Not started
+
+- [ ] **storage.rules — delete bị chặn vĩnh viễn:** `allow write` gồm cả delete, nhưng khi delete
+      `request.resource == null` → check size/contentType lỗi → mọi `deleteObject()` bị từ chối,
+      blob thay thế/xoá tích tụ tính phí mãi. Tách `allow create, update` (giữ check) khỏi
+      `allow delete: if isVerified() && isProjectMember(projectId)`. Test bằng emulator.
+- [ ] **Xoá project mồ côi toàn bộ file:** `projDeleteCloud` chỉ xoá doc `projects/{id}` — subcollection
+      `files`/`results` + blob Storage bị bỏ lại, và vì cả 2 rules đều authorize qua `get()` doc
+      cha (đã xoá) nên KHÔNG AI dọn được nữa. Sửa: trước khi xoá doc, duyệt `fetchProjectFiles` +
+      `results` → xoá blob + doc con (best-effort). `deleteProjectFileRecord` hiện là dead code —
+      dùng nó.
+- [ ] **Race switch project nhanh:** `autoLoadCloudProjectFiles` không có generation guard —
+      switch A rồi switch B ngay khi A còn fetch → 2 luồng chạy song song, file A đổ vào workspace
+      B, kết quả A restore lên model B. Thêm generation counter/so `projectId` với
+      `appState.activeCloudProjectId` sau mỗi await, bail nếu lệch. Tương tự `syncUploadSlot`
+      (ghi record vào slot sau await mà không kiểm tra còn đúng project không).
+- [ ] **Chỉ owner được xoá project:** firestore.rules `allow delete` hiện cho mọi member; UI cũng
+      hiện nút ✕ cho mọi member. Siết `email() == resource.data.ownerEmail` + ẩn nút với non-owner.
+- [ ] **Sign-out không dọn cloud state:** user đăng xuất (hoặc user khác đăng nhập tiếp) vẫn thấy
+      model + chip project cũ; upload tiếp sẽ đổ vào project của user trước. `onAuthStateChanged`
+      nhánh `!user`: null `activeCloudProjectId`, clear records/cloudList, `unloadAllModels()`.
+- [ ] **Token verify cũ:** sau khi verify email, ID token cache vẫn `email_verified:false` tới ~1h
+      → cloud bị deny im lặng. Sau reload() verified: `getIdToken(true)`.
+- [ ] **saveOutgoingState mis-target:** rời cloud project vẫn stamp camera/driveLink vào local
+      project active — skip khi `activeCloudProjectId` đang set.
+- [ ] Nhỏ: `refreshCloudList` lỗi mạng hiện y hệt "không có project" (thêm dòng báo lỗi riêng);
+      guard `google?.accounts` trong drive.ts trước khi gọi GIS.
+- **Done khi:** emulator tests cho rules delete/owner-only pass; switch nhanh 2 project không lẫn
+  file; xoá project dọn hết file con + blob; sign-out sạch state; typecheck + test + build pass.
+
+## Phase 18 — 🩺 SG Validate engine (từ audit — hiện gần như chết)
+**Status:** ⬜ Not started
+
+- [ ] **Bug nghiêm trọng nhất app: mọi rule theo class silently skip.** `sgBuildContext`
+      (validator-json-loader.ts:558) đưa `p.type` (STRING như 'IfcWall' từ getAllProps) qua
+      `sgIfcCodeToClass` (map theo MÃ SỐ) → mọi entity rơi vào bucket sai → `ctx.byClass.get('IfcWall')`
+      rỗng → rules trả "No X elements found". Sửa: nếu `typeof p.type === 'string'` dùng thẳng.
+      Thêm test với context giả để không tái phát.
+- [ ] **FED-006 luôn fail:** validator-rules.ts dùng `declare const THREE` nhưng không ai gán
+      `window.THREE` → ReferenceError bị nuốt thành "Rule execution failed". Sửa: import three.
+- [ ] **SCDF/NPARKS chạy nhưng không bao giờ hiển thị:** `AGENCY_ORDER` cố định 6 agency, render
+      loop chỉ duyệt list đó → rules SCDF/NPARKS đếm vào stats nhưng không có row nào trong UI.
+      Append các agency còn lại từ `byAgency`.
+- [ ] **FED-002 crash khi storey elevation null:** filter/flag trước khi so + `.toFixed`.
+- **Done khi:** chạy SG Check trên model thật cho kết quả từng class đúng (không còn "No elements
+  found" hàng loạt), FED-006 chạy thật, SCDF/NPARKS hiện trong list; test mới pass.
+
+## Phase 19 — 🧰 Clash UX/correctness (từ audit)
+**Status:** ⬜ Not started
+
+- [ ] **Restore clash để lại marker mồ côi khi switch project:** `restoreClashResult` không set
+      `clashMode`, `unloadAllModels` không dọn `clashSubsets`/markers → hộp đỏ project A nổi trên
+      project B, chồng thêm mỗi lần restore. Export `clearClashSubsets()` cho unloadAllModels gọi;
+      restore dispose subsets cũ trước.
+- [ ] **Restore render sai model khi Phase 16 chọn non-default:** `showClashResults` fade theo
+      dropdown hiện tại (0/1 sau reload) thay vì `modelIdx` trong kết quả đã lưu; đồng thời mỗi
+      restore ghi thêm `recordSnapshot('clash')` giả. Derive index từ kết quả + flag skip snapshot.
+- [ ] **Checkbox loại clash bị engine ghi đè:** bỏ cả Clash lẫn Distance vẫn ra hard clash; nhập
+      minDist tự bật clearance dù Distance off. Derive filter đúng từ checkbox.
+- [ ] **fedRemoveSlot bỏ quên clash selection:** xoá model đang chọn làm Source/Target → dropdown
+      trỏ file chết, Run enabled nhưng return im lặng. Reset index + re-render + update button.
+- [ ] **enterClashMode reset lựa chọn mỗi lần vào trang:** chỉ áp default khi index hiện tại không
+      còn là model đã load.
+- [ ] **Cap 2000 candidate loại hết clearance:** sort theo penetration desc → near-miss (pen=0)
+      luôn bị cắt. Sort theo metric xếp cả near-miss (vd `penetration - gap`).
+- [ ] Nhỏ: NaN slider khi model phẳng ở `focusSectionOnChanges` (copy guard `range>0` từ clash.ts).
+- **Done khi:** restore clash sau reload với model selection non-default hiển thị đúng model,
+  switch project không còn marker mồ côi; checkbox hoạt động độc lập; test + build pass.
+
+## Phase 20 — ⚡ Perf getAllProps + audit nốt phần còn thiếu
+**Status:** ⬜ Not started
+
+- [ ] **getAllProps Method 2 quét toàn file:** `getItemProperties` cho MỌI line IFC (hàng trăm
+      nghìn WASM round-trip tuần tự) — chi phí lớn nhất của Compare/Validate model thật. Sửa:
+      chỉ duyệt các type IfcProduct qua `GetLineIDsWithType` (hoặc lọc `GetLineType` theo whitelist
+      trước khi fetch). Đo trước/sau bằng model mẫu.
+- [ ] **Audit nốt 2 mảng chưa xong** (agent bị cắt do session limit): core viewer/tools
+      (viewer-core, section-visibility, measure, walk, plan-overlay, colorize, viewcube) và UI
+      shell chi tiết (router/state-persist/fieldmode/properties + demo content còn sót như
+      notification giả "Jane Smith", team panel tĩnh) → fix các finding cao/medium tìm được.
+- [ ] Cân nhắc (từ audit, chưa bắt buộc): settings cloud sync hiện write-only — áp `settings.units`
+      khi mở cloud project; bundle JSZip/jsPDF thay vì CDN lúc click; báo lỗi thân thiện khi export
+      offline.
+- **Done khi:** Compare/Validate trên model ~60MB nhanh hơn đo được (log thời gian); các finding
+  mới mức cao đã fix; typecheck + test + build pass.
