@@ -326,6 +326,23 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
   const lf = document.getElementById('loadFill') as HTMLElement | null;
   lo?.classList.add('on');
 
+  // All downloads (cache-first) start concurrently up front; parsing stays
+  // sequential in slot order (web-ifc shares one WASM instance). Previously
+  // download i+1 waited for parse i to finish, so wall time was
+  // sum(download) + sum(parse); now the network cost is only the slowest
+  // single file, overlapped with parsing.
+  const fetches = ordered.map(rec => (async () => {
+    const cached = await getCachedFile(rec);
+    if (cached) { log(`Cloud auto-load: ${rec.name} served from local cache`); return cached; }
+    const file = await downloadProjectFile(rec);
+    putCachedFile(rec, file); // best-effort, fire-and-forget
+    return file;
+  })());
+  // A later file failing while an earlier one is still parsing would fire
+  // "unhandledrejection" before the loop below awaits it — pre-attach a
+  // no-op handler; the real await still sees the rejection.
+  fetches.forEach(p => p.catch(() => {}));
+
   for (let i = 0; i < ordered.length; i++) {
     const rec = ordered[i];
     const idx = keyToSlotIndex(rec.slot);
@@ -334,13 +351,7 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
     if (lt) lt.textContent = `Downloading ${rec.name} (${i + 1}/${ordered.length})…`;
     if (lf) lf.style.width = Math.round(((i + 0.3) / ordered.length) * 100) + '%';
     try {
-      let file = await getCachedFile(rec);
-      if (file) {
-        log(`Cloud auto-load: ${rec.name} served from local cache`);
-      } else {
-        file = await downloadProjectFile(rec);
-        putCachedFile(rec, file); // best-effort, fire-and-forget
-      }
+      const file = await fetches[i];
       appState.files[idx] = file;
       if (idx < 2) {
         document.getElementById('uc' + idx)?.classList.add('loaded');
@@ -380,11 +391,15 @@ async function restoreSavedResults(projectId: string): Promise<void> {
     { kind: 'compare', badgeId: 'compareOutdatedBadge' },
     { kind: 'clash', badgeId: 'clashOutdatedBadge' },
   ];
-  for (const { kind, badgeId } of kinds) {
+  // Both metadata docs fetched concurrently — they're independent reads;
+  // the apply step below stays sequential so Compare keeps priority.
+  const metas = kinds.map(k => fetchResultMetadata(projectId, k.kind));
+  for (let ki = 0; ki < kinds.length; ki++) {
+    const { kind, badgeId } = kinds[ki];
     const badge = document.getElementById(badgeId);
     if (badge) { badge.style.display = 'none'; badge.title = ''; }
     try {
-      const meta = await fetchResultMetadata(projectId, kind);
+      const meta = await metas[ki];
       if (!meta) continue;
       if (!signaturesMatch(meta.modelSignature, currentSignature)) {
         if (badge) { badge.style.display = ''; badge.textContent = outdatedBadgeLabel(); }
