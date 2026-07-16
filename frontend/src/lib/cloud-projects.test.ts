@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildCloudProjectDoc, buildMigrationDoc, normalizeMemberEmails, canAccess,
-  mergeProjectRegistries, displayKey, addMemberEmail, removeMemberEmail, type CloudProject,
+  mergeProjectRegistries, displayKey, addMemberEmail, removeMemberEmail, isProjectOwner, type CloudProject,
 } from './cloud-projects.js';
 import { createProject, type ProjectRegistry } from './projects-store.js';
 
@@ -138,5 +138,21 @@ describe('cloud-projects — removeMemberEmail', () => {
   it('is a no-op for a non-member email', () => {
     const list = ['owner@x.com', 'bob@y.com'];
     expect(removeMemberEmail(list, 'owner@x.com', 'eve@z.com')).toBe(list);
+  });
+});
+
+describe('cloud-projects — isProjectOwner', () => {
+  const proj = { ownerEmail: 'owner@x.com' };
+
+  it('matches the owner case-insensitively', () => {
+    expect(isProjectOwner(proj, 'owner@x.com')).toBe(true);
+    expect(isProjectOwner(proj, '  Owner@X.COM ')).toBe(true);
+  });
+
+  it('rejects non-owner members and empty emails', () => {
+    expect(isProjectOwner(proj, 'bob@y.com')).toBe(false);
+    expect(isProjectOwner(proj, '')).toBe(false);
+    expect(isProjectOwner(proj, null)).toBe(false);
+    expect(isProjectOwner(proj, undefined)).toBe(false);
   });
 });

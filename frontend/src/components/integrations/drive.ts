@@ -46,6 +46,14 @@ window.gdLogin = function (): void {
     _pendingLoadViewer = false;
     return;
   }
+  // GIS script loads async from index.html — a click before it lands (slow
+  // network, blocker) would otherwise throw on `google.accounts`.
+  if (!(window as any).google?.accounts) {
+    alert('Google sign-in script not loaded yet. Check connection and try again.');
+    _pendingLoad = null;
+    _pendingLoadViewer = false;
+    return;
+  }
   if (!_gdTokenClient) {
     _gdTokenClient = (window as any).google.accounts.oauth2.initTokenClient({
       client_id: GD_CONFIG.CLIENT_ID,

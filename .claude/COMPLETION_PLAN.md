@@ -31,7 +31,7 @@
 | 14 | ☁ Share team theo email + cache IndexedDB + polish | ✅ Done — PR #62 |
 | 15 | ☁ Lưu kết quả Compare/Clash lên cloud project | ✅ Done — PR #66 |
 | 16 | Clash: chọn model cho Source/Target set | ✅ Done — PR #68 |
-| 17 | 🔒 Audit fix: toàn vẹn dữ liệu cloud + quyền (race switch, orphan blob, delete) | ⬜ Not started |
+| 17 | 🔒 Audit fix: toàn vẹn dữ liệu cloud + quyền (race switch, orphan blob, delete) | ✅ Done — PR #71 |
 | 18 | 🩺 Audit fix: SG Validate engine (rules skip toàn bộ, THREE, SCDF/NPARKS ẩn) | ⬜ Not started |
 | 19 | 🧰 Audit fix: Clash UX/correctness (restore markers, checkbox, model selection) | ⬜ Not started |
 | 20 | ⚡ Perf getAllProps + audit nốt core viewer/tools + UI shell | ⬜ Not started |
@@ -643,32 +643,32 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 > delete project để lại rác vĩnh viễn).
 
 ## Phase 17 — 🔒 Cloud data-integrity + quyền (từ audit)
-**Status:** ⬜ Not started
+**Status:** ✅ Done — PR #71 (2026-07-16)
 
-- [ ] **storage.rules — delete bị chặn vĩnh viễn:** `allow write` gồm cả delete, nhưng khi delete
+- [x] **storage.rules — delete bị chặn vĩnh viễn:** `allow write` gồm cả delete, nhưng khi delete
       `request.resource == null` → check size/contentType lỗi → mọi `deleteObject()` bị từ chối,
       blob thay thế/xoá tích tụ tính phí mãi. Tách `allow create, update` (giữ check) khỏi
       `allow delete: if isVerified() && isProjectMember(projectId)`. Test bằng emulator.
-- [ ] **Xoá project mồ côi toàn bộ file:** `projDeleteCloud` chỉ xoá doc `projects/{id}` — subcollection
+- [x] **Xoá project mồ côi toàn bộ file:** `projDeleteCloud` chỉ xoá doc `projects/{id}` — subcollection
       `files`/`results` + blob Storage bị bỏ lại, và vì cả 2 rules đều authorize qua `get()` doc
       cha (đã xoá) nên KHÔNG AI dọn được nữa. Sửa: trước khi xoá doc, duyệt `fetchProjectFiles` +
       `results` → xoá blob + doc con (best-effort). `deleteProjectFileRecord` hiện là dead code —
       dùng nó.
-- [ ] **Race switch project nhanh:** `autoLoadCloudProjectFiles` không có generation guard —
+- [x] **Race switch project nhanh:** `autoLoadCloudProjectFiles` không có generation guard —
       switch A rồi switch B ngay khi A còn fetch → 2 luồng chạy song song, file A đổ vào workspace
       B, kết quả A restore lên model B. Thêm generation counter/so `projectId` với
       `appState.activeCloudProjectId` sau mỗi await, bail nếu lệch. Tương tự `syncUploadSlot`
       (ghi record vào slot sau await mà không kiểm tra còn đúng project không).
-- [ ] **Chỉ owner được xoá project:** firestore.rules `allow delete` hiện cho mọi member; UI cũng
+- [x] **Chỉ owner được xoá project:** firestore.rules `allow delete` hiện cho mọi member; UI cũng
       hiện nút ✕ cho mọi member. Siết `email() == resource.data.ownerEmail` + ẩn nút với non-owner.
-- [ ] **Sign-out không dọn cloud state:** user đăng xuất (hoặc user khác đăng nhập tiếp) vẫn thấy
+- [x] **Sign-out không dọn cloud state:** user đăng xuất (hoặc user khác đăng nhập tiếp) vẫn thấy
       model + chip project cũ; upload tiếp sẽ đổ vào project của user trước. `onAuthStateChanged`
       nhánh `!user`: null `activeCloudProjectId`, clear records/cloudList, `unloadAllModels()`.
-- [ ] **Token verify cũ:** sau khi verify email, ID token cache vẫn `email_verified:false` tới ~1h
+- [x] **Token verify cũ:** sau khi verify email, ID token cache vẫn `email_verified:false` tới ~1h
       → cloud bị deny im lặng. Sau reload() verified: `getIdToken(true)`.
-- [ ] **saveOutgoingState mis-target:** rời cloud project vẫn stamp camera/driveLink vào local
+- [x] **saveOutgoingState mis-target:** rời cloud project vẫn stamp camera/driveLink vào local
       project active — skip khi `activeCloudProjectId` đang set.
-- [ ] Nhỏ: `refreshCloudList` lỗi mạng hiện y hệt "không có project" (thêm dòng báo lỗi riêng);
+- [x] Nhỏ: `refreshCloudList` lỗi mạng hiện y hệt "không có project" (thêm dòng báo lỗi riêng);
       guard `google?.accounts` trong drive.ts trước khi gọi GIS.
 - **Done khi:** emulator tests cho rules delete/owner-only pass; switch nhanh 2 project không lẫn
   file; xoá project dọn hết file con + blob; sign-out sạch state; typecheck + test + build pass.

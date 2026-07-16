@@ -16,12 +16,12 @@ import {
 } from '../../lib/projects-store.js';
 import { deleteProjectViewpoints } from '../../lib/viewpoints-store.js';
 import {
-  fetchCloudProjects, createCloudProject, renameCloudProject, deleteCloudProject,
+  fetchCloudProjects, createCloudProject, renameCloudProject, isProjectOwner,
   migrateLocalToCloud, addMemberEmail, removeMemberEmail, updateProjectMembers, syncProjectSettings,
   type CloudProject, type CloudProjectFile,
 } from '../../lib/cloud-projects.js';
 import {
-  fetchProjectFiles, downloadProjectFile, uploadProjectFile,
+  fetchProjectFiles, downloadProjectFile, uploadProjectFile, deleteCloudProjectDeep,
   orderFilesForAutoLoad, keyToSlotIndex, shouldConfirmOverwrite, syncChipLabel,
   exceedsUploadQuota, sumStorageUsage, formatBytes,
 } from '../../lib/cloud-files.js';
@@ -42,6 +42,13 @@ function persist(): void {
 // ── Cloud layer (Phase 12) — additive, never blocks the local-only path ──
 let cloudList: CloudProject[] = [];
 let cloudLoading = false;
+let cloudLoadError = false;
+
+// Bumped on every project activation (local or cloud). In-flight cloud
+// auto-loads capture the value at start and bail after each await if it no
+// longer matches — otherwise rapid A→B switching dumps A's files/results
+// into B's workspace.
+let switchGeneration = 0;
 
 function currentAuthUser() {
   const fn = (window as any).getAuthUser;
@@ -53,10 +60,14 @@ function currentAuthUser() {
 // their experience stays exactly the local-only Phase 6 flow.
 async function refreshCloudList(): Promise<void> {
   const user = currentAuthUser();
-  if (!user || !user.emailVerified) { cloudList = []; renderProjectList(); return; }
+  if (!user || !user.emailVerified) { cloudList = []; cloudLoadError = false; renderProjectList(); return; }
   cloudLoading = true;
   renderProjectList();
-  cloudList = await fetchCloudProjects(user.email);
+  const fetched = await fetchCloudProjects(user.email);
+  // null = fetch failed — keep the stale list (better than blanking a
+  // working UI) and surface an explicit error row instead of "no projects".
+  cloudLoadError = fetched === null;
+  if (fetched !== null) cloudList = fetched;
   cloudLoading = false;
   renderProjectList();
 }
@@ -103,6 +114,9 @@ function renderProjectList(): void {
 
   const cloudRows = !canUseCloud ? [] : cloudList.map(p => {
     const active = p.id === appState.activeCloudProjectId;
+    // Delete is owner-only (mirrors firestore.rules) — hide the button
+    // instead of letting members hit a permission-denied.
+    const owner = isProjectOwner(p, user?.email);
     return `<div class="proj-row${active ? ' active' : ''}">
       <div class="proj-row-dot" style="background:#2563eb"></div>
       <div class="proj-row-info">
@@ -112,17 +126,22 @@ function renderProjectList(): void {
       <div class="proj-row-actions">
         ${active ? '' : `<button class="proj-row-btn" onclick="projSwitchCloud('${p.id}')" title="Switch to this cloud project">Switch</button>`}
         <button class="proj-row-btn" onclick="projRenameCloud('${p.id}')" title="Rename">✎</button>
-        <button class="proj-row-btn proj-row-btn-danger" onclick="projDeleteCloud('${p.id}')" title="Delete">✕</button>
+        ${owner ? `<button class="proj-row-btn proj-row-btn-danger" onclick="projDeleteCloud('${p.id}')" title="Delete">✕</button>` : ''}
       </div>
     </div>`;
   });
 
   const loadingRow = cloudLoading ? '<div class="proj-empty">Loading cloud projects…</div>' : '';
-  const rows = loadingRow + cloudRows.join('') + localRows.join('');
+  const errorRow = (!cloudLoading && cloudLoadError && canUseCloud)
+    ? '<div class="proj-empty">⚠ Couldn\'t load cloud projects — check connection.</div>' : '';
+  const rows = loadingRow + errorRow + cloudRows.join('') + localRows.join('');
   el.innerHTML = rows || '<div class="proj-empty">No projects yet.</div>';
 }
 
 function saveOutgoingState(): void {
+  // Leaving a CLOUD project must not stamp its page/camera/driveLink onto
+  // whatever unrelated local project happens to be the registry's active.
+  if (appState.activeCloudProjectId) return;
   const active = getActiveProject(registry);
   if (!active) return;
   const patch: { page: string; camera?: any; driveLink: string } = {
@@ -142,6 +161,7 @@ function saveOutgoingState(): void {
 // Persist + unload + reflect the now-active project everywhere. Shared by
 // projCreate (a new project is always made active) and projSwitch.
 function finishActivation(): void {
+  switchGeneration++; // invalidates any in-flight cloud auto-load
   persist();
   navigateTo('viewer');
   (window as any).unloadAllModels?.();
@@ -299,6 +319,10 @@ export async function syncUploadSlot(idx: number, file: File): Promise<void> {
     appState.cloudSyncStatus[idx] = { status: 'uploading', progress: pct };
     renderSyncChip(idx);
   });
+  // The upload itself went to the right project either way — but if the user
+  // switched projects while it ran, don't stamp the record/chip onto the NEW
+  // project's slot state.
+  if (appState.activeCloudProjectId !== projectId) return;
   if (record) {
     appState.cloudFileRecords[idx] = record;
     appState.cloudSyncStatus[idx] = { status: 'synced' };
@@ -315,9 +339,12 @@ export async function syncUploadSlot(idx: number, file: File): Promise<void> {
 // machine and everything's just there" flow. One file's failure doesn't
 // block the rest.
 async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
+  const gen = switchGeneration;
+  const stale = () => gen !== switchGeneration; // another project activated meanwhile
   appState.cloudFileRecords = {};
   appState.cloudSyncStatus = {};
   const records = await fetchProjectFiles(projectId);
+  if (stale()) return;
   if (records.length === 0) return;
   const ordered = orderFilesForAutoLoad(records);
 
@@ -344,6 +371,7 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
   fetches.forEach(p => p.catch(() => {}));
 
   for (let i = 0; i < ordered.length; i++) {
+    if (stale()) { lo?.classList.remove('on'); return; }
     const rec = ordered[i];
     const idx = keyToSlotIndex(rec.slot);
     appState.cloudFileRecords[idx] = rec;
@@ -352,6 +380,7 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
     if (lf) lf.style.width = Math.round(((i + 0.3) / ordered.length) * 100) + '%';
     try {
       const file = await fetches[i];
+      if (stale()) { lo?.classList.remove('on'); return; }
       appState.files[idx] = file;
       if (idx < 2) {
         document.getElementById('uc' + idx)?.classList.add('loaded');
@@ -363,6 +392,7 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
       if (!appState.ifcLoader) {
         if (!await (window as any).initIFC?.()) throw new Error('IFC init failed');
       }
+      if (stale()) { lo?.classList.remove('on'); return; }
       if (lt) lt.textContent = `Loading ${rec.name} (${i + 1}/${ordered.length})…`;
       await (window as any).loadIFC?.(idx);
       log(`Cloud auto-load: ${rec.name} loaded into slot ${idx}`);
@@ -376,7 +406,7 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
   if (lf) lf.style.width = '100%';
   lo?.classList.remove('on');
 
-  await restoreSavedResults(projectId);
+  await restoreSavedResults(projectId, gen);
 }
 
 // Best-effort restore of a previously-saved Compare/Clash result (Phase 15).
@@ -385,7 +415,8 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
 // what's actually loaded. A mismatch (files changed) surfaces a small
 // "Outdated — re-run" badge instead of silently applying stale data. Any
 // failure here must never disturb the just-completed file auto-load.
-async function restoreSavedResults(projectId: string): Promise<void> {
+async function restoreSavedResults(projectId: string, gen: number): Promise<void> {
+  const stale = () => gen !== switchGeneration;
   const currentSignature = buildModelSignature(appState.files);
   const kinds: { kind: ResultKind; badgeId: string }[] = [
     { kind: 'compare', badgeId: 'compareOutdatedBadge' },
@@ -400,6 +431,7 @@ async function restoreSavedResults(projectId: string): Promise<void> {
     if (badge) { badge.style.display = 'none'; badge.title = ''; }
     try {
       const meta = await metas[ki];
+      if (stale()) return; // don't restore project A's results onto project B
       if (!meta) continue;
       if (!signaturesMatch(meta.modelSignature, currentSignature)) {
         if (badge) { badge.style.display = ''; badge.textContent = outdatedBadgeLabel(); }
@@ -410,6 +442,7 @@ async function restoreSavedResults(projectId: string): Promise<void> {
       // processed first (kinds order above); skip Clash if it already won.
       if (kind === 'clash' && appState.compareResult) continue;
       const data = await downloadResult(projectId, kind);
+      if (stale()) return;
       if (!data) continue;
       if (kind === 'compare') await restoreCompareResult(data);
       else restoreClashResult(data as any[]);
@@ -428,6 +461,7 @@ window.projSwitchCloud = function (id: string): void {
   if (!confirmIfHasWork('Switching projects unloads all loaded models and discards unsaved compare/clash results. Continue?')) return;
 
   saveOutgoingState();
+  switchGeneration++; // invalidates any in-flight auto-load for the previous project
   appState.activeCloudProjectId = id;
   persist();
   navigateTo('viewer');
@@ -456,8 +490,8 @@ window.projRenameCloud = async function (id: string): Promise<void> {
 window.projDeleteCloud = async function (id: string): Promise<void> {
   const p = cloudList.find(c => c.id === id);
   if (!p) return;
-  if (!confirm(`Delete cloud project "${p.name}"? This does not delete uploaded files.`)) return;
-  const ok = await deleteCloudProject(id);
+  if (!confirm(`Delete cloud project "${p.name}"? This permanently deletes its uploaded files and saved results for all members.`)) return;
+  const ok = await deleteCloudProjectDeep(id);
   if (!ok) { alert('Could not delete the cloud project. Check your connection and try again.'); return; }
   cloudList = cloudList.filter(c => c.id !== id);
   if (id === appState.activeCloudProjectId) {
@@ -621,6 +655,20 @@ async function refreshStorageUsage(): Promise<void> {
   el.textContent = formatBytes(sumStorageUsage(files));
 }
 window.addEventListener('ifc:projectchange', () => { refreshStorageUsage(); });
+
+// Sign-out (auth.ts) already nulled activeCloudProjectId + records and
+// unloaded models — drop this module's cached cloud list and reflect the
+// local active project in the chip so the next user starts clean.
+window.addEventListener('ifc:signout', () => {
+  switchGeneration++; // kill any in-flight cloud auto-load too
+  cloudList = [];
+  cloudLoadError = false;
+  document.getElementById('syncChip0')?.replaceChildren();
+  document.getElementById('syncChip1')?.replaceChildren();
+  chipLabel();
+  renderProjectList();
+  refreshStorageUsage();
+});
 
 // ── IndexedDB cache "Clear cache" button (Settings) ───────────────────────
 (window as any).ifcCacheClear = async function (): Promise<void> {

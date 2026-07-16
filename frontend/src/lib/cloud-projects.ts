@@ -80,6 +80,13 @@ export function canAccess(memberEmails: string[], email: string): boolean {
   return memberEmails.some(m => normEmail(m) === target);
 }
 
+// Mirrors firestore.rules' owner-only delete check (email() == ownerEmail)
+// so the UI can hide the delete button from non-owners.
+export function isProjectOwner(project: Pick<CloudProject, 'ownerEmail'>, email: string | null | undefined): boolean {
+  const target = normEmail(email || '');
+  return !!target && normEmail(project.ownerEmail) === target;
+}
+
 // Builds the doc payload for `projects/{id}` create — pure, no Firestore.
 export function buildCloudProjectDoc(
   name: string,
@@ -209,7 +216,9 @@ async function getDb() {
   return getFirestore(getApp());
 }
 
-export async function fetchCloudProjects(email: string): Promise<CloudProject[]> {
+// Returns null on failure (network/permission) so callers can distinguish
+// "couldn't load" from a genuinely empty [] project list.
+export async function fetchCloudProjects(email: string): Promise<CloudProject[] | null> {
   const target = normEmail(email);
   if (!target) return [];
   try {
@@ -220,7 +229,7 @@ export async function fetchCloudProjects(email: string): Promise<CloudProject[]>
     return snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<CloudProject, 'id'>) }));
   } catch (e) {
     console.warn('[cloud-projects] fetchCloudProjects failed, falling back to local-only:', e);
-    return [];
+    return null;
   }
 }
 

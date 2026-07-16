@@ -10,6 +10,8 @@
 ═══════════════════════════════════════════════════════════════════════ */
 
 import type { CloudProjectFile } from './cloud-projects.js';
+import { deleteCloudProject } from './cloud-projects.js';
+import { deleteResultRecord, resultStoragePath, RESULT_KINDS } from './cloud-results.js';
 
 export type SyncStatus = 'local-only' | 'uploading' | 'synced' | 'error';
 
@@ -214,6 +216,23 @@ export async function uploadProjectFile(
     console.warn('[cloud-files] uploadProjectFile Firestore write failed:', e);
     return null;
   }
+}
+
+// Deletes a cloud project AND its files/results subcollection docs + Storage
+// blobs. Cleanup runs BEFORE the project doc delete because both rulesets
+// authorize children via get() of the parent doc — once that doc is gone,
+// nobody (not even the owner) can clean the orphans up. Each child delete is
+// best-effort (warn + continue); the project doc delete result is returned.
+export async function deleteCloudProjectDeep(projectId: string): Promise<boolean> {
+  const records = await fetchProjectFiles(projectId);
+  for (const rec of records) {
+    await deleteProjectFileRecord(projectId, rec);
+  }
+  for (const kind of RESULT_KINDS) {
+    await deleteResultRecord(projectId, kind);
+    await deleteProjectFileBlob(resultStoragePath(projectId, kind));
+  }
+  return deleteCloudProject(projectId);
 }
 
 export async function deleteProjectFileRecord(projectId: string, record: CloudProjectFile): Promise<void> {
