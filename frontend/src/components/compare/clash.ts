@@ -1404,16 +1404,21 @@ window.exportClashCSV = function(): void {
 // ══ Clash BCF Export ══
 window.exportClashBCF = async function(): Promise<void> {
   if (!appState.clashResults.length) { log('No clashes to export'); return; }
-  if (!(window as any).JSZip) {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    document.head.appendChild(s);
-    await new Promise((res, rej) => { s.onload = res; s.onerror = rej; });
-  }
 
   (window as any).setStatus('loading', 'Exporting Clash BCF...');
   log('Exporting BCF for ' + appState.clashResults.length + ' clashes...');
-  const zip = new (window as any).JSZip();
+  let JSZip: any;
+  try {
+    // Bundled dependency (frontend/package.json) — previously fetched from a
+    // CDN at click time with no error handling, so any network hiccup left
+    // the export silently stuck on "Exporting Clash BCF..." forever.
+    JSZip = (await import('jszip')).default;
+  } catch (e: any) {
+    (window as any).setStatus('', '');
+    alert('Clash BCF export failed to load: ' + (e?.message || e));
+    return;
+  }
+  const zip = new JSZip();
   const now = new Date().toISOString();
   const pid = crypto.randomUUID();
 
