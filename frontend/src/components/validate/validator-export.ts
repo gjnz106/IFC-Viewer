@@ -30,12 +30,12 @@ window.sgExportReport = async function(){
   const sgState = appState.sgState as any;
   if(!sgState.results){ log('SG: no results to export'); return; }
   try{
-    // Use jsPDF from existing import if present, else CDN
-    if(!(window as any).jspdf){
-      const mod = await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm' as any);
-      (window as any).jspdf = mod;
-    }
-    const { jsPDF } = (window as any).jspdf;
+    // Bundled dependency (frontend/package.json) — lazy-imported so it stays
+    // out of the main chunk, same pattern as firebase/firestore elsewhere.
+    // Previously this fetched jsPDF from a CDN at click time even though
+    // it's already an npm dependency; any network hiccup made "PDF export"
+    // silently unavailable for no reason.
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF({unit:'mm', format:'a4'});
     const W = 210, M = 15;
     let y = M;
@@ -64,7 +64,7 @@ window.sgExportReport = async function(){
     for(const r of sgState.results.rules){
       if(y > 270){ doc.addPage(); y = M; }
       const icon = r.failed.length===0 && r.passed.length>0 ? '[PASS]' : r.failed.length>0 ? '[FAIL]' : '[SKIP]';
-      const color = r.failed.length===0 && r.passed.length>0 ? [22,163,74] : r.failed.length>0 ? [220,38,38] : [156,163,175];
+      const color: [number, number, number] = r.failed.length===0 && r.passed.length>0 ? [22,163,74] : r.failed.length>0 ? [220,38,38] : [156,163,175];
       doc.setTextColor(...color);
       doc.text(icon, M, y);
       doc.setTextColor(15,23,42);
@@ -138,15 +138,10 @@ window.sgExportBCF = async function(){
   // Limit to 200 issues to avoid huge files
   const maxIssues = Math.min(issues.length, 200);
 
-  // Load JSZip
-  if(!(window as any).JSZip){
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    document.head.appendChild(s);
-    await new Promise((res,rej)=>{s.onload=res;s.onerror=rej});
-  }
-
-  const zip = new (window as any).JSZip();
+  // Bundled dependency — see sgExportReport's comment above for why this
+  // isn't fetched from a CDN.
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
   const now = new Date().toISOString();
   const pid = crypto.randomUUID();
 

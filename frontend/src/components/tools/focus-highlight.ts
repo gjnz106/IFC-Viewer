@@ -244,14 +244,18 @@ window.exportCSV = function (): void {
 // ══ BCF Export ══
 window.exportBCF = async function (): Promise<void> {
   if (!appState.compareResult || !appState.issuesList.length) { log('No issues to export'); return; }
-  if (!(window as any).JSZip) {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    document.head.appendChild(s);
-    await new Promise<void>((res, rej) => { s.onload = () => res(); s.onerror = rej; });
+  let JSZip: any;
+  try {
+    // Bundled dependency (frontend/package.json) — previously fetched from a
+    // CDN at click time with no error handling, so any network hiccup made
+    // "BCF export" silently do nothing.
+    JSZip = (await import('jszip')).default;
+  } catch (e: any) {
+    alert('BCF export failed to load: ' + (e?.message || e));
+    return;
   }
   log('Exporting BCF for ' + appState.issuesList.length + ' issues...');
-  const zip = new (window as any).JSZip();
+  const zip = new JSZip();
   const now = new Date().toISOString();
   const pid = crypto.randomUUID();
 
