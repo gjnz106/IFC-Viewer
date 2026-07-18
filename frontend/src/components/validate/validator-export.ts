@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { escapeHtml } from '../../lib/escape.js';
 
 // ── SG panel open/close primitive ──
 // The router reconciles the page's desired state through this (validate page
@@ -326,12 +327,11 @@ window.sgExportBCF = async function(){
   log(`SG BCF exported: ${maxIssues} issues` + (issues.length > maxIssues ? ` (${issues.length - maxIssues} truncated)` : ''));
 };
 
-// Small helper used in HTML templates above
-export function escapeHtml(s: any): string {
-  if(s == null) return '';
-  return String(s).replace(/[&<>"']/g, (c: string) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
-}
+// Re-exported from the shared helper (lib/escape.ts) so validate templates and
+// the window.* shim below share one canonical implementation.
+export { escapeHtml };
 
-// federation-load.ts calls window.escapeHtml(fname) non-defensively when rendering
-// federation slot names; attach it so that path doesn't throw.
+// Legacy shim: some inline HTML handlers / older call sites reference the
+// global window.escapeHtml. Modules now import escapeHtml directly, but keep
+// this so any remaining bare/global reference still resolves.
 (window as any).escapeHtml = escapeHtml;

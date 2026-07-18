@@ -448,10 +448,17 @@ export function enterClashMode(): void {
 
   // Default Source/Target to slots 0/1 (preserves pre-Phase-16 A vs B
   // behaviour) — but fall back to whatever single model is loaded if only
-  // one of A/B is present, consistent with self-clash semantics.
+  // one of A/B is present, consistent with self-clash semantics. Only (re)apply
+  // the default when the current selection no longer points at a loaded model,
+  // so a selection the user made earlier (e.g. federation slots) survives
+  // navigating away and back into clash mode.
   const firstLoadedIdx = appState.loadedModels.findIndex(m => m);
-  appState.clashSourceIdx = appState.loadedModels[0] ? 0 : Math.max(firstLoadedIdx, 0);
-  appState.clashTargetIdx = appState.loadedModels[1] ? 1 : appState.clashSourceIdx;
+  if (!appState.loadedModels[appState.clashSourceIdx]) {
+    appState.clashSourceIdx = appState.loadedModels[0] ? 0 : Math.max(firstLoadedIdx, 0);
+  }
+  if (!appState.loadedModels[appState.clashTargetIdx]) {
+    appState.clashTargetIdx = appState.loadedModels[1] ? 1 : appState.clashSourceIdx;
+  }
   renderClashModelSelects();
   updateClashRunButtonState();
   clashSyncDuplicateUI();
@@ -465,6 +472,35 @@ export function enterClashMode(): void {
 window.toggleClashMode = function(): void {
   window.navigateTo?.(appState.clashMode ? 'viewer' : 'clash');
 };
+
+// Dispose + detach every clash-zone marker group and empty the tracking array.
+// Exported so project teardown (unloadAllModels) can sweep markers that would
+// otherwise float over the next project, and so restore can clear stale markers
+// before drawing its own (each showClashResults() pushes a fresh group).
+export function clearClashSubsets(): void {
+  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
+  clashSubsets = [];
+}
+window.clearClashSubsets = clearClashSubsets;
+
+// Reset Source/Target selection when the model they point at is removed
+// (federation slot deleted) — otherwise the dropdown references a disposed slot
+// and Run silently no-ops. Falls back to still-loaded slots.
+export function clashHandleModelRemoved(removedIdx: number): void {
+  const firstLoaded = appState.loadedModels.findIndex(m => m);
+  if (appState.clashSourceIdx === removedIdx) {
+    appState.clashSourceIdx = firstLoaded >= 0 ? firstLoaded : 0;
+  }
+  if (appState.clashTargetIdx === removedIdx) {
+    const secondLoaded = appState.loadedModels.findIndex((m, i) => m && i !== appState.clashSourceIdx);
+    appState.clashTargetIdx = secondLoaded >= 0 ? secondLoaded : appState.clashSourceIdx;
+  }
+  if (appState.clashMode) {
+    renderClashModelSelects();
+    updateClashRunButtonState();
+  }
+}
+window.clashHandleModelRemoved = clashHandleModelRemoved;
 
 export function exitClashMode(): void {
   appState.clashMode = false;
@@ -485,8 +521,8 @@ export function exitClashMode(): void {
   if(panelBtn2){panelBtn2.disabled=!bothLoaded;panelBtn2.style.opacity=bothLoaded?'1':'.35';}
   document.getElementById('clashGroupBar')!.style.display = 'none';
 
-  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
-  clashSubsets = []; appState.clashResults = []; currentClashIdx = -1;
+  clearClashSubsets();
+  appState.clashResults = []; currentClashIdx = -1;
   clashPropertyCacheA = {}; clashPropertyCacheB = {};
   // Remove focus highlights
   const oldFocus: THREE.Object3D[] = [];
@@ -575,6 +611,16 @@ function bboxPenetration(a: any, b: any): number {
   const oz = Math.min(a.mxZ, b.mxZ) - Math.max(a.mnZ, b.mnZ);
   if (ox <= 0 || oy <= 0 || oz <= 0) return 0;
   return Math.min(ox, oy, oz); // penetration depth = smallest overlap axis
+}
+
+// Severity score used to rank clash candidates before the CAND_CAP cut.
+// penetration (>0 for real overlaps) minus gap (>0 for near-misses): every
+// overlap outranks every gap, and among near-misses a smaller gap ranks higher.
+// Descending sort by this keeps the worst offenders of BOTH kinds — ranking by
+// raw penetration alone left all clearances (penetration = 0) at the bottom,
+// where the cap silently discarded them.
+export function clashCandidateSeverity(penetration: number, gap: number): number {
+  return penetration - gap;
 }
 
 // Euclidean separation between two AABBs (0 when they overlap on every axis).
@@ -731,25 +777,30 @@ window.runClashDetection = async function(): Promise<void> {
 
   // Re-running without exiting first would otherwise leave the previous run's
   // clash-zone marker meshes orphaned in the scene (never disposed).
-  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
-  clashSubsets = [];
+  clearClashSubsets();
 
   // ── Read configuration from new BIMcollab-style UI ──
   // Tolerances. The "Minimum distance" field controls what previously was the
   // single tolerance slider — clearance threshold in mm.
   const minDistMm = parseFloat((document.getElementById('clashTolMinDist') as HTMLInputElement)?.value) || 0;
-  const tolerance = minDistMm / 1000;  // m
-  // Type checkboxes (Clash / Duplicate / Distance). For now we map:
-  //   Clash → hard clash
-  //   Distance (with minDistMm > 0) → clearance
-  //   Both checked → 'both'
-  const cClash     = (document.getElementById('clashTypeClash') as HTMLInputElement)?.checked;
-  const cDuplicate = (document.getElementById('clashTypeDuplicate') as HTMLInputElement)?.checked;
-  const cDistance  = (document.getElementById('clashTypeDistance') as HTMLInputElement)?.checked || minDistMm > 0;
-  let clashTypeFilter: string = 'hard';
+  // Type checkboxes (Clash / Duplicate / Distance) map to the detection mode:
+  //   Clash → hard clash · Distance → clearance/near-miss · both → 'both'.
+  // Derive the mode purely from the checkboxes: a typed Minimum-distance value
+  // must NOT silently switch clearance on while Distance is unchecked, and
+  // unchecking both must yield nothing ('none') — not a fallback to hard.
+  const cClash     = !!(document.getElementById('clashTypeClash') as HTMLInputElement | null)?.checked;
+  const cDuplicate = !!(document.getElementById('clashTypeDuplicate') as HTMLInputElement | null)?.checked;
+  const cDistance  = !!(document.getElementById('clashTypeDistance') as HTMLInputElement | null)?.checked;
+  let clashTypeFilter: string;
   if (cClash && cDistance) clashTypeFilter = 'both';
   else if (cDistance)      clashTypeFilter = 'clearance';
-  else                     clashTypeFilter = 'hard';
+  else if (cClash)         clashTypeFilter = 'hard';
+  else                     clashTypeFilter = 'none';
+  // Clearance threshold only applies when Distance is part of the mode; keep it
+  // at 0 for hard-only/none so near-miss candidates don't fill (and get cut by)
+  // the candidate cap.
+  const clearanceOn = clashTypeFilter === 'clearance' || clashTypeFilter === 'both';
+  const tolerance = clearanceOn ? minDistMm / 1000 : 0;  // m
 
   // ── Collect filter configuration from rule rows ──
   const catsA = resolveClashElementTypes('A');
@@ -852,7 +903,7 @@ window.runClashDetection = async function(): Promise<void> {
   await new Promise(r => setTimeout(r, 20));
 
   // ── Phase 3: BBox overlap ──
-  const candidates: { a: any; b: any; penetration: number }[] = [];
+  const candidates: { a: any; b: any; penetration: number; gap: number }[] = [];
   let checked = 0;
   const total = arrA.length * arrB.length;
   // Self-clash: Source/Target categories can overlap (e.g. "Walls" on both
@@ -871,7 +922,8 @@ window.runClashDetection = async function(): Promise<void> {
       }
       if (bboxOverlap(a, b, tolerance)) {
         const pen = bboxPenetration(a, b);
-        candidates.push({ a, b, penetration: pen });
+        const gap = clearanceOn ? bboxGap(a, b) : 0;
+        candidates.push({ a, b, penetration: pen, gap });
       }
       checked++;
     }
@@ -889,9 +941,17 @@ window.runClashDetection = async function(): Promise<void> {
   // ── Phase 4: Mesh intersection + property enrichment ──
   appState.clashResults = [];
   const CAND_CAP = 2000;
-  const capped = candidates.length > CAND_CAP;   // note if we drop candidates
-  const maxCheck = Math.min(candidates.length, CAND_CAP);
-  candidates.sort((a, b) => b.penetration - a.penetration);
+  // Rank by severity so the cap keeps the worst offenders of BOTH kinds:
+  // penetration (>0 for overlaps) minus gap (>0 for near-misses) — a 2mm gap
+  // outranks a 40mm gap, and any real overlap outranks any gap. Sorting by raw
+  // penetration alone parked every clearance (penetration = 0) at the bottom,
+  // so the cap silently dropped all near-misses.
+  candidates.sort((a, b) => clashCandidateSeverity(b.penetration, b.gap) - clashCandidateSeverity(a.penetration, a.gap));
+  // 'none' (neither Clash nor Distance checked) means no overlap-based clashes
+  // were requested — skip mesh testing entirely (duplicates still run below).
+  const noneMode = clashTypeFilter === 'none';
+  const capped = !noneMode && candidates.length > CAND_CAP;
+  const maxCheck = noneMode ? 0 : Math.min(candidates.length, CAND_CAP);
   const skipTypes = new Set(['IfcSpace', 'IfcSite', 'IfcBuilding', 'IfcBuildingStorey', 'IfcProject']);
 
   const checkedEidsA = new Set<number>(), checkedEidsB = new Set<number>();
@@ -1047,8 +1107,22 @@ window.runClashDetection = async function(): Promise<void> {
 // Applies a clash result fetched from cloud storage (Phase 15 restore) —
 // same rendering path as a live run, minus the detection pipeline.
 export function restoreClashResult(results: any[]): void {
+  // Dispose any markers still in the scene (from a previous restore or a run in
+  // the outgoing project) before drawing this result's — showClashResults()
+  // pushes a fresh marker group each call, so without this they stack.
+  clearClashSubsets();
   appState.clashResults = results;
-  showClashResults();
+  // Fade the models this saved result actually used — each clash carries the
+  // Source/Target modelIdx. After a reload the live dropdowns default to 0/1,
+  // so fading by them (as a live run does) would dim the wrong models when the
+  // Phase-16 selection was a non-default slot. Also skip the history snapshot:
+  // restoring an old result is not a new run.
+  const fadeIndices = new Set<number>();
+  for (const cl of results) {
+    if (typeof cl?.elA?.modelIdx === 'number') fadeIndices.add(cl.elA.modelIdx);
+    if (typeof cl?.elB?.modelIdx === 'number') fadeIndices.add(cl.elB.modelIdx);
+  }
+  showClashResults({ fadeIndices: [...fadeIndices], recordSnap: false });
 }
 
 // Best-effort background persist of the just-computed clash result — no-op
@@ -1063,7 +1137,7 @@ function saveClashResultToCloud(): void {
   saveResult(projectId, 'clash', appState.clashResults, metadata).catch(e => console.warn('[cloud-results] saveClashResultToCloud failed:', e));
 }
 
-function showClashResults(): void {
+function showClashResults(opts: { fadeIndices?: number[]; recordSnap?: boolean } = {}): void {
   document.getElementById('btnExitClash')!.style.display = '';
   document.getElementById('btnRunClash')!.style.display = 'none';
   document.getElementById('vpClashLegend')!.classList.add('show');
@@ -1071,8 +1145,10 @@ function showClashResults(): void {
   if (appState.clashResults.length > 0) { document.getElementById('btnExportClashCSV')!.style.display = ''; document.getElementById('btnExportClashBCF')!.style.display = ''; }
 
   // Keep models mostly visible — only slightly fade the ones actually used
-  // as Source/Target (which may be federation slots, not just A/B).
-  const shownIndices = new Set<number>([appState.clashSourceIdx, clashEffectiveTargetIdx()]);
+  // as Source/Target (which may be federation slots, not just A/B). A live run
+  // fades the current selection; restore passes the indices from the saved
+  // result, which can differ from the post-reload dropdown defaults.
+  const shownIndices = new Set<number>(opts.fadeIndices ?? [appState.clashSourceIdx, clashEffectiveTargetIdx()]);
   shownIndices.forEach(i => {
     if (!appState.loadedModels[i]) return;
     appState.loadedModels[i]!.traverse(c => {
@@ -1157,13 +1233,17 @@ function showClashResults(): void {
   if (dupEl) dupEl.textContent = String(dup);
 
   // Snapshot theo thời gian (plan 2.4, giống Validate): lưu + so với lần chạy trước.
-  try {
-    const stats = { total: appState.clashResults.length, hard, near };
-    const { delta } = recordSnapshot('clash', stats);
-    const d = delta.find(x => x.key === 'total');
-    if (d && d.delta !== 0) log(`Clash snapshot đã lưu — total ${d.prev}→${d.curr} (${d.delta > 0 ? '+' : ''}${d.delta} so với lần trước).`);
-    else log('Clash snapshot đã lưu.');
-  } catch (e: any) { log('Clash snapshot err:', e?.message); }
+  // Chỉ ghi cho lần chạy thật — restore kết quả đã lưu KHÔNG phải một lần chạy mới,
+  // nếu ghi sẽ tạo snapshot giả và bóp méo lịch sử delta.
+  if (opts.recordSnap ?? true) {
+    try {
+      const stats = { total: appState.clashResults.length, hard, near };
+      const { delta } = recordSnapshot('clash', stats);
+      const d = delta.find(x => x.key === 'total');
+      if (d && d.delta !== 0) log(`Clash snapshot đã lưu — total ${d.prev}→${d.curr} (${d.delta > 0 ? '+' : ''}${d.delta} so với lần trước).`);
+      else log('Clash snapshot đã lưu.');
+    } catch (e: any) { log('Clash snapshot err:', e?.message); }
+  }
 
   // Render clash cards
   let html = '';
