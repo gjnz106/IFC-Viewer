@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
-import topLevelAwait from 'vite-plugin-top-level-await';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
 // ── Standalone review build ────────────────────────────────────────────────
@@ -18,7 +17,6 @@ const WEB_IFC_CDN = 'https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/';
 export default defineConfig({
   base: './',
   plugins: [
-    topLevelAwait(),
     viteSingleFile(),
     {
       name: 'inject-standalone-wasm-base',

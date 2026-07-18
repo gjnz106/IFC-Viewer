@@ -14,8 +14,8 @@
     "build:standalone": "vite build --config vite.config.standalone.ts"
   },
   "dependencies": {
-    "firebase": "^10.14.1",
-    "jspdf": "^2.5.1",
+    "firebase": "^12.16.0",
+    "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "three": "^0.160.0",
     "three-mesh-bvh": "^0.5.23",
@@ -25,9 +25,8 @@
   "devDependencies": {
     "@types/three": "^0.160.0",
     "typescript": "^5.3.3",
-    "vite": "^5.0.12",
+    "vite": "^8.1.5",
     "vite-plugin-singlefile": "^2.3.3",
-    "vite-plugin-top-level-await": "^1.4.1",
     "vitest": "^4.1.9"
   }
 }

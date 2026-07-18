@@ -239,7 +239,7 @@
       <div style="position:relative">
         <button class="tb-icon-btn" id="btnNotif" onclick="toggleNotifMenu()" title="Notifications">
           <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span id="notifBadge" style="position:absolute;top:3px;right:3px;width:6px;height:6px;background:#ef4444;border-radius:50%"></span>
+          <span id="notifBadge" style="display:none;position:absolute;top:3px;right:3px;width:6px;height:6px;background:#ef4444;border-radius:50%"></span>
         </button>
         <div id="notifMenuDrop" style="display:none;position:absolute;top:40px;right:-50px;width:320px;background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--sh-lg);padding:10px;z-index:1000">
           <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text);display:flex;justify-content:space-between">
@@ -247,14 +247,7 @@
             <a href="#" onclick="clearNotifs();event.preventDefault()" style="font-size:11px;color:var(--blue);text-decoration:none">Clear all</a>
           </div>
           <div id="notifList" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
-            <div class="notif-item" style="font-size:11.5px;padding:6px;border-radius:6px;background:var(--bg-hover,#e8eaef)">
-              <div style="font-weight:600">Jane Smith invited you to City Tower project</div>
-              <div style="font-size:10px;color:var(--text-muted,#8590a6);margin-top:2px">2 hours ago</div>
-            </div>
-            <div class="notif-item" style="font-size:11.5px;padding:6px;border-radius:6px;background:var(--bg-hover,#e8eaef)">
-              <div style="font-weight:600">Federated model CT-P1-MEP.ifc compiled successfully</div>
-              <div style="font-size:10px;color:var(--text-muted,#8590a6);margin-top:2px">Yesterday</div>
-            </div>
+            <div style="padding:20px;text-align:center;color:#8590a6;font-size:11px">No new notifications</div>
           </div>
         </div>
         <div id="notifMenuBg" onclick="toggleNotifMenu()" style="display:none;position:fixed;inset:0;z-index:999"></div>
@@ -910,6 +903,8 @@
   <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span><span class="field-btn-label">Fit</span></button>
   <button class="field-btn" onclick="fieldShowAll()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="field-btn-label">Show All</span></button>
   <div class="field-sep"></div>
+  <button class="field-btn" id="fieldBtnMore" onclick="fieldToggleMore()" title="More tools — Search, Colorize, Validate, Viewpoints"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span><span class="field-btn-label">More</span></button>
+  <div class="field-sep"></div>
   <button class="field-btn" onclick="toggleProfilePanel()" title="Account"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="field-btn-label">Account</span></button>
   <button class="field-btn" onclick="navigateTo('viewer')"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="field-btn-label">Desktop</span></button>
 </div>
@@ -918,6 +913,35 @@
   <div class="field-sheet-handle"></div>
   <div class="field-sheet-hdr"><div class="field-sheet-title" id="fieldSheetTitle">Properties</div><button class="field-sheet-close" onclick="fieldCloseSheet()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
   <div class="field-sheet-body" id="fieldSheetBody"><div class="prop-empty">Tap an element to inspect</div></div>
+</div>
+
+<!-- Field Mode "More" menu — grid of desktop-parity tools -->
+<div class="field-more" id="fieldMore">
+  <div class="field-more-grid">
+    <button class="field-more-item" onclick="fieldMenuSearch()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuColorize()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a10 10 0 010-20 8 8 0 018 8c0 2-2 3-4 3h-2a2 2 0 00-1 4 2 2 0 01-1 5z"/></svg>
+      <span>Colorize</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuValidate()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span>Validate</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuViewpoints()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Viewpoints</span>
+    </button>
+  </div>
+</div>
+
+<!-- Field Mode tool sheet (separate from #fieldSheet so properties don't clobber it) -->
+<div class="field-tool-sheet" id="fieldToolSheet">
+  <div class="field-sheet-handle"></div>
+  <div class="field-sheet-hdr"><div class="field-sheet-title" id="fieldToolTitle">Tools</div><button class="field-sheet-close" onclick="fieldCloseTool()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="field-sheet-body" id="fieldToolBody"></div>
 </div>
 
 <div class="field-loader" id="fieldLoader">
@@ -1073,51 +1097,9 @@
       <button class="tb-icon-btn" onclick="toggleTeamPanel()" style="font-size:18px;border:none;background:transparent;cursor:pointer">×</button>
     </div>
     <div style="max-height:360px;overflow-y:auto">
-      <table class="table" style="width:100%;border-collapse:collapse;font-size:12.5px;text-align:left">
-        <thead>
-          <tr style="border-bottom:1px solid #eee">
-            <th style="padding:8px 4px">Name</th>
-            <th style="padding:8px 4px">Role</th>
-            <th style="padding:8px 4px">Trade</th>
-            <th style="padding:8px 4px">Workload</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom:1px solid rgba(0,0,0,0.04)">
-            <td style="padding:8px 4px;font-weight:600">John Doe</td>
-            <td style="padding:8px 4px">Manager</td>
-            <td style="padding:8px 4px"><span class="badge" style="background:#18181B;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">ARC</span></td>
-            <td style="padding:8px 4px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <div style="width:60px;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden"><div style="width:45%;height:100%;background:#009668"></div></div>
-                <span>45%</span>
-              </div>
-            </td>
-          </tr>
-          <tr style="border-bottom:1px solid rgba(0,0,0,0.04)">
-            <td style="padding:8px 4px;font-weight:600">Alice Smith</td>
-            <td style="padding:8px 4px">Architect</td>
-            <td style="padding:8px 4px"><span class="badge" style="background:#B5791A;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">STR</span></td>
-            <td style="padding:8px 4px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <div style="width:60px;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden"><div style="width:75%;height:100%;background:#b75a00"></div></div>
-                <span>75%</span>
-              </div>
-            </td>
-          </tr>
-          <tr style="border-bottom:1px solid rgba(0,0,0,0.04)">
-            <td style="padding:8px 4px;font-weight:600">Bob Johnson</td>
-            <td style="padding:8px 4px">Engineer</td>
-            <td style="padding:8px 4px"><span class="badge" style="background:#157038;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">MEP</span></td>
-            <td style="padding:8px 4px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <div style="width:60px;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden"><div style="width:90%;height:100%;background:#ba1a1a"></div></div>
-                <span style="color:#ba1a1a;font-weight:600">90%</span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div id="teamWorkloadEmpty" style="padding:28px 8px;text-align:center;color:#8590a6;font-size:12px">
+        No workload data yet.
+      </div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px">
       <button class="btn btn-primary btn-sm" onclick="toggleTeamPanel()" style="padding:6px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Done</button>

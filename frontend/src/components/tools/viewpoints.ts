@@ -26,6 +26,13 @@ function currentModelsKey(): string {
   return modelsFingerprint(appState.loadedModels.map((m: any) => m?.fileName));
 }
 
+// ── Field Mode reuse ──────────────────────────────────────────────────
+// Field Mode renders its own touch gallery; expose the current list (id, name,
+// thumb) so it can, and a change hook so it refreshes after save/delete/rename
+// or a project switch. window.vpSave / vpRestore / vpDelete are reused as-is.
+(window as any).vpFieldData = () => vpList.map(vp => ({ id: vp.id, name: vp.name, thumb: vp.thumb }));
+function notifyVpChange(): void { try { window.dispatchEvent(new CustomEvent('ifc:vpchange')); } catch {} }
+
 function captureThumbnail(): string {
   try {
     appState.renderer.render(appState.scene, appState.camera);
@@ -41,6 +48,7 @@ function captureThumbnail(): string {
 }
 
 function renderVpGallery(): void {
+  notifyVpChange(); // keep the Field Mode gallery in sync with every mutation
   const grid = document.getElementById('vpGrid');
   const badge = document.getElementById('vpBadge');
   if (badge) badge.textContent = String(vpList.length);

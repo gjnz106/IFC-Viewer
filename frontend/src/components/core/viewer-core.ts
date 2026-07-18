@@ -767,6 +767,24 @@ export function initThree(): void {
     }
   });
 
+  // ── Adaptive resolution during navigation (Revit/Dalux-style smoothness) ──
+  // The heaviest per-frame cost on a large BIM model is the number of fragments
+  // shaded — which scales with pixelRatio². While the user is actively orbiting,
+  // panning or zooming, we render at a REDUCED pixel ratio so the framerate stays
+  // high and the motion feels smooth; the instant motion stops we snap back to
+  // full resolution for a crisp still image. This is exactly what native viewers
+  // do (they drop detail during navigation), and it degrades gracefully: if
+  // anything goes wrong the camera simply stops changing and full res is
+  // restored. Pixel ratio is only switched on motion-start / motion-stop edges
+  // (each switch reallocates the drawing buffer) — never every frame.
+  const _fullRatio = Math.min(window.devicePixelRatio, 2);
+  const _navRatio = Math.max(0.75, _fullRatio * 0.5); // hidpi→1.0, standard→0.75 while moving
+  const _adaptive = _navRatio < _fullRatio - 1e-3;    // no-op when they'd be equal
+  let _curRatio = _fullRatio;
+  let _idleFrames = 0;
+  const _prev = { px: NaN, py: NaN, pz: NaN, tx: NaN, ty: NaN, tz: NaN };
+  function _setRatio(r: number){ if(Math.abs(r - _curRatio) > 1e-3){ _curRatio = r; appState.renderer.setPixelRatio(r); } }
+
   // Render loop: update controls, refresh section-box handle sizes so they stay
   // screen-constant (Revit-like), sync view cube orientation, then draw.
   // Note: updateSectionBox3DPositions() is only called when sliders change
@@ -796,6 +814,17 @@ export function initThree(): void {
     // already no-ops safely when there's no section box, so call it directly.
     if(typeof (window as any).updateSectionHandleSizes==='function')(window as any).updateSectionHandleSizes();
     if(typeof (window as any).updateViewCube==='function')(window as any).updateViewCube();
+    // ── Adaptive resolution: detect camera motion, switch pixel ratio on edges ──
+    // Runs after controls.update()/zoom so it sees this frame's final camera.
+    if(_adaptive && !appState.walkActive){
+      const cam=appState.camera, tg=appState.controls.target;
+      const moved = Math.abs(cam.position.x-_prev.px)>1e-4 || Math.abs(cam.position.y-_prev.py)>1e-4 || Math.abs(cam.position.z-_prev.pz)>1e-4
+                 || Math.abs(tg.x-_prev.tx)>1e-4 || Math.abs(tg.y-_prev.ty)>1e-4 || Math.abs(tg.z-_prev.tz)>1e-4;
+      _prev.px=cam.position.x; _prev.py=cam.position.y; _prev.pz=cam.position.z;
+      _prev.tx=tg.x; _prev.ty=tg.y; _prev.tz=tg.z;
+      if(moved){ _idleFrames=0; _setRatio(_navRatio); }
+      else if(_curRatio!==_fullRatio && ++_idleFrames>=2){ _setRatio(_fullRatio); }
+    }
     // Side-by-side compare slider (plan 3): if active it renders the scene
     // itself (two scissored passes, A|B) and returns true → skip normal render.
     const split=(window as any).__compareSplitRender;

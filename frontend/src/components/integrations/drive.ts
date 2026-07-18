@@ -1,5 +1,6 @@
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { escapeHtml } from '../../lib/escape.js';
 
 // ══════════════════════════════════════════════════════════════════════
 // ── GOOGLE DRIVE INTEGRATION ────────────────────────────────────────
@@ -361,10 +362,5 @@ window.gdLogout = function (): void {
     if (btn) { btn.disabled = false; btn.textContent = origBtnText; }
   }
 };
-
-function escapeHtml(s: any): string {
-  if (s == null) return '';
-  return String(s).replace(/[&<>"']/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c]);
-}
 
 export { escapeHtml };

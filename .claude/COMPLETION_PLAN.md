@@ -34,7 +34,9 @@
 | 17 | 🔒 Audit fix: toàn vẹn dữ liệu cloud + quyền (race switch, orphan blob, delete) | ✅ Done — PR #71 |
 | 18 | 🩺 Audit fix: SG Validate engine (rules skip toàn bộ, THREE, SCDF/NPARKS ẩn) | ✅ Done — PR #72 |
 | 19 | 🧰 Audit fix: Clash UX/correctness (restore markers, checkbox, model selection) | ⬜ Not started |
-| 20 | ⚡ Perf getAllProps + audit nốt core viewer/tools + UI shell | ⬜ Not started |
+| 20 | ⚡ Perf getAllProps + audit nốt core viewer/tools + UI shell | 🟡 getAllProps xong |
+| 21 | 🩺 SG Validate còn lỗi (buildings/spaces) + xoay view mượt (adaptive res) | 🟡 In progress |
+| 22 | 📱 Field Mode parity: More menu (Search/Colorize/Validate/Viewpoints) | 🟡 In progress |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -690,35 +692,40 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 - **Done khi:** chạy SG Check trên model thật cho kết quả từng class đúng (không còn "No elements
   found" hàng loạt), FED-006 chạy thật, SCDF/NPARKS hiện trong list; test mới pass.
 
-## Phase 19 — 🧰 Clash UX/correctness (từ audit)
-**Status:** ⬜ Not started
+## Phase 19 — 🧰 Clash UX/correctness (từ audit) ✅ Done
+**Status:** ✅ Done — branch `claude/du-an-review-uzn9v0` (từ đợt review dự án)
 
-- [ ] **Restore clash để lại marker mồ côi khi switch project:** `restoreClashResult` không set
-      `clashMode`, `unloadAllModels` không dọn `clashSubsets`/markers → hộp đỏ project A nổi trên
-      project B, chồng thêm mỗi lần restore. Export `clearClashSubsets()` cho unloadAllModels gọi;
-      restore dispose subsets cũ trước.
-- [ ] **Restore render sai model khi Phase 16 chọn non-default:** `showClashResults` fade theo
-      dropdown hiện tại (0/1 sau reload) thay vì `modelIdx` trong kết quả đã lưu; đồng thời mỗi
-      restore ghi thêm `recordSnapshot('clash')` giả. Derive index từ kết quả + flag skip snapshot.
-- [ ] **Checkbox loại clash bị engine ghi đè:** bỏ cả Clash lẫn Distance vẫn ra hard clash; nhập
-      minDist tự bật clearance dù Distance off. Derive filter đúng từ checkbox.
-- [ ] **fedRemoveSlot bỏ quên clash selection:** xoá model đang chọn làm Source/Target → dropdown
-      trỏ file chết, Run enabled nhưng return im lặng. Reset index + re-render + update button.
-- [ ] **enterClashMode reset lựa chọn mỗi lần vào trang:** chỉ áp default khi index hiện tại không
-      còn là model đã load.
-- [ ] **Cap 2000 candidate loại hết clearance:** sort theo penetration desc → near-miss (pen=0)
-      luôn bị cắt. Sort theo metric xếp cả near-miss (vd `penetration - gap`).
-- [ ] Nhỏ: NaN slider khi model phẳng ở `focusSectionOnChanges` (copy guard `range>0` từ clash.ts).
+- [x] **Restore clash để lại marker mồ côi khi switch project:** export `clearClashSubsets()`
+      (clash.ts), `unloadAllModels` gọi để dọn marker khi đổi project; `restoreClashResult`
+      dispose subsets cũ trước khi vẽ (mỗi `showClashResults` push group mới nên restore lặp
+      chồng marker).
+- [x] **Restore render sai model khi Phase 16 chọn non-default:** `showClashResults(opts)` nhận
+      `{ fadeIndices, recordSnap }`. Live run fade Source/Target hiện tại; restore derive fade set
+      từ `modelIdx` trong kết quả đã lưu (dropdown về 0/1 sau reload) + `recordSnap:false` để
+      không ghi snapshot giả.
+- [x] **Checkbox loại clash bị engine ghi đè:** derive mode thuần từ checkbox Clash/Distance;
+      minDist không tự bật clearance; bỏ cả hai → `'none'` (bỏ mesh test) thay vì rơi về hard.
+      Tolerance = 0 khi Distance off để near-miss không lấp cap.
+- [x] **fedRemoveSlot bỏ quên clash selection:** `clashHandleModelRemoved(idx)` repoint
+      Source/Target sang slot còn load + re-render selects + update Run button.
+- [x] **enterClashMode reset lựa chọn mỗi lần vào trang:** chỉ áp default 0/1 khi index hiện tại
+      trỏ slot chưa load — giữ lựa chọn federation qua điều hướng.
+- [x] **Cap 2000 candidate loại hết clearance:** `clashCandidateSeverity(pen,gap)=pen−gap`, sort
+      desc trước cap để giữ cả overlap lẫn near-miss (gap nhỏ ưu tiên). Có unit test mới.
+- [x] Nhỏ: NaN slider khi model phẳng ở `focusSectionOnChanges` — guard `range>0` (→50) như clash.ts.
 - **Done khi:** restore clash sau reload với model selection non-default hiển thị đúng model,
-  switch project không còn marker mồ côi; checkbox hoạt động độc lập; test + build pass.
+  switch project không còn marker mồ côi; checkbox hoạt động độc lập; test + build pass. ✅
+  (Verify: typecheck sạch, 264/264 test, build OK.)
 
 ## Phase 20 — ⚡ Perf getAllProps + audit nốt phần còn thiếu
-**Status:** ⬜ Not started
+**Status:** 🟡 In progress (getAllProps xong; audit core/UI + settings sync còn lại)
 
-- [ ] **getAllProps Method 2 quét toàn file:** `getItemProperties` cho MỌI line IFC (hàng trăm
-      nghìn WASM round-trip tuần tự) — chi phí lớn nhất của Compare/Validate model thật. Sửa:
-      chỉ duyệt các type IfcProduct qua `GetLineIDsWithType` (hoặc lọc `GetLineType` theo whitelist
-      trước khi fetch). Đo trước/sau bằng model mẫu.
+- [x] **getAllProps Method 2 quét toàn file:** `getItemProperties` cho MỌI line IFC (hàng trăm
+      nghìn WASM round-trip tuần tự) — chi phí lớn nhất của Compare/Validate model thật. Đã sửa:
+      thêm cả họ geometry/topology/resource/relationship (IfcCartesianPoint, IfcPolyLoop, IfcFace,
+      IfcShapeRepresentation, IfcPropertySingleValue, IfcMaterial…) vào `SKIP_TYPES`, lọc bằng
+      `GetLineType` (rẻ) TRƯỚC khi gọi `getItemProperties`. Type lạ vẫn được parse nên không bỏ sót
+      product type chưa biết (giữ đúng ý đồ "safety net" của Method 2).
 - [ ] **Audit nốt 2 mảng chưa xong** (agent bị cắt do session limit): core viewer/tools
       (viewer-core, section-visibility, measure, walk, plan-overlay, colorize, viewcube) và UI
       shell chi tiết (router/state-persist/fieldmode/properties + demo content còn sót như
@@ -728,3 +735,44 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
       offline.
 - **Done khi:** Compare/Validate trên model ~60MB nhanh hơn đo được (log thời gian); các finding
   mới mức cao đã fix; typecheck + test + build pass.
+
+## Phase 21 — 🩺 SG Validate còn lỗi + xoay view mượt (feedback user 2026-07-18)
+**Status:** 🟡 In progress
+
+> Phản hồi trực tiếp: "IFC SG checking chưa ổn đang bị lỗi"; "load model cloud chạy chậm từng
+> mode"; "xoay view chưa mượt như Dalux/Revit". (Cache local đã có từ Phase 14 — cache-first mặc
+> định trong `autoLoadCloudProjectFiles`, không cần đổi.)
+
+- [x] **SG: `spatial.buildings` chưa bao giờ được tạo:** `readSpatialInfo` chỉ set `buildingName`
+      (string) nên rule GEN-005 đọc `spatial.buildings` (mảng) luôn rỗng → luôn báo "No IfcBuilding
+      found" dù model có building. Populate `info.buildings=[{expressID,name}]` song song với `sites`.
+- [x] **SG: IfcSpace không có trong context:** `getAllProps` cố tình bỏ IfcSpace (không có geometry
+      solid) nên `ctx.byClass.get('IfcSpace')` luôn rỗng → 5 rule (BCA-SP01/02, NEA-001, LTA-001,
+      PUB-001) im lặng pass/skip. Thêm quét IfcSpace riêng trong `sgBuildContext` (đọc Name+LongName,
+      psets tự resolve qua batch loop sẵn có). Test regression pin data-contract (buildings/spaces).
+- [x] **Xoay view mượt hơn (adaptive resolution):** giảm `pixelRatio` khi camera đang di chuyển
+      (orbit/pan/zoom), trả về full res ngay khi dừng — kỹ thuật viewer native hay dùng. Chỉ đổi
+      pixelRatio ở cạnh start/stop (không mỗi frame). Hi-DPI hưởng lợi nhiều nhất; màn thường
+      giảm nhẹ khi kéo. Không bật trong walk mode.
+- **Done khi:** SG check trên model thật cho kết quả IfcSpace/IfcBuilding đúng; xoay mượt hơn trên
+  model nặng; typecheck + test + build pass. ✅ (266 test pass, build ok)
+
+## Phase 22 — 📱 Field Mode parity: More menu (Search/Colorize/Validate/Viewpoints)
+**Status:** 🟡 In progress
+
+> Feedback user: "tối ưu giao diện cho Field Mode, bổ sung đầy đủ chức năng như Desktop nhưng
+> chỉnh chu, tối ưu hơn." Cách làm: nút **More** trên field-bar → menu lưới → mỗi tính năng mở
+> **bottom-sheet** touch-optimized, **tái sử dụng logic desktop** (không nhân đôi).
+
+- [x] **Search sheet:** ô tìm + list kết quả (tap → zoom/highlight). Thêm `window.fieldSearch(text)`
+      trong search.ts (dùng lại `_searchCache` + `searchSelect`, không đụng DOM desktop).
+- [x] **Colorize sheet:** bật/tắt "Color by Category" (Auto mode) + legend swatch + Reset — gọi
+      `toggleColorize`/`colorizeSetMode` sẵn có.
+- [x] **SG Validate sheet:** gateway pills → Run (`sgRunValidation`) → summary pass/fail/warn +
+      danh sách rule fail (details) → tap element `sgFocusElement(eid)`.
+- [x] **Viewpoints sheet:** gallery thumbnail (tap → `vpRestore`) + "Save current view" (`vpSave`);
+      thêm `window.vpFieldData()` + event `ifc:vpchange` để field gallery tự refresh.
+- [x] Sheet công cụ dùng `#fieldToolSheet` riêng (tách khỏi `#fieldSheet` properties để không đè
+      nhau). Desktop panels bị ẩn trong field-mode nên tái sử dụng hàm desktop không lộ UI.
+- **Còn lại (polish, cần test trên thiết bị thật):** tap ngoài để đóng More menu; field-native
+  properties render (hiện dùng lại propArea). typecheck + 266 test + build pass. ✅
