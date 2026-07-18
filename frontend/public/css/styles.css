@@ -1111,6 +1111,106 @@ body.field-mode .field-sheet{display:block}
 .field-sheet-close{background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:8px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
 .field-sheet-body{padding:8px 12px}
 
+/* ══ Field Mode "More" menu + desktop-parity tool sheets ══════════════ */
+/* Grid popup that rises just above the bottom bar. */
+.field-more{
+  display:none;position:fixed;left:8px;right:8px;z-index:240;
+  bottom:calc(72px + env(safe-area-inset-bottom));
+  background:rgba(44,36,32,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.12);border-radius:16px;
+  padding:12px;box-shadow:0 -8px 30px rgba(44,36,32,.35);
+  transform:translateY(8px);opacity:0;transition:transform .18s,opacity .18s;
+}
+body.field-mode .field-more.show{display:block;transform:translateY(0);opacity:1}
+.field-more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media (max-width:520px){.field-more-grid{grid-template-columns:repeat(2,1fr)}}
+.field-more-item{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  min-height:80px;padding:12px 6px;border:none;border-radius:12px;cursor:pointer;
+  background:rgba(255,255,255,.06);color:rgba(255,255,255,.88);
+  font-family:'Hanken Grotesk';font-size:12px;font-weight:600;letter-spacing:.2px;
+  -webkit-tap-highlight-color:transparent;transition:transform .12s,background .12s;
+}
+.field-more-item:active{transform:scale(.95);background:rgba(194,65,12,.35)}
+
+/* Tool sheet — shares the properties-sheet look but is its own element so the
+   properties MutationObserver never overwrites tool content. Taller (peek) so
+   scrollable lists (search/validate) are usable while the model stays visible. */
+.field-tool-sheet{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:255;
+  background:var(--bg-panel);border-top:1px solid var(--border);
+  border-radius:16px 16px 0 0;max-height:70vh;overflow-y:auto;overflow-x:hidden;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.9,.3,1);
+  padding-bottom:calc(68px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 30px rgba(44,36,32,.25);
+}
+body.field-mode .field-tool-sheet{display:block}
+.field-tool-sheet.open{transform:translateY(0)}
+
+.field-tool-input{
+  width:100%;box-sizing:border-box;padding:12px 14px;margin:4px 0 8px;
+  border:1px solid var(--border);border-radius:10px;background:var(--bg);
+  font-family:'Hanken Grotesk';font-size:15px;color:var(--text);
+}
+.field-tool-input:focus{outline:none;border-color:var(--accent)}
+.field-tool-hint{font-size:11px;color:var(--text-muted);padding:4px 2px;font-family:'JetBrains Mono'}
+.field-tool-empty{padding:24px 8px;text-align:center;color:var(--text-muted);font-size:13px}
+.field-tool-list{display:flex;flex-direction:column;gap:4px}
+.field-tool-item{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%;
+  padding:12px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);
+  cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;transition:background .12s;
+}
+.field-tool-item:active{background:var(--accent-soft)}
+.field-tool-item-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field-tool-item-tag{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono';flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field-tool-actions{display:flex;gap:8px;margin-bottom:10px}
+.field-tool-cta{
+  flex:1;padding:14px;border:none;border-radius:10px;cursor:pointer;
+  background:var(--accent);color:#fff;font-family:'Hanken Grotesk';font-size:14px;font-weight:600;
+  -webkit-tap-highlight-color:transparent;transition:transform .1s,filter .12s;
+}
+.field-tool-cta:active{transform:scale(.98);filter:brightness(1.05)}
+.field-tool-cta.on{background:var(--green)}
+.field-tool-btn{
+  padding:14px 16px;border:1px solid var(--border);border-radius:10px;cursor:pointer;
+  background:var(--bg);color:var(--text);font-family:'Hanken Grotesk';font-size:14px;font-weight:600;
+}
+.field-tool-btn:disabled{opacity:.4}
+
+/* Colorize legend */
+.field-legend{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.field-legend-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
+.field-legend-sw{width:16px;height:16px;border-radius:4px;border:1px solid var(--border);flex-shrink:0}
+
+/* Validate gateway pills + summary */
+.field-gw-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.field-gw-pill{
+  flex:1;min-width:70px;padding:10px 8px;border:1px solid var(--border);border-radius:10px;cursor:pointer;
+  background:var(--bg);color:var(--text-muted);font-family:'Hanken Grotesk';font-size:12px;font-weight:600;
+}
+.field-gw-pill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.field-val-summary{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.field-val-stat{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;font-family:'JetBrains Mono';background:var(--bg);border:1px solid var(--border)}
+.field-val-stat.pass{color:var(--green)}
+.field-val-stat.fail{color:var(--red)}
+.field-val-stat.warn{color:var(--accent)}
+.field-val-stat.skip{color:var(--text-muted)}
+.field-val-rule{border:1px solid var(--border);border-radius:10px;margin-bottom:6px;overflow:hidden}
+.field-val-rule>summary{padding:12px;font-size:13px;font-weight:600;cursor:pointer;list-style:none;color:var(--text)}
+.field-val-rule>summary::-webkit-details-marker{display:none}
+.field-val-rule.fail>summary{border-left:3px solid var(--red)}
+.field-val-rule.warn>summary{border-left:3px solid var(--accent)}
+.field-val-rule.info>summary{border-left:3px solid var(--text-muted)}
+.field-val-rule .field-tool-item{border-radius:0;border-left:none;border-right:none}
+
+/* Viewpoints gallery */
+.field-vp-gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:4px}
+.field-vp-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;background:var(--bg);-webkit-tap-highlight-color:transparent}
+.field-vp-card:active{border-color:var(--accent)}
+.field-vp-card img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:var(--bg-panel)}
+.field-vp-name{padding:8px 10px;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* ── Field file loader overlay ── */
 .field-loader{
   display:none;position:fixed;inset:0;z-index:300;
