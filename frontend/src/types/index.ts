@@ -361,6 +361,10 @@ declare global {
     // Projects (local-first project registry)
     toggleProjectsPanel?: () => void;
     renderTeamPanel?: () => void;
+
+    // Overview tab (per-file spatial tree)
+    ovRefresh?: () => void;
+    ovSearchInput?: () => void;
     projCreate?: () => void;
     projRename?: (id: string) => void;
     projDelete?: (id: string) => void;

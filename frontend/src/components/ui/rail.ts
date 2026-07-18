@@ -4,10 +4,11 @@
 // appState dependency beyond what's already exposed on window by other
 // modules (switchTab, issue count text) — this module only touches the DOM.
 
-let _railTab: 'files' | 'tree' | 'issues' | 'search' = 'files';
+type RailTab = 'files' | 'tree' | 'issues' | 'search' | 'overview';
+let _railTab: RailTab = 'files';
 
 function updateRailActive(): void {
-  (['files', 'tree', 'issues', 'search'] as const).forEach((t) => {
+  (['files', 'tree', 'issues', 'search', 'overview'] as const).forEach((t) => {
     document.getElementById('rail-' + t)?.classList.toggle('active', _railTab === t && !isLeftCollapsed());
   });
 }
@@ -21,6 +22,7 @@ const RAIL_TITLES: Record<string, string> = {
   tree: 'Entity Tree',
   issues: 'Changes',
   search: 'Search',
+  overview: 'Overview',
 };
 
 function showLeftPanel(): void {
@@ -35,7 +37,7 @@ function showLeftPanel(): void {
 // Clicking a rail button: show its section, and if it's the already-active
 // tab, collapse the left panel instead (matches the icon-rail toggle pattern
 // used elsewhere in the shell).
-(window as any).railSelect = function (tab: 'files' | 'tree' | 'issues' | 'search'): void {
+(window as any).railSelect = function (tab: RailTab): void {
   const alreadyOpen = !isLeftCollapsed();
   if (alreadyOpen && _railTab === tab) {
     (window as any).toggleLeftPanel?.();
@@ -46,13 +48,14 @@ function showLeftPanel(): void {
   showLeftPanel();
   const files = document.getElementById('lpFiles');
   const model = document.getElementById('lpModel');
+  const overview = document.getElementById('lpOverview');
   const title = document.getElementById('lpHeadTitle');
-  if (tab === 'files') {
-    files?.classList.remove('hide');
-    model?.classList.add('hide');
-  } else {
-    files?.classList.add('hide');
-    model?.classList.remove('hide');
+  files?.classList.toggle('hide', tab !== 'files');
+  overview?.classList.toggle('hide', tab !== 'overview');
+  model?.classList.toggle('hide', tab === 'files' || tab === 'overview');
+  if (tab === 'overview') {
+    (window as any).ovRefresh?.();
+  } else if (tab !== 'files') {
     (window as any).switchTab?.(tab);
   }
   if (title) title.textContent = RAIL_TITLES[tab];
@@ -76,6 +79,7 @@ function showLeftPanel(): void {
       _railTab = tab as any;
       showLeftPanel();
       document.getElementById('lpFiles')?.classList.add('hide');
+      document.getElementById('lpOverview')?.classList.add('hide');
       document.getElementById('lpModel')?.classList.remove('hide');
       const title = document.getElementById('lpHeadTitle');
       if (title) title.textContent = RAIL_TITLES[tab];
