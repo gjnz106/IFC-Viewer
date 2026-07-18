@@ -10,6 +10,7 @@
 // to avoid duplicating checks for the same property across components.
 
 import * as THREE from 'three';
+import { IFCSPACE } from 'web-ifc';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from './snapshots.js';
@@ -580,6 +581,44 @@ async function sgBuildContext(): Promise<any> {
         byClass.get('IfcWall')!.push(e);
       }
     }
+
+    // ── IfcSpace scan (SG rules need spaces) ─────────────────────────
+    // getAllProps() deliberately excludes IfcSpace (room volumes have no solid
+    // geometry and Compare would flag phantom "modified" issues on them), so the
+    // SG rules that read ctx.byClass.get('IfcSpace') — BCA-SP01/02, NEA-001,
+    // LTA-001, PUB-001 — always saw an empty list and silently passed/skipped.
+    // Scan spaces directly here so those rules operate on real data. Space
+    // counts are small (one per room), so per-space getItemProperties is cheap.
+    try {
+      const api: any = appState.ifcLoader?.ifcManager?.state.api;
+      const mgr0 = appState.ifcLoader?.ifcManager;
+      if (api && mgr0) {
+        const spaceIDs = api.GetLineIDsWithType(m.modelID, IFCSPACE);
+        const scnt = spaceIDs.size();
+        for (let si = 0; si < scnt; si++) {
+          const eid = spaceIDs.get(si);
+          const p = await mgr0.getItemProperties(m.modelID, eid, false);
+          if (!p) continue;
+          const e: any = {
+            eid,
+            globalId: p.GlobalId?.value || ('space-' + m.modelID + '-' + eid),
+            type: 'IfcSpace',
+            typeCode: 'IfcSpace',
+            name: (p.Name?.value || '').trim(),
+            tag: p.Tag?.value,
+            psets: [],  // populated by the batch pset resolution below
+            LongName: p.LongName,           // rules read s.LongName?.value || s.LongName
+            PredefinedType: p.PredefinedType,
+            modelIdx: mi,
+            _modelID: m.modelID,
+          };
+          entities.push(e);
+          if (!byClass.has('IfcSpace')) byClass.set('IfcSpace', []);
+          byClass.get('IfcSpace')!.push(e);
+        }
+        if (scnt > 0) log(`SG context: scanned ${scnt} IfcSpace in model ${m.modelID}`);
+      }
+    } catch (spErr: any) { log('SG IfcSpace scan err:', spErr?.message); }
   }
 
   // ── Batch pset resolution via IfcRelDefinesByProperties ────────────

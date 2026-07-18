@@ -266,6 +266,7 @@ async function readSpatialInfo(modelID: number, modelName: string){
     projectName:'', siteName:'', buildingName:'',
     storeys:[],           // [{expressID, name, elevation}] sorted asc by elev
     sites: [],            // [{expressID, name, refLat, refLon, refElev}]
+    buildings: [],        // [{expressID, name}] — consumed by SG rule GEN-005
     modelName: modelName || '',
     trueNorthAngle: 0,    // rotation angle in radians (0 = Y+ is north, positive = CW)
   };
@@ -317,9 +318,16 @@ async function readSpatialInfo(modelID: number, modelName: string){
       });
     }
     const bldgIDs=await api.GetLineIDsWithType(modelID, IFCBUILDING);
-    if(bldgIDs.size()){
-      const b=await mgr.getItemProperties(modelID, bldgIDs.get(0), false);
-      info.buildingName = b?.Name?.value || b?.LongName?.value || '';
+    for(let bi=0; bi<bldgIDs.size(); bi++){
+      const bid=bldgIDs.get(bi);
+      const b=await mgr.getItemProperties(modelID, bid, false);
+      const bname = b?.Name?.value || b?.LongName?.value || '';
+      if(bi===0) info.buildingName = bname;
+      // Populate the `buildings` array SG rule GEN-005 reads. Previously only
+      // `buildingName` (a string) was set, so `spatial.buildings` was always
+      // undefined and "IfcBuilding present" reported "No IfcBuilding found"
+      // even when the model clearly had one.
+      info.buildings.push({ expressID: bid, name: bname });
     }
     const storeyIDs=await api.GetLineIDsWithType(modelID, IFCBUILDINGSTOREY);
     for(let i=0;i<storeyIDs.size();i++){
