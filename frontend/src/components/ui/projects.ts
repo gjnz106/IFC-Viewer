@@ -326,6 +326,11 @@ export async function syncUploadSlot(idx: number, file: File): Promise<void> {
   if (record) {
     appState.cloudFileRecords[idx] = record;
     appState.cloudSyncStatus[idx] = { status: 'synced' };
+    // Seed the local IFC cache with the bytes we just uploaded — they're
+    // already in memory. Without this the uploader (the person who works with
+    // the model daily) re-downloaded their own file from Storage on every
+    // project open, while everyone ELSE got cache hits.
+    putCachedFile(record, file); // best-effort, fire-and-forget
     log(`Cloud sync: ${file.name} uploaded to slot ${idx}`);
   } else {
     appState.cloudSyncStatus[idx] = { status: 'error' };

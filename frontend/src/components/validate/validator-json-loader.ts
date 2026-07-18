@@ -18,7 +18,12 @@ import { IFC_NAMES } from '../../lib/constants.js';
 import { escapeHtml } from '../../lib/escape.js';
 
 // ── Active rule set — starts as the built-in Phase 1 rules ──────────
-let SG_ACTIVE_RULES: any[] = [];
+// (SG_RULES is a const array literal, fully populated when validator-rules.js
+// evaluates — before this module — so spreading it here is safe.)
+// This used to start [] and only got filled when the user clicked "Load
+// Built-in Extended Rules" or uploaded a JSON — so a fresh session's first
+// ▶ Validate ran ZERO rules and reported an empty result.
+let SG_ACTIVE_RULES: any[] = [...SG_RULES];
 let sgJsonLoaded: any = null; // { filename, rowCount, ruleCount, byAgency }
 
 // ── JSON schema for one mapping row ─────────────────────────────────
@@ -720,6 +725,13 @@ async function sgRunValidation(): Promise<void> {
     const ctx = await sgBuildContext();
     const ruleResults: any[] = [];
     const enabledRules = SG_ACTIVE_RULES.filter((r: any) => r.gateway.includes(appState.sgState.gateway));
+    // An empty rule set used to fall through and render an all-zero dashboard
+    // that read as "validation is broken" — say what's wrong instead.
+    if (enabledRules.length === 0) {
+      (document.getElementById('sgRulesList') as HTMLElement).innerHTML =
+        `<div class="sg-empty">No rules enabled for gateway "${escapeHtml(appState.sgState.gateway)}" — load rules (⚡ built-in or JSON) or switch gateway.</div>`;
+      return;
+    }
     let totalFindings = 0;
     const elementsWithIssues = new Set<number>();
 
