@@ -247,7 +247,9 @@ window.focusSectionOnChanges = function () {
 
   // Convert world coords to slider percentages (0-100)
   const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
-  const toSlider = (val: number, mn: number, range: number) => Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100)));
+  // Guard range === 0 (model flat on an axis): dividing by it yielded NaN and
+  // wrote "NaN" into the slider inputs. Mirror clash.ts's toSl guard → 50.
+  const toSlider = (val: number, mn: number, range: number) => range > 0 ? Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100))) : 50;
 
   (document.getElementById('slXp') as HTMLInputElement).value = String(toSlider(mxX, b.min.x, sx));
   (document.getElementById('slXn') as HTMLInputElement).value = String(toSlider(mnX, b.min.x, sx));

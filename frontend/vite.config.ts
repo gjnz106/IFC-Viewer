@@ -1,11 +1,11 @@
 import { defineConfig } from 'vitest/config';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 export default defineConfig({
   base: './',
-  plugins: [
-    topLevelAwait(),
-  ],
+  // (vite-plugin-top-level-await was removed with the Vite 8 upgrade: the app
+  // has no top-level await — web-ifc's WASM is instantiated at runtime via
+  // IfcAPI.Init() — and the plugin depends on esbuild, which rolldown-vite no
+  // longer ships. Verified by grepping dist output for TLA after removal.)
   // Force a single web-ifc instance. web-ifc-three@0.0.126 declares web-ifc@^0.0.39
   // (installed nested) while the app uses web-ifc@0.0.57 (hoisted). Without dedupe the
   // loader glue and the IFC constants can come from different web-ifc copies, so the
@@ -25,14 +25,16 @@ export default defineConfig({
     target: 'es2020',
     // Split large, rarely-changing vendors into their own chunks so the main
     // app bundle shrinks and vendors stay cached across app deploys. (web-ifc
-    // is excluded from optimizeDeps + deduped above; letting Rollup emit it as
-    // its own chunk keeps the WASM glue isolated from app code.)
+    // is excluded from optimizeDeps + deduped above; letting the bundler emit
+    // it as its own chunk keeps the WASM glue isolated from app code.)
+    // Function form (not object) — required by Vite 8's rolldown bundler.
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ['three', 'three-mesh-bvh'],
-          'web-ifc': ['web-ifc', 'web-ifc-three'],
-          firebase: ['firebase/app', 'firebase/auth'],
+        manualChunks(id: string) {
+          if (id.includes('node_modules/three') || id.includes('node_modules/three-mesh-bvh')) return 'three';
+          if (id.includes('node_modules/web-ifc')) return 'web-ifc'; // covers web-ifc + web-ifc-three
+          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'firebase';
+          return undefined;
         },
       },
     },

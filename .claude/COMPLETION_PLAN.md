@@ -692,27 +692,30 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 - **Done khi:** chạy SG Check trên model thật cho kết quả từng class đúng (không còn "No elements
   found" hàng loạt), FED-006 chạy thật, SCDF/NPARKS hiện trong list; test mới pass.
 
-## Phase 19 — 🧰 Clash UX/correctness (từ audit)
-**Status:** ⬜ Not started
+## Phase 19 — 🧰 Clash UX/correctness (từ audit) ✅ Done
+**Status:** ✅ Done — branch `claude/du-an-review-uzn9v0` (từ đợt review dự án)
 
-- [ ] **Restore clash để lại marker mồ côi khi switch project:** `restoreClashResult` không set
-      `clashMode`, `unloadAllModels` không dọn `clashSubsets`/markers → hộp đỏ project A nổi trên
-      project B, chồng thêm mỗi lần restore. Export `clearClashSubsets()` cho unloadAllModels gọi;
-      restore dispose subsets cũ trước.
-- [ ] **Restore render sai model khi Phase 16 chọn non-default:** `showClashResults` fade theo
-      dropdown hiện tại (0/1 sau reload) thay vì `modelIdx` trong kết quả đã lưu; đồng thời mỗi
-      restore ghi thêm `recordSnapshot('clash')` giả. Derive index từ kết quả + flag skip snapshot.
-- [ ] **Checkbox loại clash bị engine ghi đè:** bỏ cả Clash lẫn Distance vẫn ra hard clash; nhập
-      minDist tự bật clearance dù Distance off. Derive filter đúng từ checkbox.
-- [ ] **fedRemoveSlot bỏ quên clash selection:** xoá model đang chọn làm Source/Target → dropdown
-      trỏ file chết, Run enabled nhưng return im lặng. Reset index + re-render + update button.
-- [ ] **enterClashMode reset lựa chọn mỗi lần vào trang:** chỉ áp default khi index hiện tại không
-      còn là model đã load.
-- [ ] **Cap 2000 candidate loại hết clearance:** sort theo penetration desc → near-miss (pen=0)
-      luôn bị cắt. Sort theo metric xếp cả near-miss (vd `penetration - gap`).
-- [ ] Nhỏ: NaN slider khi model phẳng ở `focusSectionOnChanges` (copy guard `range>0` từ clash.ts).
+- [x] **Restore clash để lại marker mồ côi khi switch project:** export `clearClashSubsets()`
+      (clash.ts), `unloadAllModels` gọi để dọn marker khi đổi project; `restoreClashResult`
+      dispose subsets cũ trước khi vẽ (mỗi `showClashResults` push group mới nên restore lặp
+      chồng marker).
+- [x] **Restore render sai model khi Phase 16 chọn non-default:** `showClashResults(opts)` nhận
+      `{ fadeIndices, recordSnap }`. Live run fade Source/Target hiện tại; restore derive fade set
+      từ `modelIdx` trong kết quả đã lưu (dropdown về 0/1 sau reload) + `recordSnap:false` để
+      không ghi snapshot giả.
+- [x] **Checkbox loại clash bị engine ghi đè:** derive mode thuần từ checkbox Clash/Distance;
+      minDist không tự bật clearance; bỏ cả hai → `'none'` (bỏ mesh test) thay vì rơi về hard.
+      Tolerance = 0 khi Distance off để near-miss không lấp cap.
+- [x] **fedRemoveSlot bỏ quên clash selection:** `clashHandleModelRemoved(idx)` repoint
+      Source/Target sang slot còn load + re-render selects + update Run button.
+- [x] **enterClashMode reset lựa chọn mỗi lần vào trang:** chỉ áp default 0/1 khi index hiện tại
+      trỏ slot chưa load — giữ lựa chọn federation qua điều hướng.
+- [x] **Cap 2000 candidate loại hết clearance:** `clashCandidateSeverity(pen,gap)=pen−gap`, sort
+      desc trước cap để giữ cả overlap lẫn near-miss (gap nhỏ ưu tiên). Có unit test mới.
+- [x] Nhỏ: NaN slider khi model phẳng ở `focusSectionOnChanges` — guard `range>0` (→50) như clash.ts.
 - **Done khi:** restore clash sau reload với model selection non-default hiển thị đúng model,
-  switch project không còn marker mồ côi; checkbox hoạt động độc lập; test + build pass.
+  switch project không còn marker mồ côi; checkbox hoạt động độc lập; test + build pass. ✅
+  (Verify: typecheck sạch, 264/264 test, build OK.)
 
 ## Phase 20 — ⚡ Perf getAllProps + audit nốt phần còn thiếu
 **Status:** 🟡 In progress (getAllProps xong; audit core/UI + settings sync còn lại)

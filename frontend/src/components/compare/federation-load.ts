@@ -29,6 +29,7 @@ import {
 } from 'web-ifc';
 import { appState } from '../../store/index.js';
 import { FED_COLORS, IFC_NAMES } from '../../lib/constants.js';
+import { escapeHtml } from '../../lib/escape.js';
 import { runCompare as computeDiff } from './compare.js';
 import { log } from '../core/ifc-category.js';
 import { disposeModel } from '../core/viewer-core.js';
@@ -71,6 +72,9 @@ window.fedRemoveSlot = function(idx: number){
   }
   appState.files[idx] = null;
   if(window._colorizeInvalidate) window._colorizeInvalidate(idx);
+  // If the removed slot was the current clash Source/Target, repoint it at a
+  // still-loaded model (otherwise Run silently no-ops on a disposed slot).
+  (window as any).clashHandleModelRemoved?.(idx);
   // Recompute model bounds from remaining models
   fedRecomputeBounds();
   fedRenderSlots();
@@ -124,7 +128,7 @@ export function fedRenderSlots(): void {
     html += `<div class="fed-slot ${loaded?'loaded':''}">
       <div class="fed-slot-color" style="background:${color}"></div>
       <div class="fed-slot-info">
-        <div class="fed-slot-name" title="${(window as any).escapeHtml(fname)}">${(window as any).escapeHtml(fname)}</div>
+        <div class="fed-slot-name" title="${escapeHtml(fname)}">${escapeHtml(fname)}</div>
         <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}${syncChip ? ' · '+syncChip : ''}</div>
       </div>
       <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${isVisible?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">
@@ -180,6 +184,10 @@ export function unloadAllModels(): void {
   appState.modelBounds.max.set(0, 0, 0);
   appState.compareResult = null;
   appState.clashResults = [];
+  // Sweep clash-zone markers too — clearing clashResults alone left the marker
+  // meshes in the scene, so a switched-to project showed the previous one's
+  // red boxes floating over its models.
+  (window as any).clearClashSubsets?.();
   appState.sgState.cachedCtx = null;
   appState.sgState.cachedCtxKey = null;
   appState.aiIndex = null;

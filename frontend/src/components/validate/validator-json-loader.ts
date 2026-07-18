@@ -16,6 +16,7 @@ import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from './snapshots.js';
 import { SG_RULES } from './validator-rules.js';
 import { IFC_NAMES } from '../../lib/constants.js';
+import { escapeHtml } from '../../lib/escape.js';
 
 // ── Active rule set — starts as the built-in Phase 1 rules ──────────
 let SG_ACTIVE_RULES: any[] = [];
@@ -460,12 +461,11 @@ function sgApplyJsonRules(jsonRows: any[], sourceName: string): void {
   const statsEl = document.getElementById('sgJsonStats') as HTMLElement;
   const previewEl = document.getElementById('sgJsonPreview') as HTMLElement;
   previewEl.style.display = '';
-  const escapeHtml = (window as any).escapeHtml || ((s: string) => s);
   let html = `<div style="margin-bottom:6px"><span class="k">Source:</span> <span class="v">${escapeHtml(sourceName || 'built-in')}</span></div>`;
   html += `<div><span class="k">Rows parsed:</span> <span class="v">${jsonRows.length}</span> → <span class="k">Rules compiled:</span> <span class="v">${compiled.length}</span></div>`;
   html += `<div style="margin-top:6px">`;
   for (const [ag, cnt] of Object.entries(byAgency).sort((a, b) => (b[1] as number) - (a[1] as number))) {
-    html += `<span style="margin-right:10px">${ag}: <b>${cnt}</b></span>`;
+    html += `<span style="margin-right:10px">${escapeHtml(ag)}: <b>${cnt}</b></span>`;
   }
   html += `</div>`;
   html += `<div style="margin-top:6px;color:var(--text-muted)">Total active rules: <b>${SG_ACTIVE_RULES.length}</b> (${SG_RULES.length} built-in + ${compiled.length} from JSON)</div>`;
@@ -485,7 +485,6 @@ function sgUpdateSourceBadge(): void {
     srcEl.innerHTML = 'Built-in rules';
     return;
   }
-  const escapeHtml = (window as any).escapeHtml || ((s: string) => s);
   const isBuiltin = sgJsonLoaded.filename === 'built-in';
   const cls = isBuiltin ? 'merged' : 'json';
   srcEl.innerHTML = `<span class="sg-src-badge ${cls}">${SG_RULES.length} built-in + ${sgJsonLoaded.ruleCount} ${isBuiltin ? 'extended' : 'JSON'}</span> ${sgJsonLoaded.ruleCount} rules from ${escapeHtml(isBuiltin ? 'built-in library' : sgJsonLoaded.filename)}`;
@@ -827,7 +826,6 @@ window.sgRunValidation = sgRunValidation;
 function sgRenderResults(): void {
   if (!appState.sgState.results) { return; }
   const { rules, stats } = appState.sgState.results;
-  const escapeHtml = (window as any).escapeHtml || ((s: string) => s);
 
   // ── Column 1: rules list grouped by agency ──
   const byAgency = new Map<string, any[]>();
@@ -848,7 +846,7 @@ function sgRenderResults(): void {
     const items = byAgency.get(ag)!;
     const passCnt = items.filter(r => r.failed.length === 0 && r.passed.length > 0).length;
     const failCnt = items.filter(r => r.failed.length > 0).length;
-    html += `<div class="sg-rule-group">${ag} — ${passCnt} pass / ${failCnt} fail / ${items.length} total</div>`;
+    html += `<div class="sg-rule-group">${escapeHtml(ag)} — ${passCnt} pass / ${failCnt} fail / ${items.length} total</div>`;
     for (const item of items) {
       const { rule, passed, failed, skipped, idx } = item;
       let icon: string, iconCls: string;
@@ -912,7 +910,6 @@ window.sgSelectRule = function (idx: number) {
   if (matching[0]) matching[0].classList.add('selected');
 
   const { rule, passed, failed, info } = appState.sgState.results.rules[idx];
-  const escapeHtml = (window as any).escapeHtml || ((s: string) => s);
   (document.getElementById('sgFailColTitle') as HTMLElement).textContent = rule.title;
   (document.getElementById('sgFailCount') as HTMLElement).textContent = String(failed.length);
   (document.getElementById('sgFailCount') as HTMLElement).className = 'sg-col-hdr-count ' + (failed.length === 0 ? 'ok' : '');

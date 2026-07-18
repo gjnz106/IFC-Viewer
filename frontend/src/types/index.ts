@@ -394,6 +394,8 @@ declare global {
     updateClashRunButtonState?: () => void;
     clashSyncDuplicateUI?: () => void;
     clashEffectiveTargetIdx?: () => number;
+    clearClashSubsets?: () => void;
+    clashHandleModelRemoved?: (removedIdx: number) => void;
     setClashSourceModel?: (v: string) => void;
     setClashTargetModel?: (v: string) => void;
     regroupClashes?: () => void;
