@@ -9,6 +9,7 @@ import {
 } from 'web-ifc';
 import { appState } from '../../store/index.js';
 import { FED_COLORS, IFC_NAMES } from '../../lib/constants.js';
+import { escapeHtml } from '../../lib/escape.js';
 import { runCompare as computeDiff } from './compare.js';
 import { log } from '../core/ifc-category.js';
 import { disposeModel } from '../core/viewer-core.js';
@@ -104,7 +105,7 @@ export function fedRenderSlots(): void {
     html += `<div class="fed-slot ${loaded?'loaded':''}">
       <div class="fed-slot-color" style="background:${color}"></div>
       <div class="fed-slot-info">
-        <div class="fed-slot-name" title="${(window as any).escapeHtml(fname)}">${(window as any).escapeHtml(fname)}</div>
+        <div class="fed-slot-name" title="${escapeHtml(fname)}">${escapeHtml(fname)}</div>
         <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}${syncChip ? ' · '+syncChip : ''}</div>
       </div>
       <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${isVisible?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">

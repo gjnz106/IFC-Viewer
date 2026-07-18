@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { escapeHtml } from '../../lib/escape.js';
 
 // Cross-module functions/values
 declare const getAllProps: (modelID: number) => Promise<Record<string, any>>;
@@ -15,7 +16,6 @@ declare const sgIfcCodeToClass: (code: number) => string;
 declare const getElementBBox: (modelIdx: number, eid: number) => any;
 declare const showProps: (props: any, modelIdx: number) => void;
 declare const clearHighlight: () => void;
-declare const escapeHtml: (s: any) => string;
 declare const forEachModel: (cb: (model: any) => void) => void;
 
 let _searchCache: { elements: any[]; propNames: string[]; typeNames: string[]; key: string } | null = null;
