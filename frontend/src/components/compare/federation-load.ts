@@ -52,6 +52,9 @@ window.fedRemoveSlot = function(idx: number){
   }
   appState.files[idx] = null;
   if(window._colorizeInvalidate) window._colorizeInvalidate(idx);
+  // If the removed slot was the current clash Source/Target, repoint it at a
+  // still-loaded model (otherwise Run silently no-ops on a disposed slot).
+  (window as any).clashHandleModelRemoved?.(idx);
   // Recompute model bounds from remaining models
   fedRecomputeBounds();
   fedRenderSlots();
@@ -161,6 +164,10 @@ export function unloadAllModels(): void {
   appState.modelBounds.max.set(0, 0, 0);
   appState.compareResult = null;
   appState.clashResults = [];
+  // Sweep clash-zone markers too — clearing clashResults alone left the marker
+  // meshes in the scene, so a switched-to project showed the previous one's
+  // red boxes floating over its models.
+  (window as any).clearClashSubsets?.();
   appState.sgState.cachedCtx = null;
   appState.sgState.cachedCtxKey = null;
   appState.aiIndex = null;
