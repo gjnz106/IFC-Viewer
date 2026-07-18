@@ -36,6 +36,7 @@
 | 19 | 🧰 Audit fix: Clash UX/correctness (restore markers, checkbox, model selection) | ⬜ Not started |
 | 20 | ⚡ Perf getAllProps + audit nốt core viewer/tools + UI shell | 🟡 getAllProps xong |
 | 21 | 🩺 SG Validate còn lỗi (buildings/spaces) + xoay view mượt (adaptive res) | 🟡 In progress |
+| 22 | 📱 Field Mode parity: More menu (Search/Colorize/Validate/Viewpoints) | 🟡 In progress |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -752,3 +753,23 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
       giảm nhẹ khi kéo. Không bật trong walk mode.
 - **Done khi:** SG check trên model thật cho kết quả IfcSpace/IfcBuilding đúng; xoay mượt hơn trên
   model nặng; typecheck + test + build pass. ✅ (266 test pass, build ok)
+
+## Phase 22 — 📱 Field Mode parity: More menu (Search/Colorize/Validate/Viewpoints)
+**Status:** 🟡 In progress
+
+> Feedback user: "tối ưu giao diện cho Field Mode, bổ sung đầy đủ chức năng như Desktop nhưng
+> chỉnh chu, tối ưu hơn." Cách làm: nút **More** trên field-bar → menu lưới → mỗi tính năng mở
+> **bottom-sheet** touch-optimized, **tái sử dụng logic desktop** (không nhân đôi).
+
+- [x] **Search sheet:** ô tìm + list kết quả (tap → zoom/highlight). Thêm `window.fieldSearch(text)`
+      trong search.ts (dùng lại `_searchCache` + `searchSelect`, không đụng DOM desktop).
+- [x] **Colorize sheet:** bật/tắt "Color by Category" (Auto mode) + legend swatch + Reset — gọi
+      `toggleColorize`/`colorizeSetMode` sẵn có.
+- [x] **SG Validate sheet:** gateway pills → Run (`sgRunValidation`) → summary pass/fail/warn +
+      danh sách rule fail (details) → tap element `sgFocusElement(eid)`.
+- [x] **Viewpoints sheet:** gallery thumbnail (tap → `vpRestore`) + "Save current view" (`vpSave`);
+      thêm `window.vpFieldData()` + event `ifc:vpchange` để field gallery tự refresh.
+- [x] Sheet công cụ dùng `#fieldToolSheet` riêng (tách khỏi `#fieldSheet` properties để không đè
+      nhau). Desktop panels bị ẩn trong field-mode nên tái sử dụng hàm desktop không lộ UI.
+- **Còn lại (polish, cần test trên thiết bị thật):** tap ngoài để đóng More menu; field-native
+  properties render (hiện dùng lại propArea). typecheck + 266 test + build pass. ✅

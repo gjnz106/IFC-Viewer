@@ -285,6 +285,26 @@ window.searchSelect = async function(idx: number){
   }
 };
 
+// ── Field Mode reuse ──────────────────────────────────────────────────
+// Runs the same text match as searchRun() but without touching any desktop
+// DOM, and returns a lightweight list for the Field Mode search sheet to
+// render. It sets `_searchResults` so window.searchSelect(idx) — which does the
+// zoom + highlight — works unchanged when a field result is tapped.
+(window as any).fieldSearch = async function(text: string){
+  if(!_searchCache) await searchBuildCache();
+  if(!_searchCache) return [];
+  const q = (text || '').trim().toLowerCase();
+  let results = _searchCache.elements;
+  if(q){
+    const terms = q.split(/\s+/);
+    results = results.filter((e: any) => terms.every(t => e._text.includes(t)));
+  }
+  _searchResults = results;
+  _searchSelectedIdx = -1;
+  // Cap the rendered list; idx still indexes into the full _searchResults.
+  return results.slice(0, 300).map((e: any, i: number) => ({ idx: i, eid: e.eid, name: e.name || '', type: e.type || '' }));
+};
+
 // Bulk actions on search results
 window.searchIsolateAll = function(){
   if(!_searchResults.length) return;

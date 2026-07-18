@@ -910,6 +910,8 @@
   <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span><span class="field-btn-label">Fit</span></button>
   <button class="field-btn" onclick="fieldShowAll()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="field-btn-label">Show All</span></button>
   <div class="field-sep"></div>
+  <button class="field-btn" id="fieldBtnMore" onclick="fieldToggleMore()" title="More tools — Search, Colorize, Validate, Viewpoints"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span><span class="field-btn-label">More</span></button>
+  <div class="field-sep"></div>
   <button class="field-btn" onclick="toggleProfilePanel()" title="Account"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="field-btn-label">Account</span></button>
   <button class="field-btn" onclick="navigateTo('viewer')"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="field-btn-label">Desktop</span></button>
 </div>
@@ -918,6 +920,35 @@
   <div class="field-sheet-handle"></div>
   <div class="field-sheet-hdr"><div class="field-sheet-title" id="fieldSheetTitle">Properties</div><button class="field-sheet-close" onclick="fieldCloseSheet()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
   <div class="field-sheet-body" id="fieldSheetBody"><div class="prop-empty">Tap an element to inspect</div></div>
+</div>
+
+<!-- Field Mode "More" menu — grid of desktop-parity tools -->
+<div class="field-more" id="fieldMore">
+  <div class="field-more-grid">
+    <button class="field-more-item" onclick="fieldMenuSearch()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuColorize()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a10 10 0 010-20 8 8 0 018 8c0 2-2 3-4 3h-2a2 2 0 00-1 4 2 2 0 01-1 5z"/></svg>
+      <span>Colorize</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuValidate()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span>Validate</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuViewpoints()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Viewpoints</span>
+    </button>
+  </div>
+</div>
+
+<!-- Field Mode tool sheet (separate from #fieldSheet so properties don't clobber it) -->
+<div class="field-tool-sheet" id="fieldToolSheet">
+  <div class="field-sheet-handle"></div>
+  <div class="field-sheet-hdr"><div class="field-sheet-title" id="fieldToolTitle">Tools</div><button class="field-sheet-close" onclick="fieldCloseTool()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="field-sheet-body" id="fieldToolBody"></div>
 </div>
 
 <div class="field-loader" id="fieldLoader">
