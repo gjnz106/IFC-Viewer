@@ -16,9 +16,20 @@ Giao diện tiếng Anh. Assistant có thể trả lời bằng tiếng Anh ho�
 t3lab-ifc/
 ├── frontend/                   # Vite + TypeScript (trình duyệt) — ỨNG DỤNG CHÍNH
 │   ├── src/
-│   │   ├── lib/
+│   │   ├── lib/                # logic thuần + service (nhiều file có test Vitest colocated)
 │   │   │   ├── auth.ts         # Firebase Auth (+ window.getAuthToken, window.isAdmin)
-│   │   │   └── constants.ts    # IFC_NAMES, FED_COLORS, FED_LABELS
+│   │   │   ├── constants.ts    # IFC_NAMES, FED_COLORS, FED_LABELS
+│   │   │   ├── escape.ts       # escapeHtml / escapeCsv — chống XSS + formula injection
+│   │   │   ├── geometry-hash.ts# hash hình học cho độ chính xác Compare (Phase 3)
+│   │   │   ├── measure-math.ts # tính khoảng cách/diện tích/góc (Phase 8)
+│   │   │   ├── storeys.ts      # trích tầng cho Walk levels (Phase 7)
+│   │   │   ├── units.ts        # đơn vị đo per-project (Phase 8)
+│   │   │   ├── projects-store.ts     # project local-first (Phase 6)
+│   │   │   ├── viewpoints-store.ts   # saved viewpoints per-project (Phase 9)
+│   │   │   ├── ifc-cache.ts    # cache IndexedDB cho file IFC (Phase 14)
+│   │   │   ├── cloud-projects.ts     # ☁ Firestore registry + membership (Phase 12/14)
+│   │   │   ├── cloud-files.ts  # ☁ upload/download IFC trên Storage (Phase 13)
+│   │   │   └── cloud-results.ts# ☁ lưu/khôi phục kết quả Compare/Clash (Phase 15)
 │   │   ├── main.ts             # Entry point — import tất cả component theo thứ tự phụ thuộc
 │   │   ├── store/
 │   │   │   └── index.ts        # appState — trạng thái dùng chung toàn app
@@ -36,26 +47,36 @@ t3lab-ifc/
 │   │       │   ├── measure.ts
 │   │       │   ├── coordinates.ts
 │   │       │   ├── walk.ts
+│   │       │   ├── fly-nav.ts
 │   │       │   ├── plan-overlay.ts
+│   │       │   ├── plan-geometry.ts
+│   │       │   ├── viewpoints.ts
 │   │       │   └── focus-highlight.ts
 │   │       ├── compare/        # so sánh nhiều model
 │   │       │   ├── compare.ts
+│   │       │   ├── compare-slider.ts
 │   │       │   ├── federation-load.ts
+│   │       │   ├── cross-discipline.ts     # ghép clash chéo discipline (logic)
+│   │       │   ├── cross-discipline-run.ts # ghép clash chéo discipline (chạy/UI)
 │   │       │   └── clash.ts
 │   │       ├── validate/       # IFC-SG validator
 │   │       │   ├── validator-rules.ts
-│   │       │   ├── validator-rules.test.ts
 │   │       │   ├── validator-json-loader.ts
-│   │       │   └── validator-export.ts
+│   │       │   ├── validator-export.ts
+│   │       │   └── snapshots.ts             # snapshot kết quả để so lịch sử
 │   │       ├── inspect/        # tra cứu phần tử
 │   │       │   ├── properties.ts
+│   │       │   ├── material-layers.ts
 │   │       │   └── search.ts
 │   │       ├── integrations/   # dịch vụ ngoài
 │   │       │   ├── drive.ts
-│   │       │   └── ai.ts
+│   │       │   ├── ai.ts       # chat proxy + tool-use loop
+│   │       │   └── ai-query.ts # index dữ liệu model cho AI truy vấn
 │   │       └── ui/             # vỏ UI + chế độ + router + persist
 │   │           ├── ui-shell.ts
 │   │           ├── fieldmode.ts
+│   │           ├── projects.ts # UI quản lý project (local + cloud)
+│   │           ├── rail.ts     # thanh điều hướng trái
 │   │           ├── router.ts
 │   │           └── state-persist.ts
 │   ├── public/
