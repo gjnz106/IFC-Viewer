@@ -349,6 +349,7 @@ window.fieldSelectStorey = function(idx: number, elevation: number){
 // so without this guard each re-entry stacked another full set of touch
 // listeners — long-press/double-tap firing N times after N toggles.
 let _longPressReady = false;
+let _lpJustFired = false;
 function fieldSetupLongPress(){
   if(_longPressReady) return;
   const canvas = appState.renderer?.domElement;
@@ -391,6 +392,16 @@ function fieldSetupLongPress(){
         });
         canvas.dispatchEvent(ev);
         e.preventDefault();
+        // The touchend that follows this same gesture still synthesizes a
+        // regular 'click' per the browser's touch→mouse emulation (calling
+        // preventDefault on the original touchstart here, 600ms later, does
+        // NOT suppress it — that only works if called synchronously during
+        // touchstart/touchend itself). That synthetic click then bubbles to
+        // viewer-core's document-level "close menu on outside click"
+        // listener, which saw it as a click outside #ctxMenu and closed the
+        // menu that had just opened — Properties never had a chance to be
+        // tapped. Flag the upcoming touchend to preventDefault it instead.
+        _lpJustFired = true;
       }
     }, 600);
   }, {passive:false});
@@ -406,14 +417,19 @@ function fieldSetupLongPress(){
     }
   });
 
-  canvas.addEventListener('touchend', () => {
+  canvas.addEventListener('touchend', (e) => {
     if(lpTimer) clearTimeout(lpTimer);
     lpTimer = null;
-  });
+    if(_lpJustFired){
+      e.preventDefault();
+      _lpJustFired = false;
+    }
+  }, {passive:false});
 
   canvas.addEventListener('touchcancel', () => {
     if(lpTimer) clearTimeout(lpTimer);
     lpTimer = null;
+    _lpJustFired = false;
   });
 }
 
