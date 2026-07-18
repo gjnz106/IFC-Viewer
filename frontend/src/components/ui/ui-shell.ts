@@ -137,6 +137,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (el) {
     const open = el.style.display !== 'none';
     el.style.display = open ? 'none' : 'flex';
+    // Fill with the active cloud project's real member list on open
+    // (renderTeamPanel lives in projects.ts, which owns the cloud state).
+    if (!open) (window as any).renderTeamPanel?.();
   }
 };
 

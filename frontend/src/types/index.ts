@@ -360,6 +360,7 @@ declare global {
 
     // Projects (local-first project registry)
     toggleProjectsPanel?: () => void;
+    renderTeamPanel?: () => void;
     projCreate?: () => void;
     projRename?: (id: string) => void;
     projDelete?: (id: string) => void;

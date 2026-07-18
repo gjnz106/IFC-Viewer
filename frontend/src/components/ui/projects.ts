@@ -698,6 +698,60 @@ window.addEventListener('ifc:viewpointschange', (ev: any) => {
   syncProjectSettings(projectId, { viewpointCount: ev?.detail?.count });
 });
 
+// ── Team panel (topbar 👥) — real membership of the active cloud project ──
+// Replaces the old static demo table (fake names + workload bars). Shows the
+// actual memberEmails of the open cloud project: Owner badge, "You" marker,
+// and how many of the project's cloud files each member uploaded.
+window.renderTeamPanel = function (): void {
+  const box = document.getElementById('teamPanelBody');
+  if (!box) return;
+  const empty = (msg: string) => {
+    box.innerHTML = `<div style="padding:28px 8px;text-align:center;color:#8590a6;font-size:12px">${escapeHtml(msg)}</div>`;
+  };
+  const id = appState.activeCloudProjectId;
+  if (!id) { empty('Open a cloud project to see its team. Local projects have no shared members.'); return; }
+  const p = cloudList.find(c => c.id === id);
+  if (!p) { empty('Cloud project list not loaded yet — open the Projects panel to refresh, then try again.'); return; }
+
+  const me = (currentAuthUser()?.email || '').toLowerCase();
+  const owner = (p.ownerEmail || '').toLowerCase();
+  // Owner first, then the rest alphabetically.
+  const members = [...new Set((p.memberEmails || []).map(m => m.toLowerCase()))]
+    .sort((a, b) => (a === owner ? -1 : b === owner ? 1 : a.localeCompare(b)));
+
+  const row = (email: string, count: number | null) => {
+    const initial = escapeHtml((email[0] || '?').toUpperCase());
+    const badges =
+      (email === owner ? '<span style="background:#0058be;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">Owner</span>' : '') +
+      (email === me ? '<span style="background:rgba(0,0,0,0.08);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">You</span>' : '');
+    const files = count === null
+      ? '<span style="color:#8590a6">…</span>'
+      : `<b>${count}</b> file${count === 1 ? '' : 's'}`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid rgba(0,0,0,0.05);font-size:12.5px">
+      <span style="width:26px;height:26px;border-radius:50%;background:#e8eaef;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">${initial}</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(email)}${badges}</span>
+      <span style="flex-shrink:0;color:#374151">${files}</span>
+    </div>`;
+  };
+  const paint = (counts: Record<string, number> | null) => {
+    box.innerHTML =
+      `<div style="font-size:11px;color:#8590a6;margin-bottom:6px">${escapeHtml(p.name)} — ${members.length} member${members.length === 1 ? '' : 's'} · uploads count cloud files in this project</div>` +
+      members.map(m => row(m, counts ? (counts[m] || 0) : null)).join('');
+  };
+  paint(null); // instant paint; per-member upload counts fill in below
+
+  fetchProjectFiles(id).then(records => {
+    // Don't stamp counts fetched for project A onto a since-opened project B.
+    if (appState.activeCloudProjectId !== id) return;
+    const counts: Record<string, number> = {};
+    for (const r of records) {
+      const k = (r.uploadedBy || '').toLowerCase();
+      if (k) counts[k] = (counts[k] || 0) + 1;
+    }
+    paint(counts);
+  }).catch(() => { /* keep the pending "…" — panel still shows membership */ });
+};
+
 // Open the Settings dialog also refreshes the storage figure (in addition
 // to the projectchange-triggered refresh above, for the first open of a
 // session before any switch has fired).
