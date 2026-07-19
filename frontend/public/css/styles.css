@@ -1059,6 +1059,14 @@ body.field-mode #leftPanel{display:none !important}
 body.field-mode #rightPanel{display:none !important}
 body.field-mode .status-bar{display:none !important}
 body.field-mode .sg-panel{display:none !important}
+/* The desktop floating toolbar duplicated 6 of the field-bar's buttons
+   (Measure, Photo, Section, Walk, Fit, Plan 2D) — in Field Mode the bottom
+   bar is the single toolbar. */
+body.field-mode .float-tools{display:none !important}
+/* While walking in Field Mode both thumbs live at the bottom corners (the
+   look joystick ends 80px up, the FAB tops out at ~74px) — hide the AI FAB
+   so a slipped thumb can't open the chat mid-walk. */
+body.field-mode:has(.walk-touch.show) .aic-fab-wrap{display:none !important}
 body.field-mode .empty-vp .ev-title{font-size:18px}
 body.field-mode .empty-vp .ev-hint{font-size:13px}
 
@@ -1067,7 +1075,11 @@ body.field-mode .empty-vp .ev-hint{font-size:13px}
   display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
   background:rgba(44,36,32,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   border-top:1px solid rgba(255,255,255,.1);
-  padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  /* Right padding reserves the bottom-right corner for the AI assistant FAB
+     (56px + margins, position:fixed z-index 9998) — without it the FAB sat on
+     top of the bar's last button (Desktop). Padding on the flex container
+     keeps that column empty even when the bar wraps to two rows. */
+  padding:6px calc(76px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) 8px;
   gap:4px;justify-content:center;flex-wrap:wrap;
 }
 body.field-mode .field-bar{display:flex}
