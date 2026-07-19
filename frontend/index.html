@@ -569,6 +569,7 @@
 
       <!-- === OVERVIEW section — per-file spatial tree (rail: Overview) === -->
       <div class="lp-overview hide" id="lpOverview">
+        <div id="ovClash"></div>
         <div class="ov-summary" id="ovSummary"></div>
         <div style="padding:6px 14px 4px">
           <input class="search-input" id="ovSearch" placeholder="Filter by name, type, #id…" oninput="ovSearchInput()" style="width:100%">
@@ -834,6 +835,11 @@
           <select id="clashGroupBy" class="clash-select" onchange="regroupClashes()">
             <option value="none">No grouping</option><option value="categoryA">Source Category</option><option value="categoryB">Target Category</option><option value="level">Story Level</option>
           </select>
+          <label style="margin-left:8px">Status</label>
+          <select id="clashStatusFilter" class="clash-select" onchange="regroupClashes()">
+            <option value="all">All</option><option value="unresolved">Unresolved</option><option value="new">New</option><option value="resolved">Resolved</option>
+          </select>
+          <label class="clash-auto-lbl" title="Re-run clash detection automatically when a model is updated (projects with clash history)"><input type="checkbox" id="clashAutoRun" checked onchange="clashAutoRunChanged()"> Auto re-run</label>
         </div>
         <div class="clash-list" id="clashList"><div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div></div>
       </div>

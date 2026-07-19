@@ -404,6 +404,8 @@ declare global {
     clashEffectiveTargetIdx?: () => number;
     clearClashSubsets?: () => void;
     clashHandleModelRemoved?: (removedIdx: number) => void;
+    clashToggleResolved?: (i: number) => void;
+    clashAutoRunChanged?: () => void;
     setClashSourceModel?: (v: string) => void;
     setClashTargetModel?: (v: string) => void;
     regroupClashes?: () => void;

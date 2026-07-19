@@ -16,6 +16,9 @@ import {
   buildOverviewTree, buildPrettyTypeLookup, filterOverviewTree, countStoreys,
   type OvNode,
 } from '../../lib/spatial-tree.js';
+import { loadIssueMap, computeIssueMetrics } from '../../lib/clash-issues.js';
+import { clashProjectKey } from '../compare/clash.js';
+import { loadSnapshots } from '../validate/snapshots.js';
 
 const PRETTY = buildPrettyTypeLookup(Object.values(IFC_NAMES));
 
@@ -139,10 +142,49 @@ function renderNode(idx: number, entry: SlotTree, n: OvNode, depth: number): str
   return html;
 }
 
+// ── Clash-tracking dashboard (Overview header) ───────────────────────────
+// Backlog + trend for the active project's tracked clash issues. Hidden
+// entirely until the project has clash-tracking history.
+function clashDashboardHtml(): string {
+  const metrics = computeIssueMetrics(loadIssueMap(clashProjectKey()));
+  if (metrics.total === 0) return '';
+  const unresolved = metrics.unresolvedHard + metrics.unresolvedClearance;
+
+  // Trend from the recorded clash snapshots (newest first) — total per run.
+  const snaps = loadSnapshots().filter(s => s.kind === 'clash').slice(0, 10);
+  let trendHtml = '';
+  if (snaps.length >= 2) {
+    const vals = snaps.map(s => Number(s.stats?.total) || 0).reverse(); // oldest → newest
+    const max = Math.max(...vals, 1);
+    const bars = vals.map(v =>
+      `<span class="ovc-bar" style="height:${Math.max(8, Math.round((v / max) * 26))}px" title="${v} clashes"></span>`
+    ).join('');
+    const delta = vals[vals.length - 1] - vals[vals.length - 2];
+    const deltaTxt = delta === 0 ? '±0'
+      : `${delta > 0 ? '▲ +' : '▼ '}${delta}`;
+    trendHtml = `<div class="ovc-trend"><span class="ovc-bars">${bars}</span><span class="ovc-delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : ''}">${deltaTxt} vs previous run</span></div>`;
+  }
+
+  return `<div class="ovc">
+    <div class="ovc-head">Clash backlog</div>
+    <div class="ovc-stats">
+      <div class="ovc-stat bad"><b>${metrics.unresolvedHard}</b><span>hard open</span></div>
+      <div class="ovc-stat warn"><b>${metrics.unresolvedClearance}</b><span>clearance open</span></div>
+      <div class="ovc-stat ok"><b>${metrics.resolved}</b><span>resolved</span></div>
+      <div class="ovc-stat"><b>${metrics.gone}</b><span>auto-fixed</span></div>
+    </div>
+    ${metrics.reappeared ? `<div class="ovc-reopen">⚠ ${metrics.reappeared} marked resolved but detected again</div>` : ''}
+    ${trendHtml}
+    ${unresolved ? `<button class="ovc-open" onclick="navigateTo('clash')">Open Clash →</button>` : ''}
+  </div>`;
+}
+
 function render(): void {
   const treeEl = document.getElementById('ovTree');
   const sumEl = document.getElementById('ovSummary');
   if (!treeEl || !sumEl) return;
+  const dashEl = document.getElementById('ovClash');
+  if (dashEl) dashEl.innerHTML = clashDashboardHtml();
 
   const loadedIdxs: number[] = [];
   for (let i = 0; i < appState.loadedModels.length; i++) if (appState.loadedModels[i]) loadedIdxs.push(i);
