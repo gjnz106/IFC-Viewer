@@ -365,6 +365,9 @@ declare global {
     // Overview tab (per-file spatial tree)
     ovRefresh?: () => void;
     ovSearchInput?: () => void;
+
+    // Compare guided flow
+    reconcileComparePage?: () => void;
     projCreate?: () => void;
     projRename?: (id: string) => void;
     projDelete?: (id: string) => void;

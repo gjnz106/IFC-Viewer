@@ -458,6 +458,10 @@ async function loadIFC(idx: number){
 
     // Invalidate SG validation cache so next run includes new model
     appState.sgState.cachedCtx = null;
+
+    // Announce the load — compare's guided flow and clash auto-tracking both
+    // react to "a model slot just (re)loaded" without polling.
+    window.dispatchEvent(new CustomEvent('ifc:modelloaded', { detail: { idx } }));
   }catch(e: any){
     log('Load err:',e.message);
     if(st){st.className='uc-status err';st.textContent='✕ '+e.message}
@@ -716,6 +720,10 @@ window.exitCompare=function(){
     removeSectionBox3D();
     appState.clipPlanes.forEach(p=>p.constant=99999);
   }
+
+  // If the user exited via the "Exit Compare" button (still on the compare
+  // page), bring the guided empty-state back instead of leaving a blank tree.
+  (window as any).reconcileComparePage?.();
 
   log('Exited compare mode');
 };

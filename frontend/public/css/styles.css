@@ -1440,6 +1440,16 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .lp-model{display:flex;flex-direction:column;overflow-y:auto;flex:1;min-height:0}
 .lp-model.hide{display:none}
 
+/* ── Compare guided flow (shown in #eTree until a compare result exists) ── */
+.cmp-guide{display:flex;flex-direction:column;gap:8px;padding:18px 14px}
+.cmp-guide-title{font-size:13px;font-weight:700;text-align:center;margin-bottom:4px}
+.cmp-guide-slot{display:block;width:100%;padding:11px 12px;border-radius:10px;border:1.5px dashed var(--line,#d5d0ca);background:var(--bg-card);font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text);cursor:pointer;text-align:center}
+.cmp-guide-slot:hover{border-color:var(--blue,#0058be);color:var(--blue,#0058be)}
+.cmp-guide-slot.done{border-style:solid;border-color:var(--green,#16a34a);color:var(--green,#16a34a);cursor:default;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp-guide-run{width:100%;padding:12px;border-radius:10px;border:none;background:var(--text);color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px}
+.cmp-guide-run:active{transform:scale(.98)}
+.cmp-guide-hint{font-size:11.5px;color:var(--text-muted);text-align:center;line-height:1.5;margin-top:2px}
+
 /* ── Overview section (rail: Overview) — per-file spatial tree ── */
 .lp-overview{display:flex;flex-direction:column;flex:1;min-height:0}
 .lp-overview.hide{display:none}
