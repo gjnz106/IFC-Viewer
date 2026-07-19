@@ -240,6 +240,7 @@ declare global {
   interface Window {
     // Router (hash-based page navigation)
     navigateTo?: (page: Page) => void;
+    navToggle?: (page: Page) => void;
 
     // Viewer core
     zoomFit?: () => void;

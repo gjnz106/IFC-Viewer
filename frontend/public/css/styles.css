@@ -1380,6 +1380,9 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .hdr-seg:hover{background:rgba(255,255,255,.7);color:#5A5755}
 .hdr-seg-active,.hdr-seg.active{background:#fff;color:#5A5755;box-shadow:0 1px 4px rgba(44,36,32,.12);font-weight:600}
 .hdr-seg:disabled{opacity:.4;cursor:not-allowed}
+/* Divider inside the segmented switcher — separates the desktop analysis
+   workspaces (3D/Compare/Clash) from the full-screen Field mode. */
+.hdr-seg-div{align-self:center;width:1px;height:18px;background:rgba(44,36,32,.14);margin:0 3px;flex:none}
 
 /* Header tool buttons */
 .hdr-tool{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 11px;border:none;border-radius:10px;background:transparent;color:#6B6560;font-family:'Hanken Grotesk';font-size:13px;font-weight:500;cursor:pointer;transition:all .15s ease;white-space:nowrap}

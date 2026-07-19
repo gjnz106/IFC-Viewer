@@ -156,19 +156,26 @@
     </button>
     <span class="tb-brand-sep"></span>
 
-    <!-- Mode switcher (Field / Compare / Clash) — v5 segmented pills -->
+    <!-- Workspace switcher (3D / Compare / Clash / Validate) — v5 segmented
+         pills. Every pill toggles: clicking the active workspace returns to
+         3D, so there is always a visible way back to the base viewer. Field
+         (full-screen on-site mode) is a separate pill after the divider. -->
     <div style="display:inline-flex;gap:2px;padding:3px;background:#E8E6E1;border-radius:12px;flex:none">
-      <button id="fieldModeBtn" data-page="field" onclick="navigateTo('field')" class="hdr-seg" title="Field Mode — on-site BIM review">
-        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg> Field
+      <button data-page="viewer" onclick="navToggle('viewer')" class="hdr-seg" title="3D Viewer — base model view">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/><path d="M12 2v18M4 6.5l8 4.5 8-4.5"/></svg> 3D
       </button>
-      <button data-page="compare" onclick="navigateTo('compare')" class="hdr-seg" title="Compare two IFC versions">
+      <button data-page="compare" onclick="navToggle('compare')" class="hdr-seg" title="Compare two IFC versions">
         <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;vertical-align:-1px"><path d="M8 5.5l11 6.5-11 6.5z"/></svg> Compare
       </button>
       <span id="compareOutdatedBadge" style="display:none;font-size:9px;font-family:'JetBrains Mono';color:#b45309;margin-left:2px;align-self:center" title="Saved compare result no longer matches the loaded files">⚠ Outdated</span>
-      <button id="btnClash" data-page="clash" onclick="toggleClashMode()" class="hdr-seg" title="Clash detection">
+      <button id="btnClash" data-page="clash" onclick="navToggle('clash')" class="hdr-seg" title="Clash detection">
         <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;vertical-align:-1px"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg> Clash
       </button>
       <span id="clashOutdatedBadge" style="display:none;font-size:9px;font-family:'JetBrains Mono';color:#b45309;margin-left:2px;align-self:center" title="Saved clash result no longer matches the loaded files">⚠ Outdated</span>
+      <span class="hdr-seg-div"></span>
+      <button id="fieldModeBtn" data-page="field" onclick="navToggle('field')" class="hdr-seg" title="Field Mode — on-site BIM review">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg> Field
+      </button>
     </div>
     <span class="tb-brand-sep"></span>
 
