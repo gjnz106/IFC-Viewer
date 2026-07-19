@@ -9,8 +9,6 @@ import {
   setPersistence,
   browserLocalPersistence,
   reload as reloadUser,
-  createUserWithEmailAndPassword,
-  updateProfile,
   type User,
 } from 'firebase/auth';
 import { appState } from '../store/index.js';
@@ -59,14 +57,14 @@ const viewLoading = $('authViewLoading');
 const viewLogin = $('authViewLogin');
 const viewVerify = $('authViewVerify');
 const viewReset = $('authViewReset');
-const viewSignup = $('authViewSignup');
 
-function showView(which: 'loading' | 'login' | 'verify' | 'reset' | 'signup') {
+// Sign-up is intentionally not self-serve — accounts are provisioned by an
+// admin (Firebase Console → Authentication → Add user). No 'signup' state.
+function showView(which: 'loading' | 'login' | 'verify' | 'reset') {
   viewLoading.style.display = which === 'loading' ? '' : 'none';
   viewLogin.style.display = which === 'login' ? '' : 'none';
   viewVerify.style.display = which === 'verify' ? '' : 'none';
   viewReset.style.display = which === 'reset' ? '' : 'none';
-  viewSignup.style.display = which === 'signup' ? '' : 'none';
 }
 
 // Start in loading state — same as AuthGuard waiting for hasHydrated.
@@ -298,12 +296,7 @@ const ADMIN_EMAILS = new Set(['trantienthanh909@gmail.com']);
 };
 (window as any).showLoginView = function () {
   clearMsg('resetMsg');
-  clearMsg('signupMsg');
   showView('login');
-};
-(window as any).showSignupView = function () {
-  clearMsg('signupMsg');
-  showView('signup');
 };
 
 ($('resetForm') as HTMLFormElement).addEventListener('submit', async e => {
@@ -377,45 +370,3 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── SIGNUP form ─────────────────────────────────────────────────────────
-($('signupForm') as HTMLFormElement).addEventListener('submit', async e => {
-  e.preventDefault();
-  if (!auth) return;
-  clearMsg('signupMsg');
-  const name = ($('signupName') as HTMLInputElement).value.trim();
-  const email = ($('signupEmail') as HTMLInputElement).value.trim();
-  const pass = ($('signupPassword') as HTMLInputElement).value;
-  const pass2 = ($('signupPasswordConfirm') as HTMLInputElement).value;
-
-  if (!name || !email || !pass || !pass2) {
-    showMsg('signupMsg', 'Please fill in all fields.');
-    return;
-  }
-  if (pass !== pass2) {
-    showMsg('signupMsg', 'Passwords do not match.');
-    return;
-  }
-  if (pass.length < 6) {
-    showMsg('signupMsg', 'Password should be at least 6 characters.');
-    return;
-  }
-
-  setLoading('signupSubmit', true);
-  try {
-    const { user } = await createUserWithEmailAndPassword(auth, email, pass);
-    await updateProfile(user, { displayName: name });
-    await sendEmailVerification(user).catch(() => { });
-    showMsg('signupMsg', 'Account created! Please check your email for verification.', 'success');
-  } catch (err: any) {
-    const c = err?.code || '';
-    if (c === 'auth/email-already-in-use') {
-      showMsg('signupMsg', 'This email is already registered. Try signing in instead.');
-    } else if (c === 'auth/weak-password') {
-      showMsg('signupMsg', 'Password is too weak. Use at least 6 characters.');
-    } else {
-      showMsg('signupMsg', friendlyAuthError(err));
-    }
-  } finally {
-    setLoading('signupSubmit', false);
-  }
-});
