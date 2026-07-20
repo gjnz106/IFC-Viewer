@@ -1196,6 +1196,9 @@ body.field-mode .field-tool-sheet{display:block}
   cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;transition:background .12s;
 }
 .field-tool-item:active{background:var(--accent-soft)}
+.field-tool-item.active{border-color:var(--green);background:var(--green-bg)}
+.field-tool-item.active .field-tool-item-tag{color:var(--green)}
+.field-tool-item:disabled{cursor:default;opacity:.85}
 .field-tool-item-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .field-tool-item-tag{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono';flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .field-tool-actions{display:flex;gap:8px;margin-bottom:10px}
