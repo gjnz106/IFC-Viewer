@@ -1,19 +1,20 @@
-/* ── DQT Design System v4 — Warm Charcoal palette ─────────────────────── */
+/* ── Lumina Design System (IDD standard) ─────────────────────── */
 :root{
-  --bg:#F8F7F5;--bg-panel:#FFFFFF;--bg-card:#F0EEEB;--bg-hover:#F5F3F0;
-  --border:#D0CCC8;--border-hi:#C8C4C0;
+  --bg:#F1F1F3;--bg-panel:#FFFFFF;--bg-card:#FAFAFB;--bg-hover:#F3F4F6;
+  --border:#E6E6EA;--border-hi:#DEDEE2;
   /* hairline border between sections */
-  --line:#E8E6E1;
-  --text:#5A5755;--text-dim:#4A4541;--text-muted:#B0ABA6;--text-faint:#C0BAB4;
-  --green:#72C5A4;--green-bg:rgba(114,197,164,.12);--green-lt:#C6F5E6;
-  --red:#E87070;--red-bg:rgba(232,112,112,.10);--red-lt:#FEE2E2;
-  --amber:#F5A07A;--amber-bg:rgba(245,160,122,.12);--amber-lt:#FDE8D8;
-  /* periwinkle brand — active states, highlights */
-  --blue:#8B9CF4;--blue-bg:rgba(139,156,244,.12);--blue-lt:#EDEFFE;--blue-hover:#7B8CE8;
-  --indigo:#6B6560;--indigo-bg:rgba(107,101,96,.08);
+  --line:#E6E6EA;
+  --text:#27272A;--text-dim:#3F3F46;--text-muted:#71717A;--text-faint:#9A9AA2;
+  --green:#157038;--green-bg:#EAF8F0;--green-lt:#EAF8F0;
+  --red:#D23B3B;--red-bg:#FDECEC;--red-lt:#FDECEC;
+  --amber:#B5791A;--amber-bg:#FFF6E6;--amber-lt:#FFF6E6;
+  /* zinc brand — active states, highlights */
+  --blue:#18181B;--blue-bg:#F3F4F6;--blue-lt:#F3F4F6;--blue-hover:#000000;
+  --indigo:#27272A;--indigo-bg:rgba(39,39,42,.08);
   /* orange accent — ONLY sliders + live progress bars */
   --accent:#C2410C;--accent-hover:#EA580C;--accent-soft:#FBEAE0;
   --radius:12px;--t:.15s ease;
+  --topbar-h: 48px;
 }
 /* ── Resizable layout ──────────────────────────────────────────────────
    Column widths (left sidebar, right Properties panel) and bottom-panel
@@ -30,8 +31,8 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Hanken Grotesk','Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
 /* Grid (v5 shell): header (full width) / [rail | lcol | resize | viewport | resize | rcol] / status bar (full width).
-   Rail is a fixed 52px nav column; status bar a 26px footer. */
-.app{display:grid;grid-template-rows:64px 1fr;grid-template-columns:52px var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
+   Rail is a fixed 52px nav column; topbar is 48px. */
+.app{display:grid;grid-template-rows:48px 1fr;grid-template-columns:52px var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
 /* Left panel collapsed (no rail tab active): hide the panel + its resize handle by zeroing the track */
 .app.left-collapsed{grid-template-columns:52px 0 0 1fr var(--resize-w) var(--rcol)}
 .app.left-collapsed .left-panel,.app.left-collapsed #lresize{display:none}
@@ -52,8 +53,8 @@ body{font-family:'Hanken Grotesk','Inter',sans-serif;background:var(--bg);color:
 body.resizing,body.resizing *{user-select:none !important;cursor:col-resize !important}
 body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-resize !important}
 
-/* Header / Topbar */
-.topbar{grid-column:1/-1;grid-row:1;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;z-index:50;overflow-x:auto;scrollbar-width:none;height:64px}
+/* Header / Topbar — IDD Lumina standard 48px */
+.topbar{grid-column:1/-1;grid-row:1;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;z-index:50;overflow-x:auto;scrollbar-width:none;height:48px}
 .topbar::-webkit-scrollbar{display:none}
 
 /* ── Topbar brand logo (IDD Lumina pattern) ── */
