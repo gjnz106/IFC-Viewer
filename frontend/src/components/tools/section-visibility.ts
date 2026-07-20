@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { IFCLoader } from 'web-ifc-three';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 // IFC type code constants from the IFC4 schema (stable numeric values)
 const IFCSPACE = 3856911033;
 const IFCOPENINGELEMENT = 3588315303;
@@ -135,6 +136,12 @@ async function initIFC(){
   setStatus('loading','Loading WASM...');
   try{
     appState.ifcLoader=new IFCLoader();
+    // BVH-accelerated raycasting (three-mesh-bvh): the parser builds a bounds
+    // tree per model geometry, turning every raycast (zoom-to-cursor pivot,
+    // element pick, context menu, measure) from a full-triangle scan — a visible
+    // hitch on real models — into a log-time BVH query. This was the main
+    // "orbit/zoom not smooth like Dalux/Revit" cost besides preserveDrawingBuffer.
+    appState.ifcLoader.ifcManager.setupThreeMeshBVH(computeBoundsTree, disposeBoundsTree, acceleratedRaycast);
     // Self-host the web-ifc WASM (in frontend/public/vendor/web-ifc/, version-matched
     // to the bundled web-ifc) instead of a CDN — the CDN can be blocked and then the
     // loader falls back to a same-origin path that the SPA rewrite answers with HTML,
@@ -459,6 +466,10 @@ async function loadIFC(idx: number){
 
     // Invalidate SG validation cache so next run includes new model
     appState.sgState.cachedCtx = null;
+
+    // Announce the load — compare's guided flow and clash auto-tracking both
+    // react to "a model slot just (re)loaded" without polling.
+    window.dispatchEvent(new CustomEvent('ifc:modelloaded', { detail: { idx } }));
   }catch(e: any){
     log('Load err:',e.message);
     if(st){st.className='uc-status err';st.textContent='✕ '+e.message}
@@ -717,6 +728,10 @@ window.exitCompare=function(){
     removeSectionBox3D();
     appState.clipPlanes.forEach(p=>p.constant=99999);
   }
+
+  // If the user exited via the "Exit Compare" button (still on the compare
+  // page), bring the guided empty-state back instead of leaving a blank tree.
+  (window as any).reconcileComparePage?.();
 
   log('Exited compare mode');
 };

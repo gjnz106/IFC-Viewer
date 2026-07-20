@@ -94,6 +94,17 @@ export function navigateTo(page: Page) {
   applyPage(page);
 }
 
+// Mode pills use this so every workspace behaves the same: clicking the pill
+// for the page you're already on returns to the base 3D viewer (a consistent
+// "click active mode to exit" affordance), otherwise it switches to that page.
+// Field is excluded from the toggle-back (it's a full-screen takeover with its
+// own Desktop button); its pill just enters.
+export function navToggle(page: Page) {
+  if (page !== 'field' && appState.activePage === page) navigateTo('viewer');
+  else navigateTo(page);
+}
+window.navToggle = navToggle;
+
 export function initRouter() {
   // hashchange covers back/forward *and* manual hash edits (pushState in
   // navigateTo doesn't fire it — navigateTo applies directly).

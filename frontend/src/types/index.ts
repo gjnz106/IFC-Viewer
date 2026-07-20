@@ -240,6 +240,7 @@ declare global {
   interface Window {
     // Router (hash-based page navigation)
     navigateTo?: (page: Page) => void;
+    navToggle?: (page: Page) => void;
 
     // Viewer core
     zoomFit?: () => void;
@@ -360,6 +361,14 @@ declare global {
 
     // Projects (local-first project registry)
     toggleProjectsPanel?: () => void;
+    renderTeamPanel?: () => void;
+
+    // Overview tab (per-file spatial tree)
+    ovRefresh?: () => void;
+    ovSearchInput?: () => void;
+
+    // Compare guided flow
+    reconcileComparePage?: () => void;
     projCreate?: () => void;
     projRename?: (id: string) => void;
     projDelete?: (id: string) => void;
@@ -396,6 +405,8 @@ declare global {
     clashEffectiveTargetIdx?: () => number;
     clearClashSubsets?: () => void;
     clashHandleModelRemoved?: (removedIdx: number) => void;
+    clashToggleResolved?: (i: number) => void;
+    clashAutoRunChanged?: () => void;
     setClashSourceModel?: (v: string) => void;
     setClashTargetModel?: (v: string) => void;
     regroupClashes?: () => void;

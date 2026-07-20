@@ -26,6 +26,7 @@ import './components/validate/validator-json-loader.js';
 import './components/validate/validator-export.js';
 import './components/integrations/drive.js';
 import './components/inspect/search.js';
+import './components/inspect/overview-tree.js';
 import './components/ui/fieldmode.js';
 import './components/ui/ui-shell.js';
 import './components/ui/projects.js';

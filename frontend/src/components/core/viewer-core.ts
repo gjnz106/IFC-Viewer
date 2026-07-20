@@ -179,7 +179,13 @@ export function initThree(): void {
   // logarithmicDepthBuffer: BIM scenes span cm-scale detail to km-scale sites,
   // so a linear depth buffer z-fights badly (faces disappear on rotate). The
   // log buffer spreads precision evenly across near..far and fixes that.
-  appState.renderer = new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:true,logarithmicDepthBuffer:true});
+  // preserveDrawingBuffer:false — keeping the buffer costs real per-frame
+  // performance (blocks buffer-swap optimizations) and was only needed so
+  // toDataURL() could read pixels at arbitrary times. Every screenshot site
+  // (viewpoints, BCF exports, captureScreenshot) already re-renders
+  // synchronously right before reading pixels, which is guaranteed valid in
+  // the same task — same output, none of the per-frame cost.
+  appState.renderer = new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:false,logarithmicDepthBuffer:true});
   appState.renderer.setSize(c.clientWidth,c.clientHeight);
   appState.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
   appState.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -230,6 +236,9 @@ export function initThree(): void {
   };
   {
     const zoomRay=new THREE.Raycaster();
+    // Pivot only needs the closest hit — with three-mesh-bvh's acceleratedRaycast
+    // (wired in initIFC) firstHitOnly turns the query into an early-out BVH walk.
+    (zoomRay as any).firstHitOnly=true;
     const mouseNDC=new THREE.Vector2();
     appState.renderer.domElement.addEventListener('wheel',(e: WheelEvent)=>{
       e.preventDefault();
@@ -306,6 +315,7 @@ export function initThree(): void {
     let pinchMid = {x:0, y:0};
     let pinchActive = false;
     const pinchRay = new THREE.Raycaster();
+    (pinchRay as any).firstHitOnly = true; // pivot only needs closest hit (BVH early-out)
 
     appState.renderer.domElement.addEventListener('touchstart', (e: TouchEvent) => {
       if(e.touches.length === 2 && !appState.walkActive){

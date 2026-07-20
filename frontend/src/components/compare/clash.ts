@@ -8,7 +8,13 @@ import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
 import { escapeHtml, escapeCsv } from '../../lib/escape.js';
 import { disposeModel } from '../core/viewer-core.js';
 import { computeGeometryHashes } from '../../lib/geometry-hash.js';
-import { saveResult, buildModelSignature, formatClashCounts, buildResultMetadata } from '../../lib/cloud-results.js';
+import { saveResult, downloadResult, buildModelSignature, formatClashCounts, buildResultMetadata } from '../../lib/cloud-results.js';
+import { clashStableId, idInputFromResult } from '../../lib/clash-id.js';
+import {
+  loadIssueMap, saveIssueMap, reconcileIssues, setIssueResolved, mergeIssueMaps,
+  type IssueMap, type ReconcileSummary,
+} from '../../lib/clash-issues.js';
+import { loadRegistry, getActiveProject } from '../../lib/projects-store.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
 (window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
@@ -18,6 +24,81 @@ let clashSubsets: THREE.Group[] = [];
 let currentClashIdx = -1;
 // Warning banner text when the candidate cap was hit (some pairs not checked).
 let _clashCapNote = '';
+
+// ── Clash issue tracking (Resolved/Unresolved across runs — lib/clash-issues) ──
+let clashIssueMap: IssueMap = {};
+let clashResultIds: string[] = [];            // stable id per appState.clashResults index
+let clashIssueSummary: ReconcileSummary | null = null;
+let _issueMapKey = '';                        // project key the map was loaded for
+let _autoClashPending = false;                // model updated while off the clash page
+let _autoClashTimer: number | null = null;
+
+// Exported: the Overview dashboard reads the same per-project issue map.
+export function clashProjectKey(): string {
+  if (appState.activeCloudProjectId) return 'c:' + appState.activeCloudProjectId;
+  try { return 'l:' + (getActiveProject(loadRegistry())?.id || 'default'); }
+  catch { return 'l:default'; }
+}
+
+// Load the project's issue map (and, for cloud projects, merge the team's
+// shared copy in the background — latest event per issue wins).
+function ensureIssueMapLoaded(): void {
+  const key = clashProjectKey();
+  if (key === _issueMapKey) return;
+  _issueMapKey = key;
+  clashIssueMap = loadIssueMap(key);
+  clashIssueSummary = null;
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  downloadResult<IssueMap>(projectId, 'clash-issues').then(remote => {
+    if (!remote || clashProjectKey() !== key) return;
+    clashIssueMap = mergeIssueMaps(clashIssueMap, remote);
+    saveIssueMap(key, clashIssueMap);
+    if (appState.clashResults.length) renderClashList();
+  }).catch(() => { /* offline / no shared copy yet */ });
+}
+
+function persistIssueMap(): void {
+  saveIssueMap(_issueMapKey, clashIssueMap);
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  const user = (window as any).getAuthUser?.();
+  const open = Object.values(clashIssueMap).filter(i => i.status === 'new' || i.status === 'active');
+  const counts = { total: open.length, hard: open.filter(i => i.isHard).length, near: open.filter(i => !i.isHard).length };
+  const metadata = buildResultMetadata(user?.email || '', counts, buildModelSignature(appState.files));
+  saveResult(projectId, 'clash-issues', clashIssueMap, metadata)
+    .catch(e => console.warn('[clash-issues] cloud mirror failed:', e));
+}
+
+// Full reconcile after a LIVE run (statuses advance; restore never calls this
+// — replaying a saved result must not rewrite history).
+function reconcileClashTracking(): void {
+  ensureIssueMapLoaded();
+  const { next, resultIds, summary } = reconcileIssues(clashIssueMap, appState.clashResults);
+  clashIssueMap = next;
+  clashResultIds = resultIds;
+  clashIssueSummary = summary;
+  persistIssueMap();
+  log(`Clash tracking: ${summary.newCount} new · ${summary.stillCount} still open · ${summary.autoResolved} auto-resolved` + (summary.reappeared ? ` · ${summary.reappeared} re-appeared` : ''));
+}
+
+export function issueStatusFor(i: number): { id: string; status: string; reappeared: boolean } | null {
+  const id = clashResultIds[i];
+  if (!id) return null;
+  const issue = clashIssueMap[id];
+  if (!issue) return null;
+  return { id, status: issue.status, reappeared: !!issue.reappeared };
+}
+
+window.clashToggleResolved = function (i: number): void {
+  const info = issueStatusFor(i);
+  if (!info) return;
+  ensureIssueMapLoaded();
+  const user = (window as any).getAuthUser?.();
+  clashIssueMap = setIssueResolved(clashIssueMap, info.id, info.status !== 'resolved', user?.email || undefined);
+  persistIssueMap();
+  renderClashList();
+};
 let clashFilterCounterA = 0, clashFilterCounterB = 0;
 let clashPropertyCacheA: Record<number, any> = {}, clashPropertyCacheB: Record<number, any> = {}; // eid→{propName:value}
 
@@ -1100,6 +1181,10 @@ window.runClashDetection = async function(): Promise<void> {
   await new Promise(r => setTimeout(r, 300));
   lo.classList.remove('on');
 
+  // Advance the Resolved/Unresolved tracking against this fresh run (after
+  // the name backfill above — names feed the stable clash ids).
+  reconcileClashTracking();
+
   showClashResults();
   saveClashResultToCloud();
 };
@@ -1112,6 +1197,11 @@ export function restoreClashResult(results: any[]): void {
   // pushes a fresh marker group each call, so without this they stack.
   clearClashSubsets();
   appState.clashResults = results;
+  // Replaying a saved result must not advance issue statuses — clear the
+  // per-index ids so renderClashList re-derives them (badges still show from
+  // the stored map) and drop the last live-run summary banner.
+  clashResultIds = [];
+  clashIssueSummary = null;
   // Fade the models this saved result actually used — each clash carries the
   // Source/Target modelIdx. After a reload the live dropdowns default to 0/1,
   // so fading by them (as a live run does) would dim the wrong models when the
@@ -1245,67 +1335,108 @@ function showClashResults(opts: { fadeIndices?: number[]; recordSnap?: boolean }
     } catch (e: any) { log('Clash snapshot err:', e?.message); }
   }
 
-  // Render clash cards
-  let html = '';
-  appState.clashResults.forEach((cl: any, i: number) => {
-    const penMM = (cl.penetration * 1000).toFixed(0);
-    html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
-      <div class="cc-hdr">
-        <span class="cc-num">#${i + 1} ${clashBadge(cl)}</span>
-        <span class="cc-dist">${penMM}mm</span>
-      </div>
-      <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
-      <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
-      <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
-      <div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>
-    </div>`;
-  });
-  if (!html) html = '<div style="padding:20px;text-align:center;color:var(--green);font-size:14px;font-weight:600">✓ No clashes detected!</div>';
-  if (_clashCapNote) html = `<div style="margin:6px 8px;padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;font-size:11.5px;color:var(--text-dim);line-height:1.4">${escapeHtml(_clashCapNote)}</div>` + html;
-  document.getElementById('clashList')!.innerHTML = html;
+  // Render clash cards (shared renderer — also used by regroup/status filter)
+  renderClashList();
 }
 
-// ── Regroup clash results by chosen criterion ──
-window.regroupClashes = function(): void {
-  const groupBy = (document.getElementById('clashGroupBy') as HTMLSelectElement).value;
-  const list = document.getElementById('clashList')!;
+// ── Consolidated clash-list renderer ─────────────────────────────────────
+// One code path for the flat list, grouped list, status filter, tracking
+// badges (NEW / ✓ / RE-OPEN?) and Resolve buttons. showClashResults,
+// regroupClashes and clashToggleResolved all funnel through here so the
+// three views can never drift apart again.
+function clashStatusChip(i: number): string {
+  const info = issueStatusFor(i);
+  if (!info) return '';
+  if (info.status === 'new') return '<span class="cc-chip cc-chip-new">NEW</span>';
+  if (info.status === 'resolved') {
+    return info.reappeared
+      ? '<span class="cc-chip cc-chip-reopen" title="Marked resolved but detected again">RE-OPEN?</span>'
+      : '<span class="cc-chip cc-chip-res" title="Marked resolved">✓</span>';
+  }
+  return '';
+}
 
-  if (groupBy === 'none' || !appState.clashResults.length) {
-    // Flat list — re-render
-    let html = '';
-    appState.clashResults.forEach((cl: any, i: number) => {
-      const penMM = (cl.penetration * 1000).toFixed(0);
-      html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
-        <div class="cc-hdr"><span class="cc-num">#${i + 1} ${clashBadge(cl)}</span><span class="cc-dist">${penMM}mm</span></div>
-        <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
-        <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
-        <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
-        <div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>
-      </div>`;
-    });
+function clashCardHtml(cl: any, i: number, compact = false): string {
+  const penMM = (cl.penetration * 1000).toFixed(0);
+  const info = issueStatusFor(i);
+  const resolveBtn = info
+    ? `<button class="cc-resolve${info.status === 'resolved' ? ' undo' : ''}" onclick="event.stopPropagation();clashToggleResolved(${i})">${info.status === 'resolved' ? 'Undo' : 'Resolve'}</button>`
+    : '';
+  const resolvedCls = info?.status === 'resolved' && !info.reappeared ? ' resolved' : '';
+  const typeRows = compact ? '' :
+    `<div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>`;
+  const typeRowB = compact ? '' :
+    `<div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>`;
+  return `<div class="clash-card${resolvedCls}" id="clash-${i}" onclick="focusClash(${i})">
+    <div class="cc-hdr">
+      <span class="cc-num">#${i + 1} ${clashBadge(cl)}${clashStatusChip(i)}</span>
+      <span class="cc-dist">${penMM}mm</span>
+    </div>
+    <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
+    ${typeRows}
+    <div class="cc-el" style="margin-top:${compact ? 1 : 2}px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
+    ${typeRowB}
+    ${resolveBtn}
+  </div>`;
+}
+
+function clashPassesStatusFilter(i: number, filter: string): boolean {
+  if (filter === 'all') return true;
+  const status = issueStatusFor(i)?.status;
+  if (filter === 'new') return status === 'new';
+  if (filter === 'resolved') return status === 'resolved';
+  // 'unresolved': anything not explicitly marked resolved (incl. untracked)
+  return status !== 'resolved';
+}
+
+function renderClashList(): void {
+  const list = document.getElementById('clashList');
+  if (!list) return;
+
+  // Restored results skip reconcile (statuses must not advance on replay) —
+  // derive their stable ids here so badges/filter still work.
+  if (clashResultIds.length !== appState.clashResults.length) {
+    ensureIssueMapLoaded();
+    clashResultIds = appState.clashResults.map((cl: any) => clashStableId(idInputFromResult(cl)));
+  }
+
+  const groupBy = (document.getElementById('clashGroupBy') as HTMLSelectElement | null)?.value || 'none';
+  const statusFilter = (document.getElementById('clashStatusFilter') as HTMLSelectElement | null)?.value || 'all';
+  const indices = appState.clashResults
+    .map((_: any, i: number) => i)
+    .filter((i: number) => clashPassesStatusFilter(i, statusFilter));
+
+  let html = '';
+  if (clashIssueSummary) {
+    const s = clashIssueSummary;
+    html += `<div class="clash-track-banner">🆕 ${s.newCount} new · ${s.stillCount} still open · ✔ ${s.autoResolved} auto-resolved${s.reappeared ? ` · ⚠ ${s.reappeared} re-appeared` : ''}</div>`;
+  }
+  if (_clashCapNote) html += `<div style="margin:6px 8px;padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;font-size:11.5px;color:var(--text-dim);line-height:1.4">${escapeHtml(_clashCapNote)}</div>`;
+
+  if (indices.length === 0) {
+    html += appState.clashResults.length === 0
+      ? '<div style="padding:20px;text-align:center;color:var(--green);font-size:14px;font-weight:600">✓ No clashes detected!</div>'
+      : '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No clashes match this status filter</div>';
     list.innerHTML = html;
     return;
   }
 
-  // Group clashes
-  const groups: Record<string, { cl: any; origIdx: number }[]> = {};
-  appState.clashResults.forEach((cl: any, i: number) => {
+  if (groupBy === 'none') {
+    for (const i of indices) html += clashCardHtml(appState.clashResults[i], i);
+    list.innerHTML = html;
+    return;
+  }
+
+  const groups: Record<string, number[]> = {};
+  for (const i of indices) {
+    const cl = appState.clashResults[i];
     let key = 'Other';
     if (groupBy === 'categoryA') key = cl.elA.type || 'Unknown';
     else if (groupBy === 'categoryB') key = cl.elB.type || 'Unknown';
-    else if (groupBy === 'level') {
-      // Group by Y-level (approximate storey)
-      const y = cl.point.y;
-      const level = Math.round(y / 3) * 3; // bucket to ~3m floors
-      key = 'Level ≈ ' + level.toFixed(0) + 'm';
-    }
-    if (!groups[key]) groups[key] = [];
-    groups[key].push({ cl, origIdx: i });
-  });
-
-  let html = '';
-  const sortedKeys = Object.keys(groups).sort();
-  sortedKeys.forEach(key => {
+    else if (groupBy === 'level') key = 'Level ≈ ' + (Math.round(cl.point.y / 3) * 3).toFixed(0) + 'm';
+    (groups[key] = groups[key] || []).push(i);
+  }
+  for (const key of Object.keys(groups).sort()) {
     const items = groups[key];
     const gid = 'cg_' + key.replace(/\W/g, '_');
     html += `<div class="clash-group-hdr" onclick="toggleClashGroup('${gid}')">
@@ -1314,18 +1445,16 @@ window.regroupClashes = function(): void {
       <span class="cg-count">${items.length}</span>
     </div>
     <div class="clash-group-body" id="body_${gid}">`;
-    items.forEach(({ cl, origIdx }) => {
-      const penMM = (cl.penetration * 1000).toFixed(0);
-      html += `<div class="clash-card" id="clash-${origIdx}" onclick="focusClash(${origIdx})">
-        <div class="cc-hdr"><span class="cc-num">#${origIdx + 1} ${clashBadge(cl)}</span><span class="cc-dist">${penMM}mm</span></div>
-        <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
-        <div class="cc-el" style="margin-top:1px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
-      </div>`;
-    });
+    for (const i of items) html += clashCardHtml(appState.clashResults[i], i, true);
     html += `</div>`;
-  });
+  }
   list.innerHTML = html;
-};
+}
+
+// ── Regroup clash results by chosen criterion ──
+// (Thin alias — grouping, status filter, badges and cards all render through
+// the consolidated renderClashList above.)
+window.regroupClashes = renderClashList;
 
 window.toggleClashGroup = function(gid: string): void {
   const arr = document.getElementById('arr_' + gid);
@@ -1760,3 +1889,72 @@ window.exportClashBCF = async function(): Promise<void> {
   (window as any).setStatus('done', 'BCF exported'); setTimeout(() => (window as any).setStatus('', ''), 3000);
   log('Clash BCF exported: ' + appState.clashResults.length + ' issues');
 };
+
+// ── Auto re-run on model update (clash tracking) ─────────────────────────
+// When a model slot reloads (manual replace, cloud auto-load of an updated
+// file) and this project has clash-tracking history, re-run detection so the
+// team immediately sees what's NEW vs auto-resolved:
+//   • on the clash page → re-run right away (debounced — auto-load fires one
+//     ifc:modelloaded per slot);
+//   • elsewhere → queue it; entering the clash page runs it automatically.
+// Toggleable via the "Auto re-run" checkbox (persisted in localStorage).
+const AUTO_CLASH_LS = 'ifc.clashAutoRun';
+export function clashAutoRunEnabled(): boolean {
+  return localStorage.getItem(AUTO_CLASH_LS) !== '0';
+}
+window.clashAutoRunChanged = function (): void {
+  const chk = document.getElementById('clashAutoRun') as HTMLInputElement | null;
+  try { localStorage.setItem(AUTO_CLASH_LS, chk?.checked ? '1' : '0'); } catch { }
+};
+
+function maybeAutoRunClash(): void {
+  if (!clashAutoRunEnabled()) return;
+  ensureIssueMapLoaded();
+  // Only auto-run where the team has clash history — never surprise a
+  // project that has not used clash detection.
+  if (Object.keys(clashIssueMap).length === 0) return;
+  if (_autoClashTimer) clearTimeout(_autoClashTimer);
+  _autoClashTimer = window.setTimeout(() => {
+    _autoClashTimer = null;
+    const src = appState.loadedModels[appState.clashSourceIdx];
+    const tgt = appState.loadedModels[clashEffectiveTargetIdx()];
+    if (!src || !tgt) return;
+    if (appState.clashMode) {
+      log('Auto clash: model updated — re-running detection');
+      void (window as any).runClashDetection?.();
+    } else {
+      _autoClashPending = true;
+      log('Auto clash: model updated — detection queued, opens with the Clash page');
+    }
+  }, 2500); // settle window: cloud auto-load loads slots sequentially
+}
+window.addEventListener('ifc:modelloaded', maybeAutoRunClash);
+
+// Entering the clash page consumes a queued auto-run.
+window.addEventListener('ifc:pagechange', (e: Event) => {
+  if ((e as CustomEvent).detail?.page !== 'clash' || !_autoClashPending) return;
+  _autoClashPending = false;
+  setTimeout(() => {
+    if (appState.clashMode) {
+      log('Auto clash: running queued detection for updated model');
+      void (window as any).runClashDetection?.();
+    }
+  }, 400); // let enterClashMode finish wiring selects/rules first
+});
+
+// Project switch: drop per-project tracking state; the next ensureIssueMapLoaded
+// (badge render / auto-run check) reloads the right map.
+window.addEventListener('ifc:projectchange', () => {
+  _issueMapKey = '';
+  clashIssueMap = {};
+  clashResultIds = [];
+  clashIssueSummary = null;
+  _autoClashPending = false;
+  if (_autoClashTimer) { clearTimeout(_autoClashTimer); _autoClashTimer = null; }
+});
+
+// Restore the Auto re-run checkbox state on startup.
+(() => {
+  const chk = document.getElementById('clashAutoRun') as HTMLInputElement | null;
+  if (chk) chk.checked = clashAutoRunEnabled();
+})();
