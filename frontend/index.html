@@ -128,19 +128,26 @@
     </button>
     <span class="tb-brand-sep"></span>
 
-    <!-- Mode switcher (Field / Compare / Clash) — v5 segmented pills -->
+    <!-- Workspace switcher (3D / Compare / Clash / Validate) — v5 segmented
+         pills. Every pill toggles: clicking the active workspace returns to
+         3D, so there is always a visible way back to the base viewer. Field
+         (full-screen on-site mode) is a separate pill after the divider. -->
     <div style="display:inline-flex;gap:2px;padding:3px;background:#E8E6E1;border-radius:12px;flex:none">
-      <button id="fieldModeBtn" data-page="field" onclick="navigateTo('field')" class="hdr-seg" title="Field Mode — on-site BIM review">
-        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg> Field
+      <button data-page="viewer" onclick="navToggle('viewer')" class="hdr-seg" title="3D Viewer — base model view">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/><path d="M12 2v18M4 6.5l8 4.5 8-4.5"/></svg> 3D
       </button>
-      <button data-page="compare" onclick="navigateTo('compare')" class="hdr-seg" title="Compare two IFC versions">
+      <button data-page="compare" onclick="navToggle('compare')" class="hdr-seg" title="Compare two IFC versions">
         <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;vertical-align:-1px"><path d="M8 5.5l11 6.5-11 6.5z"/></svg> Compare
       </button>
       <span id="compareOutdatedBadge" style="display:none;font-size:9px;font-family:'JetBrains Mono';color:#b45309;margin-left:2px;align-self:center" title="Saved compare result no longer matches the loaded files">⚠ Outdated</span>
-      <button id="btnClash" data-page="clash" onclick="toggleClashMode()" class="hdr-seg" title="Clash detection">
+      <button id="btnClash" data-page="clash" onclick="navToggle('clash')" class="hdr-seg" title="Clash detection">
         <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;vertical-align:-1px"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg> Clash
       </button>
       <span id="clashOutdatedBadge" style="display:none;font-size:9px;font-family:'JetBrains Mono';color:#b45309;margin-left:2px;align-self:center" title="Saved clash result no longer matches the loaded files">⚠ Outdated</span>
+      <span class="hdr-seg-div"></span>
+      <button id="fieldModeBtn" data-page="field" onclick="navToggle('field')" class="hdr-seg" title="Field Mode — on-site BIM review">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg> Field
+      </button>
     </div>
     <span class="tb-brand-sep"></span>
 
@@ -305,6 +312,9 @@
     </button>
     <button class="rail-btn" id="rail-search" onclick="railSelect('search')" title="Search">
       <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+    </button>
+    <button class="rail-btn" id="rail-overview" onclick="railSelect('overview')" title="Overview — spatial structure per file">
+      <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v7M14 17.5h7"/></svg>
     </button>
     <div class="rail-spacer"></div>
   </nav>
@@ -535,6 +545,18 @@
       </div>
 
       </div><!-- /lpModel -->
+
+      <!-- === OVERVIEW section — per-file spatial tree (rail: Overview) === -->
+      <div class="lp-overview hide" id="lpOverview">
+        <div id="ovClash"></div>
+        <div class="ov-summary" id="ovSummary"></div>
+        <div style="padding:6px 14px 4px">
+          <input class="search-input" id="ovSearch" placeholder="Filter by name, type, #id…" oninput="ovSearchInput()" style="width:100%">
+        </div>
+        <div class="ov-tree" id="ovTree">
+          <div class="ov-empty">No models loaded.<br>Load an IFC file to see its structure here.</div>
+        </div>
+      </div><!-- /lpOverview -->
     </aside>
 
     <div id="lresize"></div>
@@ -792,6 +814,11 @@
           <select id="clashGroupBy" class="clash-select" onchange="regroupClashes()">
             <option value="none">No grouping</option><option value="categoryA">Source Category</option><option value="categoryB">Target Category</option><option value="level">Story Level</option>
           </select>
+          <label style="margin-left:8px">Status</label>
+          <select id="clashStatusFilter" class="clash-select" onchange="regroupClashes()">
+            <option value="all">All</option><option value="unresolved">Unresolved</option><option value="new">New</option><option value="resolved">Resolved</option>
+          </select>
+          <label class="clash-auto-lbl" title="Re-run clash detection automatically when a model is updated (projects with clash history)"><input type="checkbox" id="clashAutoRun" checked onchange="clashAutoRunChanged()"> Auto re-run</label>
         </div>
         <div class="clash-list" id="clashList"><div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div></div>
       </div>
@@ -861,17 +888,24 @@
 
 </div><!-- /app -->
 
-<!-- == FIELD MODE == -->
+<!-- == FIELD MODE ==
+     One toolbar, grouped by on-site workflow:
+       Open · [navigate: Walk/Storeys/Plan 2D] · [inspect: Section/Measure/Photo]
+       · [view: Fit/Show All] · [system: Account/Desktop]
+     The desktop float-tools toolbar is hidden in field mode (it duplicated
+     6 of these buttons), and the bar reserves its right corner so the AI
+     assistant FAB never covers the Desktop button. -->
 <div class="field-bar" id="fieldBar">
   <button class="field-btn" onclick="fieldOpenLoader()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="field-btn-label">Open</span></button>
+  <div class="field-sep"></div>
+  <button class="field-btn" id="fieldBtnWalk" onclick="fieldToggleWalk()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg></span><span class="field-btn-label">Walk</span></button>
+  <button class="field-btn" id="fieldBtnStoreys" onclick="fieldToggleStoreys()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span><span class="field-btn-label">Storeys</span></button>
+  <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span><span class="field-btn-label">Plan 2D</span></button>
   <div class="field-sep"></div>
   <button class="field-btn" id="fieldBtnSection" onclick="fieldToggleSection()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></span><span class="field-btn-label">Section</span></button>
   <button class="field-btn" id="fieldBtnMeasure" onclick="fieldToggleMeasure()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M2 20L20 4"/><path d="M6 16l2-2m2-2l2-2"/></svg></span><span class="field-btn-label">Measure</span></button>
   <button class="field-btn" onclick="fieldScreenshot()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span class="field-btn-label">Photo</span></button>
-  <button class="field-btn" id="fieldBtnWalk" onclick="fieldToggleWalk()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg></span><span class="field-btn-label">Walk</span></button>
   <div class="field-sep"></div>
-  <button class="field-btn" id="fieldBtnStoreys" onclick="fieldToggleStoreys()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span><span class="field-btn-label">Storeys</span></button>
-  <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span><span class="field-btn-label">Plan 2D</span></button>
   <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span><span class="field-btn-label">Fit</span></button>
   <button class="field-btn" onclick="fieldShowAll()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="field-btn-label">Show All</span></button>
   <div class="field-sep"></div>
@@ -906,8 +940,15 @@
       <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
       <span>Viewpoints</span>
     </button>
+    <button class="field-more-item" id="fieldMoreCoords" onclick="fieldMenuCoords()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="3.2"/></svg>
+      <span>Coords</span>
+    </button>
   </div>
 </div>
+
+<!-- Field Mode coordinate read-out (pinned above the bar; shown only in Coords mode) -->
+<div class="field-coord-readout" id="fieldCoordReadout"></div>
 
 <!-- Field Mode tool sheet (separate from #fieldSheet so properties don't clobber it) -->
 <div class="field-tool-sheet" id="fieldToolSheet">
@@ -1065,12 +1106,12 @@
 <div class="modal-overlay" id="teamOverlay" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);padding:16px" onclick="toggleTeamPanel()">
   <div class="modal-content" style="width:100%;max-width:540px;padding:24px 26px;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.15);color:#000" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3 style="margin:0;font-size:16px;font-weight:700">Team Workload</h3>
+      <h3 style="margin:0;font-size:16px;font-weight:700">Team</h3>
       <button class="tb-icon-btn" onclick="toggleTeamPanel()" style="font-size:18px;border:none;background:transparent;cursor:pointer">×</button>
     </div>
     <div style="max-height:360px;overflow-y:auto">
-      <div id="teamWorkloadEmpty" style="padding:28px 8px;text-align:center;color:#8590a6;font-size:12px">
-        No workload data yet.
+      <div id="teamPanelBody">
+        <div style="padding:28px 8px;text-align:center;color:#8590a6;font-size:12px">Open a cloud project to see its team.</div>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px">

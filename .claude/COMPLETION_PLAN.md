@@ -36,7 +36,8 @@
 | 19 | 🧰 Audit fix: Clash UX/correctness (restore markers, checkbox, model selection) | ⬜ Not started |
 | 20 | ⚡ Perf getAllProps + audit nốt core viewer/tools + UI shell | 🟡 getAllProps xong |
 | 21 | 🩺 SG Validate còn lỗi (buildings/spaces) + xoay view mượt (adaptive res) | 🟡 In progress |
-| 22 | 📱 Field Mode parity: More menu (Search/Colorize/Validate/Viewpoints) | 🟡 In progress |
+| 22 | 📱 Field Mode parity: More menu (Search/Colorize/Validate/Viewpoints) | ✅ Done — PR #31 |
+| 23 | 📱 Field Mode polish: Coordinates (touch tap-to-read) + More-menu dismiss | 🟡 In progress |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -776,3 +777,19 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
       nhau). Desktop panels bị ẩn trong field-mode nên tái sử dụng hàm desktop không lộ UI.
 - **Còn lại (polish, cần test trên thiết bị thật):** tap ngoài để đóng More menu; field-native
   properties render (hiện dùng lại propArea). typecheck + 266 test + build pass. ✅
+
+## Phase 23 — 📱 Field Mode polish: Coordinates + More-menu dismiss
+**Status:** 🟡 In progress
+
+> Follow-up sau khi PR #31 (Phase 22) merge. Thêm tính năng desktop còn thiếu ở Field Mode
+> (Coordinates) làm lại cho touch, + polish UX menu.
+
+- [x] **Coordinates (touch-native):** desktop dùng hover (`pointermove`) — vô dụng trên tablet.
+      Viết lại kiểu **tap-to-read**: bật mode từ More → mỗi lần chạm model raycast điểm hit, đổi ra
+      đơn vị hiện tại (`worldToMm`/`formatLengthMm`/`getUnitPref`) và in X/Y/Z vào readout ghim trên
+      field-bar. Không stopPropagation (để OrbitControls dọn pointerup + field pivot vẫn chạy).
+      Tự tắt khi thoát Field Mode.
+- [x] **More-menu tap-outside để đóng:** trước đây chỉ đóng khi bấm lại nút More → thấy "dính".
+      Thêm listener pointerdown (capture) đóng menu khi chạm ra ngoài; không preventDefault nên
+      tap dưới vẫn xuyên qua.
+- **Done khi:** typecheck + test + build pass. ✅ (269 test pass, build ok). Touch UX cần test thiết bị thật.

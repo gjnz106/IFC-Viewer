@@ -16,7 +16,11 @@
    this result was saved", not verify byte-for-byte integrity).
 ═══════════════════════════════════════════════════════════════════════ */
 
-export type ResultKind = 'compare' | 'clash';
+// 'clash-issues' is the team-shared Resolved/Unresolved tracking map — it is
+// persisted through the same save/download plumbing but deliberately NOT part
+// of RESULT_KINDS below (that list drives the auto-restore of *renderable*
+// results on project open; the issue map is fetched by clash.ts on demand).
+export type ResultKind = 'compare' | 'clash' | 'clash-issues';
 
 export interface CompareCounts {
   added: number;
@@ -89,6 +93,9 @@ export function resultStoragePath(projectId: string, kind: ResultKind): string {
 }
 
 export const RESULT_KINDS: ResultKind[] = ['compare', 'clash'];
+// Every kind that can exist in Storage — used by project deep-delete so no
+// blob (incl. the clash-issues tracking map) is orphaned.
+export const ALL_RESULT_KINDS: ResultKind[] = ['compare', 'clash', 'clash-issues'];
 
 // ── Firestore/Storage glue (lazy-imported SDKs — never in the main bundle) ──
 

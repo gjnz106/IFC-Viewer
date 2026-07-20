@@ -11,7 +11,7 @@
 
 import type { CloudProjectFile } from './cloud-projects.js';
 import { deleteCloudProject } from './cloud-projects.js';
-import { deleteResultRecord, resultStoragePath, RESULT_KINDS } from './cloud-results.js';
+import { deleteResultRecord, resultStoragePath, ALL_RESULT_KINDS } from './cloud-results.js';
 
 export type SyncStatus = 'local-only' | 'uploading' | 'synced' | 'error';
 
@@ -228,7 +228,7 @@ export async function deleteCloudProjectDeep(projectId: string): Promise<boolean
   for (const rec of records) {
     await deleteProjectFileRecord(projectId, rec);
   }
-  for (const kind of RESULT_KINDS) {
+  for (const kind of ALL_RESULT_KINDS) {
     await deleteResultRecord(projectId, kind);
     await deleteProjectFileBlob(resultStoragePath(projectId, kind));
   }
