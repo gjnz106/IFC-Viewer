@@ -459,11 +459,13 @@ export function initThree(): void {
     }
 
     // Check model is ticked (visible)
-    if(targetModelIdx===0&&!visA){log('Pick: model A unticked');return}
-    if(targetModelIdx===1&&!visB){log('Pick: model B unticked');return}
-    if(targetModelIdx>=2){
-      const fedChk=document.getElementById('fedVis'+targetModelIdx) as HTMLInputElement;
-      if(fedChk && !fedChk.checked){log('Pick: federation model '+targetModelIdx+' unticked');return}
+    const isModelSlotVis = (si: number) => {
+      const chk = document.getElementById(si === 0 ? 'visA' : si === 1 ? 'visB' : ('fedVis' + si)) as HTMLInputElement | null;
+      return chk ? chk.checked : ((appState.loadedModels[si] as any)?.visible !== false);
+    };
+    if (targetModelIdx >= 0 && !isModelSlotVis(targetModelIdx)) {
+      log('Pick: model ' + targetModelIdx + ' unticked');
+      return;
     }
     if(targetModelIdx<0||!appState.loadedModels[targetModelIdx]||!appState.ifcLoader){return}
 
