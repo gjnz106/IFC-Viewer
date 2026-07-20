@@ -793,3 +793,18 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
       Thêm listener pointerdown (capture) đóng menu khi chạm ra ngoài; không preventDefault nên
       tap dưới vẫn xuyên qua.
 - **Done khi:** typecheck + test + build pass. ✅ (269 test pass, build ok). Touch UX cần test thiết bị thật.
+
+## Phase 24 — 📱 Field Mode: switch project (cloud + local)
+**Status:** 🟡 In progress
+
+> Feedback user: "bổ sung thêm chức năng switch project trong field mode."
+
+- [x] **Projects tool trong More menu:** sheet liệt kê project Cloud (nếu đăng nhập + verified) và
+      Local, đánh dấu cái đang active, tap để chuyển. Không cần model đang mở.
+- [x] **Tái sử dụng switch logic:** thêm option `{ fromField:true }` cho `projSwitch`/`projSwitchCloud`
+      để BỎ `navigateTo('viewer')` + `toggleProjectsPanel()` (hai thứ này sẽ đá user ra khỏi Field
+      Mode / bật panel desktop). Vẫn chạy unload + autoLoadCloudProjectFiles để nạp model dự án mới.
+- [x] **Getter thuần `projFieldData()`** (không tự refresh — tránh vòng lặp render↔refresh) +
+      `projFieldRefresh()` one-shot gọi khi mở sheet; sheet re-render qua event `ifc:cloudprojects`
+      và `ifc:projectchange`.
+- **Done khi:** typecheck + test + build pass. ✅ (293 test pass, build ok). Cần test thiết bị thật.

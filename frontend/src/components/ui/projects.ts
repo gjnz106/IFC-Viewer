@@ -70,6 +70,8 @@ async function refreshCloudList(): Promise<void> {
   if (fetched !== null) cloudList = fetched;
   cloudLoading = false;
   renderProjectList();
+  // Let the Field Mode project sheet re-render once the async cloud list lands.
+  try { window.dispatchEvent(new CustomEvent('ifc:cloudprojects')); } catch {}
 }
 
 // loadRegistry() migrates a fresh/legacy install in-memory without writing
@@ -138,6 +140,33 @@ function renderProjectList(): void {
   el.innerHTML = rows || '<div class="proj-empty">No projects yet.</div>';
 }
 
+// ── Field Mode reuse ──────────────────────────────────────────────────
+// Field Mode renders its own touch project switcher; expose the same cloud +
+// local lists renderProjectList() uses so it can. Switching is done by calling
+// window.projSwitchCloud / projSwitch with { fromField: true } (skips the
+// desktop navigate + panel toggle).
+//
+// projFieldData() is a PURE getter — it must NOT kick refreshCloudList(),
+// because the field sheet re-renders on the 'ifc:cloudprojects' event that
+// refresh fires, which would loop (render → refresh → render → …). The one-shot
+// refresh is projFieldRefresh(), called once when the sheet opens.
+(window as any).projFieldRefresh = function () { refreshCloudList(); };
+(window as any).projFieldData = function () {
+  const user = currentAuthUser();
+  const canUseCloud = !!(user && user.emailVerified);
+  return {
+    canUseCloud,
+    cloud: !canUseCloud ? [] : cloudList.map(p => ({
+      id: p.id, name: p.name, code: (p as any).code || '',
+      active: p.id === appState.activeCloudProjectId,
+    })),
+    local: registry.list.map(p => ({
+      id: p.id, name: p.name, code: p.code || '',
+      active: p.id === registry.activeId && !appState.activeCloudProjectId,
+    })),
+  };
+};
+
 function saveOutgoingState(): void {
   // Leaving a CLOUD project must not stamp its page/camera/driveLink onto
   // whatever unrelated local project happens to be the registry's active.
@@ -160,10 +189,13 @@ function saveOutgoingState(): void {
 
 // Persist + unload + reflect the now-active project everywhere. Shared by
 // projCreate (a new project is always made active) and projSwitch.
-function finishActivation(): void {
+function finishActivation(skipNav = false): void {
   switchGeneration++; // invalidates any in-flight cloud auto-load
   persist();
-  navigateTo('viewer');
+  // Field Mode is its own page and already shows the viewport; navigating to
+  // 'viewer' there would kick the user out of Field Mode, so switches invoked
+  // from Field pass skipNav.
+  if (!skipNav) navigateTo('viewer');
   (window as any).unloadAllModels?.();
   chipLabel();
   renderProjectList();
@@ -234,8 +266,9 @@ window.projDelete = function (id: string): void {
   }
 };
 
-window.projSwitch = function (id: string): void {
-  if (id === registry.activeId && !appState.activeCloudProjectId) { window.toggleProjectsPanel?.(); return; }
+window.projSwitch = function (id: string, opts?: { fromField?: boolean }): void {
+  const fromField = !!opts?.fromField;
+  if (id === registry.activeId && !appState.activeCloudProjectId) { if (!fromField) window.toggleProjectsPanel?.(); return; }
   const loadOv = document.getElementById('loadOv');
   if (loadOv?.classList.contains('on')) { alert('A load is in progress — please wait.'); return; }
   if (!confirmIfHasWork('Switching projects unloads all loaded models and discards unsaved compare/clash results. Continue?')) return;
@@ -247,8 +280,8 @@ window.projSwitch = function (id: string): void {
   appState.cloudSyncStatus = {};
   document.getElementById('syncChip0')!.textContent = '';
   document.getElementById('syncChip1')!.textContent = '';
-  finishActivation();
-  window.toggleProjectsPanel?.();
+  finishActivation(fromField);
+  if (!fromField) window.toggleProjectsPanel?.();
 };
 
 // ── Settings modal integration (Project Name/Code fields) ────────────────
@@ -459,8 +492,9 @@ async function restoreSavedResults(projectId: string, gen: number): Promise<void
 }
 
 // ── Cloud project actions (Phase 12/13) ───────────────────────────────────
-window.projSwitchCloud = function (id: string): void {
-  if (id === appState.activeCloudProjectId) { window.toggleProjectsPanel?.(); return; }
+window.projSwitchCloud = function (id: string, opts?: { fromField?: boolean }): void {
+  const fromField = !!opts?.fromField;
+  if (id === appState.activeCloudProjectId) { if (!fromField) window.toggleProjectsPanel?.(); return; }
   const loadOv = document.getElementById('loadOv');
   if (loadOv?.classList.contains('on')) { alert('A load is in progress — please wait.'); return; }
   if (!confirmIfHasWork('Switching projects unloads all loaded models and discards unsaved compare/clash results. Continue?')) return;
@@ -469,13 +503,15 @@ window.projSwitchCloud = function (id: string): void {
   switchGeneration++; // invalidates any in-flight auto-load for the previous project
   appState.activeCloudProjectId = id;
   persist();
-  navigateTo('viewer');
+  // Field Mode stays on its own page (see finishActivation note); desktop jumps
+  // to the viewer so the newly-loading models are visible.
+  if (!fromField) navigateTo('viewer');
   (window as any).unloadAllModels?.();
   chipLabel();
   renderProjectList();
   window.dispatchEvent(new CustomEvent('ifc:projectchange'));
   autoLoadCloudProjectFiles(id).catch(e => console.warn('[cloud-files] autoLoadCloudProjectFiles failed:', e));
-  window.toggleProjectsPanel?.();
+  if (!fromField) window.toggleProjectsPanel?.();
 };
 
 window.projRenameCloud = async function (id: string): Promise<void> {
