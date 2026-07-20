@@ -1122,8 +1122,8 @@ body.field-mode .field-sheet{display:block}
   transform:translateY(8px);opacity:0;transition:transform .18s,opacity .18s;
 }
 body.field-mode .field-more.show{display:block;transform:translateY(0);opacity:1}
-.field-more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-@media (max-width:520px){.field-more-grid{grid-template-columns:repeat(2,1fr)}}
+.field-more-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:8px}
+@media (max-width:400px){.field-more-grid{grid-template-columns:repeat(3,1fr)}}
 .field-more-item{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   min-height:80px;padding:12px 6px;border:none;border-radius:12px;cursor:pointer;
@@ -1132,6 +1132,18 @@ body.field-mode .field-more.show{display:block;transform:translateY(0);opacity:1
   -webkit-tap-highlight-color:transparent;transition:transform .12s,background .12s;
 }
 .field-more-item:active{transform:scale(.95);background:rgba(194,65,12,.35)}
+.field-more-item.on{background:rgba(114,197,164,.28);color:#fff}
+
+/* Coordinate read-out — pinned just above the field bar, only shown in Coords mode */
+.field-coord-readout{
+  display:none;position:fixed;left:50%;transform:translateX(-50%);z-index:230;
+  bottom:calc(74px + env(safe-area-inset-bottom));
+  background:rgba(44,36,32,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  color:#fff;font-family:'JetBrains Mono';font-size:13px;font-weight:500;
+  padding:8px 16px;border-radius:20px;border:1px solid rgba(255,255,255,.14);
+  white-space:nowrap;box-shadow:0 4px 16px rgba(44,36,32,.3);pointer-events:none;
+}
+.field-coord-readout b{color:var(--green-lt);font-weight:600}
 
 /* Tool sheet — shares the properties-sheet look but is its own element so the
    properties MutationObserver never overwrites tool content. Taller (peek) so
