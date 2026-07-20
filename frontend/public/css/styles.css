@@ -31,7 +31,7 @@
 body{font-family:'Hanken Grotesk','Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
 /* Grid (v5 shell): header (full width) / [rail | lcol | resize | viewport | resize | rcol] / status bar (full width).
    Rail is a fixed 52px nav column; status bar a 26px footer. */
-.app{display:grid;grid-template-rows:64px 1fr 26px;grid-template-columns:52px var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
+.app{display:grid;grid-template-rows:64px 1fr;grid-template-columns:52px var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
 /* Left panel collapsed (no rail tab active): hide the panel + its resize handle by zeroing the track */
 .app.left-collapsed{grid-template-columns:52px 0 0 1fr var(--resize-w) var(--rcol)}
 .app.left-collapsed .left-panel,.app.left-collapsed #lresize{display:none}
@@ -1641,7 +1641,10 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .ft-sep{height:1px;background:var(--bg-card);margin:2px 3px}
 
 /* ── Status bar (26px footer) ── */
-.status-bar{grid-column:1/-1;grid-row:3;height:26px;background:var(--text);display:flex;align-items:center;padding:0 14px;z-index:10;font-family:'JetBrains Mono';font-size:10.5px}
+/* Footer status bar removed from the layout (user request). Kept in the DOM
+   (display:none) so the rail.ts label updater's `if(lbl)` path stays valid; the
+   .app grid no longer reserves a row for it. */
+.status-bar{display:none !important}
 .sb-dot{width:6px;height:6px;border-radius:999px;background:var(--amber);flex:none}
 .sb-mode{font-weight:600;color:#E0DDD8;padding-left:7px}
 .sb-sep{width:1px;height:11px;background:rgba(255,255,255,.12);margin:0 11px}

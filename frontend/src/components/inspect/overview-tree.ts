@@ -13,7 +13,7 @@ import { IFC_NAMES, FED_COLORS, FED_LABELS } from '../../lib/constants.js';
 import { log } from '../core/ifc-category.js';
 import { getElementBBox } from '../tools/color-schemes.js';
 import {
-  buildOverviewTree, buildPrettyTypeLookup, filterOverviewTree, countStoreys,
+  buildOverviewTree, buildPrettyTypeLookup, filterOverviewTree,
   type OvNode,
 } from '../../lib/spatial-tree.js';
 import { loadIssueMap, computeIssueMetrics } from '../../lib/clash-issues.js';
@@ -116,6 +116,22 @@ async function fetchGroupNames(idx: number, group: OvNode): Promise<void> {
   if (changed && gen === generation) render();
 }
 
+// Collect the topmost IfcBuildingStorey nodes in a tree (does not recurse past
+// a storey, since storeys don't nest). Used to render "from the levels onward"
+// and — via collectStoreyNames — to count unique levels.
+function collectStoreyNodes(node: OvNode, out: OvNode[]): void {
+  if (node.ifcType === 'IfcBuildingStorey') { out.push(node); return; }
+  for (const c of node.children) collectStoreyNodes(c, out);
+}
+
+// Add each storey's display name (resolved real name, else its type label) to a
+// shared set, so counting the set yields unique levels across federated files.
+function collectStoreyNames(entry: SlotTree, node: OvNode, set: Set<string>): void {
+  const storeys: OvNode[] = [];
+  collectStoreyNodes(node, storeys);
+  for (const st of storeys) set.add((entry.names.get(st.eid) || st.label || ('#' + st.eid)).trim());
+}
+
 // ── Rendering ────────────────────────────────────────────────────────────
 function nodeLabel(entry: SlotTree, n: OvNode): string {
   if (n.kind === 'group') return n.label;
@@ -195,12 +211,17 @@ function render(): void {
     return;
   }
 
-  let totalElems = 0, totalStoreys = 0, pending = 0;
+  // Storeys are counted by UNIQUE NAME across all loaded files: the federated
+  // models are one project sharing the same levels (L1, L2, R1…), so summing
+  // per-file storeys inflated the count (e.g. 52 for what is ~13 real levels).
+  let totalElems = 0, pending = 0;
+  const storeyNames = new Set<string>();
   for (const i of loadedIdxs) {
     const t = slotTrees.get(i);
-    if (t?.root) { totalElems += t.root.count; totalStoreys += countStoreys(t.root); }
+    if (t?.root) { totalElems += t.root.count; collectStoreyNames(t, t.root, storeyNames); }
     else pending++;
   }
+  const totalStoreys = storeyNames.size;
   sumEl.innerHTML = `
     <div class="ov-stat"><b>${loadedIdxs.length}</b><span>file${loadedIdxs.length === 1 ? '' : 's'}</span></div>
     <div class="ov-stat"><b>${totalElems.toLocaleString()}</b><span>elements</span></div>
@@ -224,7 +245,14 @@ function render(): void {
     if (!entry.root) { html += '<div class="ov-empty">No spatial structure in this file.</div>'; continue; }
     const shown = filterOverviewTree(entry.root, query);
     if (!shown) { html += '<div class="ov-empty">No match in this file.</div>'; continue; }
-    html += renderNode(i, entry, shown, 1);
+    // Show the tree from the Levels onward — skip the IfcProject / IfcSite /
+    // IfcBuilding wrapper tiers (they're the same for every file in the project
+    // and just add noise). Render each topmost IfcBuildingStorey directly under
+    // the file. Fall back to the full tree if a file has no storeys.
+    const storeyNodes: OvNode[] = [];
+    collectStoreyNodes(shown, storeyNodes);
+    if (storeyNodes.length) { for (const st of storeyNodes) html += renderNode(i, entry, st, 1); }
+    else html += renderNode(i, entry, shown, 1);
   }
   if (pending > 0 && loadedIdxs.every(i => !slotTrees.get(i)?.root)) {
     html += '<div class="ov-empty">Reading model structure…</div>';
