@@ -149,12 +149,17 @@
     <div class="tb-brand">
       <span class="tb-brand-name">T3LAB<span class="tb-brand-dot">.</span>IFC</span>
     </div>
+    <span class="tb-brand-sep"></span>
 
-    <!-- Project switcher chip -->
-    <button id="btnProjects" class="tb-proj-chip" onclick="toggleProjectsPanel()" title="Switch project">
-      <span id="tbProjectName">—</span>
-      <svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
+    <!-- Project switcher chip — IDD exact pattern -->
+    <div class="tb-project">
+      <button id="btnProjects" class="tb-project-chip" onclick="toggleProjectsPanel()" title="Switch project">
+        <span class="tb-project-name-text" id="tbProjectName">—</span>
+        <span class="tb-project-caret-box">
+          <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+        </span>
+      </button>
+    </div>
     <span class="tb-brand-sep"></span>
 
     <!-- Workspace switcher (3D / Compare / Clash / Validate) — v5 segmented
@@ -180,9 +185,10 @@
     </div>
     <span class="tb-brand-sep"></span>
 
-    <!-- Page title -->
+    <!-- Page title + Subtitle (IDD exact pattern) -->
     <div class="tb-title">
-      <span class="t" id="headerModeLbl">Version Compare</span>
+      <div class="t" id="headerModeLbl">Version Compare</div>
+      <div class="s" id="headerSubLbl"></div>
     </div>
 
     <!-- Hidden elements — IDs required by JS modules, not shown in UI -->

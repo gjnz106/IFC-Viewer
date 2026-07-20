@@ -57,7 +57,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .topbar{grid-column:1/-1;grid-row:1;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;z-index:50;overflow-x:auto;scrollbar-width:none;height:48px}
 .topbar::-webkit-scrollbar{display:none}
 
-/* ── Topbar brand logo (IDD Lumina pattern) ── */
+/* ── Topbar brand logo (IDD exact pattern) ── */
 .tb-brand {
   display: flex;
   align-items: center;
@@ -77,43 +77,66 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #2C2421;
+  color: #111827;
   white-space: nowrap;
   line-height: 1;
 }
 .tb-brand-dot {
-  color: var(--blue);
+  color: #0058be;
 }
 .tb-brand-sep {
   width: 1px;
   height: 20px;
   background: var(--border);
   flex-shrink: 0;
-  margin: 0 4px;
+  margin: 0 6px;
 }
-.tb-proj-chip {
+/* ── Project switcher chip — IDD exact pattern ── */
+.tb-project {
+  position: relative;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-panel, #fff);
-  color: var(--text-dim);
-  font-size: 12px;
-  font-weight: 600;
+  gap: 6px;
+}
+.tb-project-chip, .tb-proj-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
   cursor: pointer;
-  max-width: 160px;
-  flex-shrink: 0;
+  height: auto;
+  width: auto;
+  border-radius: 0;
+  transition: opacity 120ms;
 }
-.tb-proj-chip:hover {
-  background: var(--bg-hover, #e8eaef);
+.tb-project-chip:hover, .tb-proj-chip:hover {
+  opacity: 0.85;
 }
-.tb-proj-chip span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.tb-project-name-text {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #003067;
   white-space: nowrap;
+  line-height: 1;
+}
+.tb-project-caret-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  transition: background 120ms;
+}
+.tb-project-caret-box:hover {
+  background: #e5e7eb;
 }
 .proj-row {
   display: flex;

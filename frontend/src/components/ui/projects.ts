@@ -82,13 +82,24 @@ persist();
 
 function chipLabel(): void {
   const el = document.getElementById('tbProjectName');
-  if (!el) return;
+  const subEl = document.getElementById('headerSubLbl');
+  let name = '—';
+  let rawName = '';
   if (appState.activeCloudProjectId) {
     const cp = cloudList.find(c => c.id === appState.activeCloudProjectId);
-    if (cp) { el.textContent = '☁ ' + (cp.code || cp.name); return; }
+    if (cp) {
+      name = '☁ ' + (cp.code || cp.name);
+      rawName = cp.name;
+    }
+  } else {
+    const p = getActiveProject(registry);
+    if (p) {
+      name = p.code || p.name;
+      rawName = p.name;
+    }
   }
-  const p = getActiveProject(registry);
-  el.textContent = p ? (p.code || p.name) : '—';
+  if (el) el.textContent = name;
+  if (subEl) subEl.textContent = rawName;
 }
 
 function renderProjectList(): void {
