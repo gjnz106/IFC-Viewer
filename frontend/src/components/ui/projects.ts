@@ -37,6 +37,13 @@ import { log } from '../core/ifc-category.js';
 function persist(): void {
   saveRegistry(registry);
   mirrorActiveDriveLink(registry);
+  try {
+    if (appState.activeCloudProjectId) {
+      localStorage.setItem('ifc.lastCloudProjectId', appState.activeCloudProjectId);
+    } else {
+      localStorage.removeItem('ifc.lastCloudProjectId');
+    }
+  } catch { /* private mode */ }
 }
 
 // ── Cloud layer (Phase 12) — additive, never blocks the local-only path ──
@@ -69,7 +76,20 @@ async function refreshCloudList(): Promise<void> {
   cloudLoadError = fetched === null;
   if (fetched !== null) cloudList = fetched;
   cloudLoading = false;
+
+  // Restore last active cloud project if set and not currently loaded
+  if (!appState.activeCloudProjectId && fetched && fetched.length > 0) {
+    let savedCloudId = '';
+    try { savedCloudId = localStorage.getItem('ifc.lastCloudProjectId') || ''; } catch {}
+    if (savedCloudId && fetched.some(p => p.id === savedCloudId)) {
+      appState.activeCloudProjectId = savedCloudId;
+      chipLabel();
+      autoLoadCloudProjectFiles(savedCloudId).catch(e => console.warn('[cloud-files] auto-restore failed:', e));
+    }
+  }
+
   renderProjectList();
+  chipLabel();
   // Let the Field Mode project sheet re-render once the async cloud list lands.
   try { window.dispatchEvent(new CustomEvent('ifc:cloudprojects')); } catch {}
 }
@@ -799,9 +819,19 @@ window.renderTeamPanel = function (): void {
   }).catch(() => { /* keep the pending "…" — panel still shows membership */ });
 };
 
-// Open the Settings dialog also refreshes the storage figure (in addition
-// to the projectchange-triggered refresh above, for the first open of a
-// session before any switch has fired).
 document.getElementById('btnSettings')?.addEventListener('click', () => refreshStorageUsage());
 
+window.addEventListener('ifc:signin', () => {
+  refreshCloudList();
+});
+
+window.addEventListener('beforeunload', () => {
+  try {
+    saveOutgoingState();
+    persist();
+  } catch {}
+});
+
+// Initial startup: reflect chip label and restore last opened cloud project if logged in
 chipLabel();
+refreshCloudList();

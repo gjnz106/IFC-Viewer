@@ -187,6 +187,7 @@ function showLoggedInUser(user: User) {
   if (acName) acName.textContent = local;
   const acStatus = document.querySelector('.account-menu-status');
   if (acStatus) acStatus.textContent = email;
+  window.dispatchEvent(new CustomEvent('ifc:signin'));
   // My Profile dialog
   const profileAv = document.getElementById('profileAv');
   if (profileAv) profileAv.textContent = initials;

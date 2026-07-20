@@ -1704,21 +1704,52 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .rp-tab svg{width:13px;height:13px;stroke-width:2}
 .rp-tab-spacer{flex:1}
 
-/* ── Right-panel Properties Empty State — Lumina card ── */
-.prop-area { display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;background:#ffffff }
+/* ── Right-panel Properties Empty State — Lumina card centered ── */
+.prop-area {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  background: #ffffff !important;
+}
+.prop-area:has(.prop-toolbar) {
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+}
 .prop-empty-card {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 48px 24px; margin: auto; text-align: center; max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  margin: auto;
+  text-align: center;
+  max-width: 280px;
 }
 .prop-empty-icon {
-  width: 56px; height: 56px; border-radius: 16px; background: #f3f4f6;
-  display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
 }
 .prop-empty-title {
-  font-size: 13.5px; font-weight: 600; color: #111827; margin-bottom: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 6px;
 }
 .prop-empty-sub {
-  font-size: 11.5px; color: #6b7280; line-height: 1.5;
+  font-size: 11.5px;
+  color: #6b7280;
+  line-height: 1.5;
 }
 
 /* Page-scoped workspace sections: the router adds .ws-hide to any
