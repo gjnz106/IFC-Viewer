@@ -312,6 +312,16 @@ document.addEventListener('pointerdown', (e) => {
   w.fieldCloseMore();
 }, true);
 
+// AI assistant: the floating FAB is hidden in Field Mode; the toolbar "AI"
+// button opens the SAME chat panel by triggering the FAB's own click handler
+// (which appends/opens `.aic-panel`). Clicking a display:none element still
+// fires its onclick, so no separate wiring is needed.
+w.fieldOpenAI = function(){
+  const fab = document.querySelector('.aic-fab') as HTMLElement | null;
+  if(fab) fab.click();
+  else fieldToast('AI assistant not available');
+};
+
 w.fieldOpenTool = function(html: string, title: string){
   document.getElementById('fieldToolTitle')!.textContent = title;
   document.getElementById('fieldToolBody')!.innerHTML = html;
@@ -554,6 +564,48 @@ w.fieldMenuCoords = function(){
   fieldToast(next ? 'Coordinates ON — tap the model' : 'Coordinates OFF');
 };
 w.fieldCoordDeactivate = function(){ if(_fieldCoordActive) fieldCoordSet(false); };
+
+// ── PROJECTS (switch cloud/local project without leaving Field Mode) ───
+// Reuses the desktop switch logic (projSwitchCloud / projSwitch) with
+// { fromField:true } so it skips the desktop navigate + panel toggle. A switch
+// unloads the current models and auto-loads the chosen project's files — the
+// viewport (shared with Field Mode) shows them as they arrive.
+w.fieldMenuProjects = function(){
+  w.fieldCloseMore();
+  w.fieldOpenTool('<div id="fieldProjList" class="field-tool-list"></div>', 'Projects');
+  fieldProjectsRender();
+  w.projFieldRefresh?.(); // one-shot cloud refresh; 'ifc:cloudprojects' re-renders when it lands
+};
+function fieldProjectsRender(){
+  const host = document.getElementById('fieldProjList');
+  if(!host) return;
+  const data = w.projFieldData?.() || { canUseCloud:false, cloud:[], local:[] };
+  const row = (p: any, kind: 'cloud'|'local') =>
+    `<button class="field-tool-item${p.active?' active':''}" ${p.active?'disabled':''}
+             onclick="fieldProjSwitch('${p.id}','${kind}')">
+       <span class="field-tool-item-name">${kind==='cloud'?'☁':'💻'} ${escapeH(p.name)}${p.code?' · '+escapeH(p.code):''}</span>
+       <span class="field-tool-item-tag">${p.active?'● Active':'Switch'}</span>
+     </button>`;
+  const cloud = data.cloud.map((p: any) => row(p, 'cloud')).join('');
+  const local = data.local.map((p: any) => row(p, 'local')).join('');
+  const parts: string[] = [];
+  if(data.canUseCloud) parts.push(`<div class="field-tool-hint">Cloud</div>${cloud || '<div class="field-tool-empty">No cloud projects</div>'}`);
+  parts.push(`<div class="field-tool-hint">Local</div>${local || '<div class="field-tool-empty">No local projects</div>'}`);
+  host.innerHTML = parts.join('');
+}
+w.fieldProjSwitch = function(id: string, kind: string){
+  if(kind === 'cloud') w.projSwitchCloud?.(id, { fromField: true });
+  else w.projSwitch?.(id, { fromField: true });
+  w.fieldCloseTool();
+  fieldToast('Switching project…');
+};
+// Re-render the sheet when the async cloud list lands or the active project changes.
+window.addEventListener('ifc:cloudprojects', () => {
+  if(fieldActive && document.getElementById('fieldProjList')) fieldProjectsRender();
+});
+window.addEventListener('ifc:projectchange', () => {
+  if(fieldActive && document.getElementById('fieldProjList')) fieldProjectsRender();
+});
 
 // Small HTML escaper for field-rendered strings (reuses global if present).
 function escapeH(s: any): string {

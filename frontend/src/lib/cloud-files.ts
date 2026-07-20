@@ -12,6 +12,7 @@
 import type { CloudProjectFile } from './cloud-projects.js';
 import { deleteCloudProject } from './cloud-projects.js';
 import { deleteResultRecord, resultStoragePath, ALL_RESULT_KINDS } from './cloud-results.js';
+import { getCachedFile, putCachedFile } from './ifc-cache.js';
 
 export type SyncStatus = 'local-only' | 'uploading' | 'synced' | 'error';
 
@@ -139,14 +140,30 @@ export async function fetchProjectFiles(projectId: string): Promise<CloudProject
 
 // Downloads a cloud file record's bytes and returns a File ready to feed
 // into the existing loadIFC(idx) pipeline (same shape as drive.ts's gdLoadFile).
+// Checks local IndexedDB cache first — instant load on cache hit (0s download).
 export async function downloadProjectFile(record: CloudProjectFile): Promise<File> {
+  try {
+    const cached = await getCachedFile(record);
+    if (cached) {
+      console.log(`[ifc-cache] Cache hit for ${record.name}`);
+      return cached;
+    }
+  } catch (e) {
+    console.warn('[ifc-cache] getCachedFile error:', e);
+  }
+
   const { ref, getDownloadURL } = await import('firebase/storage');
   const storage = await getBucket();
   const url = await getDownloadURL(ref(storage, record.storagePath));
   const r = await fetch(url);
   if (!r.ok) throw new Error('Download failed: ' + r.status);
   const blob = await r.blob();
-  return new File([blob], record.name, { type: 'application/octet-stream' });
+  const file = new File([blob], record.name, { type: 'application/octet-stream' });
+
+  // Store in IndexedDB cache for instant future loads
+  putCachedFile(record, file).catch(e => console.warn('[ifc-cache] putCachedFile failed:', e));
+
+  return file;
 }
 
 // Best-effort — an orphaned blob left behind on failure is logged, not thrown.

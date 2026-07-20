@@ -13,7 +13,7 @@ import { IFC_NAMES, FED_COLORS, FED_LABELS } from '../../lib/constants.js';
 import { log } from '../core/ifc-category.js';
 import { getElementBBox } from '../tools/color-schemes.js';
 import {
-  buildOverviewTree, buildPrettyTypeLookup, filterOverviewTree, countStoreys,
+  buildOverviewTree, buildPrettyTypeLookup, filterOverviewTree,
   type OvNode,
 } from '../../lib/spatial-tree.js';
 import { loadIssueMap, computeIssueMetrics } from '../../lib/clash-issues.js';
@@ -116,6 +116,22 @@ async function fetchGroupNames(idx: number, group: OvNode): Promise<void> {
   if (changed && gen === generation) render();
 }
 
+// Collect the topmost IfcBuildingStorey nodes in a tree (does not recurse past
+// a storey, since storeys don't nest). Used to render "from the levels onward"
+// and — via collectStoreyNames — to count unique levels.
+function collectStoreyNodes(node: OvNode, out: OvNode[]): void {
+  if (node.ifcType === 'IfcBuildingStorey') { out.push(node); return; }
+  for (const c of node.children) collectStoreyNodes(c, out);
+}
+
+// Add each storey's display name (resolved real name, else its type label) to a
+// shared set, so counting the set yields unique levels across federated files.
+function collectStoreyNames(entry: SlotTree, node: OvNode, set: Set<string>): void {
+  const storeys: OvNode[] = [];
+  collectStoreyNodes(node, storeys);
+  for (const st of storeys) set.add((entry.names.get(st.eid) || st.label || ('#' + st.eid)).trim());
+}
+
 // ── Rendering ────────────────────────────────────────────────────────────
 function nodeLabel(entry: SlotTree, n: OvNode): string {
   if (n.kind === 'group') return n.label;
@@ -129,12 +145,20 @@ function renderNode(idx: number, entry: SlotTree, n: OvNode, depth: number): str
   // A non-empty filter auto-expands the (pruned, small) result tree.
   const isOpen = query.trim() !== '' || expanded.has(n.key);
   const caret = hasKids
-    ? `<span class="ov-caret${isOpen ? ' open' : ''}">▸</span>`
+    ? `<span class="ov-caret${isOpen ? ' open' : ''}"><svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M9 18l6-6-6-6"/></svg></span>`
     : '<span class="ov-caret leaf"></span>';
+  
+  let nodeIco = '';
+  if (n.kind === 'spatial') {
+    nodeIco = `<svg viewBox="0 0 24 24" class="ov-node-ico" style="width:12.5px;height:12.5px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;margin-right:5px;opacity:0.7"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>`;
+  } else if (n.kind === 'group') {
+    nodeIco = `<svg viewBox="0 0 24 24" class="ov-node-ico" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;margin-right:5px;opacity:0.6"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`;
+  }
+
   const cnt = n.kind === 'element' ? '' : `<span class="ov-count">${n.count}</span>`;
   const sub = n.kind === 'element' && entry.names.get(n.eid) ? ` <span class="ov-eid">#${n.eid}</span>` : '';
-  let html = `<div class="ov-row ov-${n.kind}" data-slot="${idx}" data-key="${escapeHtml(n.key)}" data-eid="${n.eid}" data-kind="${n.kind}" style="padding-left:${8 + depth * 14}px" title="${escapeHtml(n.ifcType)} #${n.eid}">
-    ${caret}<span class="ov-label">${escapeHtml(nodeLabel(entry, n))}${sub}</span>${cnt}
+  let html = `<div class="ov-row ov-${n.kind}" data-slot="${idx}" data-key="${escapeHtml(n.key)}" data-eid="${n.eid}" data-kind="${n.kind}" style="padding-left:${10 + depth * 14}px" title="${escapeHtml(n.ifcType)} #${n.eid}">
+    ${caret}${nodeIco}<span class="ov-label">${escapeHtml(nodeLabel(entry, n))}${sub}</span>${cnt}
   </div>`;
   if (hasKids && isOpen) {
     for (const c of n.children) html += renderNode(idx, entry, c, depth + 1);
@@ -195,12 +219,17 @@ function render(): void {
     return;
   }
 
-  let totalElems = 0, totalStoreys = 0, pending = 0;
+  // Storeys are counted by UNIQUE NAME across all loaded files: the federated
+  // models are one project sharing the same levels (L1, L2, R1…), so summing
+  // per-file storeys inflated the count (e.g. 52 for what is ~13 real levels).
+  let totalElems = 0, pending = 0;
+  const storeyNames = new Set<string>();
   for (const i of loadedIdxs) {
     const t = slotTrees.get(i);
-    if (t?.root) { totalElems += t.root.count; totalStoreys += countStoreys(t.root); }
+    if (t?.root) { totalElems += t.root.count; collectStoreyNames(t, t.root, storeyNames); }
     else pending++;
   }
+  const totalStoreys = storeyNames.size;
   sumEl.innerHTML = `
     <div class="ov-stat"><b>${loadedIdxs.length}</b><span>file${loadedIdxs.length === 1 ? '' : 's'}</span></div>
     <div class="ov-stat"><b>${totalElems.toLocaleString()}</b><span>elements</span></div>
@@ -209,22 +238,39 @@ function render(): void {
   let html = '';
   for (const i of loadedIdxs) {
     const entry = slotTrees.get(i);
-    const badge = slotBadge(i);
     const fileKey = `s${i}:file`;
     const isOpen = query.trim() !== '' || expanded.has(fileKey) || loadedIdxs.length === 1;
     const name = entry?.fileName || appState.files[i]?.name || `Model ${i}`;
-    html += `<div class="ov-file${isOpen ? ' open' : ''}" data-filekey="${fileKey}">
-      <span class="ov-file-dot" style="background:${badge.color}">${badge.label}</span>
-      <span class="ov-file-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-      <span class="ov-count">${entry?.root ? entry.root.count.toLocaleString() : '…'}</span>
-      <span class="ov-caret${isOpen ? ' open' : ''}">▸</span>
+    const elemCount = entry?.root ? entry.root.count.toLocaleString() : '0';
+    const isVis = (appState.loadedModels[i] as any)?.visible !== false;
+    const isSyncing = !entry?.root;
+    
+    html += `<div class="ov-file${isOpen ? ' open' : ''}" data-slot="${i}" data-filekey="${fileKey}">
+      <span class="ov-caret${isOpen ? ' open' : ''}">
+        <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M9 18l6-6-6-6"/></svg>
+      </span>
+      <button class="ov-file-vis" onclick="event.stopPropagation();(window.toggleModelVis?window.toggleModelVis(${i}):null)" title="${isVis ? 'Hide in viewport' : 'Show in viewport'}">
+        ${isVis ? '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'}
+      </button>
+      <div class="ov-file-info">
+        <div class="ov-file-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+        <div class="ov-file-sub">v1.0 · ${elemCount} elements</div>
+      </div>
+      ${isSyncing ? '<span class="ov-file-sync">SYNC</span>' : ''}
     </div>`;
     if (!isOpen) continue;
     if (!entry) { html += '<div class="ov-empty">Reading structure…</div>'; continue; }
     if (!entry.root) { html += '<div class="ov-empty">No spatial structure in this file.</div>'; continue; }
     const shown = filterOverviewTree(entry.root, query);
     if (!shown) { html += '<div class="ov-empty">No match in this file.</div>'; continue; }
-    html += renderNode(i, entry, shown, 1);
+    // Show the tree from the Levels onward — skip the IfcProject / IfcSite /
+    // IfcBuilding wrapper tiers (they're the same for every file in the project
+    // and just add noise). Render each topmost IfcBuildingStorey directly under
+    // the file. Fall back to the full tree if a file has no storeys.
+    const storeyNodes: OvNode[] = [];
+    collectStoreyNodes(shown, storeyNodes);
+    if (storeyNodes.length) { for (const st of storeyNodes) html += renderNode(i, entry, st, 1); }
+    else html += renderNode(i, entry, shown, 1);
   }
   if (pending > 0 && loadedIdxs.every(i => !slotTrees.get(i)?.root)) {
     html += '<div class="ov-empty">Reading model structure…</div>';

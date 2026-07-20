@@ -4,11 +4,11 @@
 // appState dependency beyond what's already exposed on window by other
 // modules (switchTab, issue count text) — this module only touches the DOM.
 
-type RailTab = 'files' | 'tree' | 'issues' | 'search' | 'overview';
-let _railTab: RailTab = 'files';
+type RailTab = 'files' | 'tree' | 'issues' | 'search' | 'overview' | 'team' | 'invite' | 'settings';
+let _railTab: RailTab = 'overview';
 
 function updateRailActive(): void {
-  (['files', 'tree', 'issues', 'search', 'overview'] as const).forEach((t) => {
+  (['files', 'tree', 'issues', 'search', 'overview', 'team', 'invite', 'settings'] as const).forEach((t) => {
     document.getElementById('rail-' + t)?.classList.toggle('active', _railTab === t && !isLeftCollapsed());
   });
 }
@@ -18,11 +18,14 @@ function isLeftCollapsed(): boolean {
 }
 
 const RAIL_TITLES: Record<string, string> = {
+  overview: 'BIM Viewer (Overall)',
   files: 'Model Files',
   tree: 'Entity Tree',
   issues: 'Changes',
   search: 'Search',
-  overview: 'Overview',
+  team: 'Team Workloads',
+  invite: 'Invite Members',
+  settings: 'Project Settings',
 };
 
 function showLeftPanel(): void {
@@ -38,6 +41,18 @@ function showLeftPanel(): void {
 // tab, collapse the left panel instead (matches the icon-rail toggle pattern
 // used elsewhere in the shell).
 (window as any).railSelect = function (tab: RailTab): void {
+  if (tab === 'team') {
+    (window as any).toggleTeamPanel?.();
+    return;
+  }
+  if (tab === 'invite') {
+    (window as any).toggleInvitePanel?.();
+    return;
+  }
+  if (tab === 'settings') {
+    (window as any).toggleSettingsPanel?.();
+    return;
+  }
   const alreadyOpen = !isLeftCollapsed();
   if (alreadyOpen && _railTab === tab) {
     (window as any).toggleLeftPanel?.();
@@ -58,7 +73,7 @@ function showLeftPanel(): void {
   } else if (tab !== 'files') {
     (window as any).switchTab?.(tab);
   }
-  if (title) title.textContent = RAIL_TITLES[tab];
+  if (title) title.textContent = RAIL_TITLES[tab] || '';
   updateRailActive();
 };
 
