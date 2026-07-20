@@ -312,6 +312,16 @@ document.addEventListener('pointerdown', (e) => {
   w.fieldCloseMore();
 }, true);
 
+// AI assistant: the floating FAB is hidden in Field Mode; the toolbar "AI"
+// button opens the SAME chat panel by triggering the FAB's own click handler
+// (which appends/opens `.aic-panel`). Clicking a display:none element still
+// fires its onclick, so no separate wiring is needed.
+w.fieldOpenAI = function(){
+  const fab = document.querySelector('.aic-fab') as HTMLElement | null;
+  if(fab) fab.click();
+  else fieldToast('AI assistant not available');
+};
+
 w.fieldOpenTool = function(html: string, title: string){
   document.getElementById('fieldToolTitle')!.textContent = title;
   document.getElementById('fieldToolBody')!.innerHTML = html;
