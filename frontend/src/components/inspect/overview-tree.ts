@@ -230,15 +230,25 @@ function render(): void {
   let html = '';
   for (const i of loadedIdxs) {
     const entry = slotTrees.get(i);
-    const badge = slotBadge(i);
     const fileKey = `s${i}:file`;
     const isOpen = query.trim() !== '' || expanded.has(fileKey) || loadedIdxs.length === 1;
     const name = entry?.fileName || appState.files[i]?.name || `Model ${i}`;
-    html += `<div class="ov-file${isOpen ? ' open' : ''}" data-filekey="${fileKey}">
-      <span class="ov-file-dot" style="background:${badge.color}">${badge.label}</span>
-      <span class="ov-file-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-      <span class="ov-count">${entry?.root ? entry.root.count.toLocaleString() : '…'}</span>
-      <span class="ov-caret${isOpen ? ' open' : ''}">▸</span>
+    const elemCount = entry?.root ? entry.root.count.toLocaleString() : '0';
+    const isVis = (appState.loadedModels[i] as any)?.visible !== false;
+    const isSyncing = !entry?.root;
+    
+    html += `<div class="ov-file${isOpen ? ' open' : ''}" data-slot="${i}" data-filekey="${fileKey}">
+      <span class="ov-caret${isOpen ? ' open' : ''}">
+        <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M9 18l6-6-6-6"/></svg>
+      </span>
+      <button class="ov-file-vis" onclick="event.stopPropagation();(window.toggleModelVis?window.toggleModelVis(${i}):null)" title="${isVis ? 'Hide in viewport' : 'Show in viewport'}">
+        ${isVis ? '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'}
+      </button>
+      <div class="ov-file-info">
+        <div class="ov-file-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+        <div class="ov-file-sub">v1.0 · ${elemCount} elements</div>
+      </div>
+      ${isSyncing ? '<span class="ov-file-sync">SYNC</span>' : ''}
     </div>`;
     if (!isOpen) continue;
     if (!entry) { html += '<div class="ov-empty">Reading structure…</div>'; continue; }

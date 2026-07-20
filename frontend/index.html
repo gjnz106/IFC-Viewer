@@ -324,7 +324,10 @@
 
   <!-- ═══ ICON RAIL (52px) — drives left-panel content (v5 shell) ═══ -->
   <nav class="icon-rail" id="iconRail">
-    <button class="rail-btn active" id="rail-files" onclick="railSelect('files')" title="Model Files">
+    <button class="rail-btn active" id="rail-overview" onclick="railSelect('overview')" title="BIM Viewer (Overall) — spatial structure per file">
+      <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>
+    </button>
+    <button class="rail-btn" id="rail-files" onclick="railSelect('files')" title="Model Files">
       <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M3 7l9-5 9 5v4l-9 5-9-5z"/><path d="M3 11l9 5 9-5"/><path d="M3 15l9 5 9-5"/></svg>
     </button>
     <button class="rail-btn" id="rail-tree" onclick="railSelect('tree')" title="Entity Tree">
@@ -336,9 +339,6 @@
     </button>
     <button class="rail-btn" id="rail-search" onclick="railSelect('search')" title="Search">
       <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
-    </button>
-    <button class="rail-btn" id="rail-overview" onclick="railSelect('overview')" title="Overview — spatial structure per file">
-      <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v7M14 17.5h7"/></svg>
     </button>
     <div class="rail-spacer"></div>
     <button class="rail-btn" id="rail-team" onclick="railSelect('team')" title="Team Workloads">
@@ -583,8 +583,11 @@
       <div class="lp-overview hide" id="lpOverview">
         <div id="ovClash"></div>
         <div class="ov-summary" id="ovSummary"></div>
-        <div style="padding:6px 14px 4px">
-          <input class="search-input" id="ovSearch" placeholder="Filter by name, type, #id…" oninput="ovSearchInput()" style="width:100%">
+        <div class="ov-search-wrap">
+          <div class="ov-search-box">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#9ca3af;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+            <input class="ov-search-input" id="ovSearch" placeholder="Search models…" oninput="ovSearchInput()">
+          </div>
         </div>
         <div class="ov-tree" id="ovTree">
           <div class="ov-empty">No models loaded.<br>Load an IFC file to see its structure here.</div>

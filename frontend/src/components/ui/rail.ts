@@ -5,7 +5,7 @@
 // modules (switchTab, issue count text) — this module only touches the DOM.
 
 type RailTab = 'files' | 'tree' | 'issues' | 'search' | 'overview' | 'team' | 'invite' | 'settings';
-let _railTab: RailTab = 'files';
+let _railTab: RailTab = 'overview';
 
 function updateRailActive(): void {
   (['files', 'tree', 'issues', 'search', 'overview', 'team', 'invite', 'settings'] as const).forEach((t) => {
@@ -18,11 +18,11 @@ function isLeftCollapsed(): boolean {
 }
 
 const RAIL_TITLES: Record<string, string> = {
+  overview: 'BIM Viewer (Overall)',
   files: 'Model Files',
   tree: 'Entity Tree',
   issues: 'Changes',
   search: 'Search',
-  overview: 'Overview',
   team: 'Team Workloads',
   invite: 'Invite Members',
   settings: 'Project Settings',
