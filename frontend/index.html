@@ -361,7 +361,7 @@
         <!-- Vis toggle A -->
         <div class="vis-row" id="visRow0" style="display:none">
           <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:4px 2px">
-            <input type="checkbox" checked id="visA" onchange="toggleModelVis(0)" style="accent-color:var(--text);width:14px;height:14px">
+            <input type="checkbox" checked id="visA" onchange="toggleModelVis(0, this.checked)" style="accent-color:var(--text);width:14px;height:14px">
             <span style="width:8px;height:8px;border-radius:2px;background:#ef4444;opacity:.8"></span>
             Version A (Baseline)
           </label>
@@ -392,7 +392,7 @@
         <!-- Vis toggle B -->
         <div class="vis-row" id="visRow1" data-pages="compare clash" style="display:none">
           <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:4px 2px">
-            <input type="checkbox" checked id="visB" onchange="toggleModelVis(1)" style="accent-color:var(--text);width:14px;height:14px">
+            <input type="checkbox" checked id="visB" onchange="toggleModelVis(1, this.checked)" style="accent-color:var(--text);width:14px;height:14px">
             <span style="width:8px;height:8px;border-radius:2px;background:#3b82f6;opacity:.8"></span>
             Version B (Updated)
           </label>
@@ -924,10 +924,10 @@
   <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span><span class="field-btn-label">Plan 2D</span></button>
   <button class="field-btn" onclick="fieldScreenshot()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span class="field-btn-label">Photo</span></button>
   <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span><span class="field-btn-label">Fit</span></button>
-  <button class="field-btn" id="fieldBtnAI" onclick="fieldOpenAI()" title="T3Lab AI Assistant"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span><span class="field-btn-label">AI</span></button>
   <button class="field-btn" id="fieldBtnMore" onclick="fieldToggleMore()" title="More tools — Search, Colorize, Validate, Viewpoints, Coords, Projects"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span><span class="field-btn-label">More</span></button>
   <button class="field-btn" onclick="toggleProfilePanel()" title="Account"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="field-btn-label">Account</span></button>
   <button class="field-btn" onclick="navigateTo('viewer')"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="field-btn-label">Desktop</span></button>
+  <button class="field-btn" id="fieldBtnAI" onclick="fieldOpenAI()" title="T3Lab AI Assistant"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span><span class="field-btn-label">AI</span></button>
 </div>
 
 <div class="field-sheet" id="fieldSheet">

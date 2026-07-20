@@ -332,21 +332,11 @@ window.searchIsolateAll = function(){
 
 window.searchHideAll = function(){
   if(!_searchResults.length) return;
-  const hideSet = new Set(_searchResults.map(e => e.eid));
-  forEachModel((model: any) => {
-    model.traverse((c: any) => {
-      if(!c.isMesh) return;
-      if(c.geometry?.attributes?.expressID){
-        const arr = c.geometry.attributes.expressID.array;
-        const eids = new Set<number>();
-        for(let i=0; i<arr.length; i++) eids.add(arr[i]);
-        for(const eid of eids){
-          if(hideSet.has(eid)){ c.visible=false; break; }
-        }
-      }
-    });
-  });
-  document.getElementById('btnShowAll')!.style.display='';
+  for(const e of _searchResults){
+    (window as any).hideExpressID?.(e.eid, e.modelIdx);
+  }
+  const btn = document.getElementById('btnShowAll');
+  if (btn) btn.style.display = '';
   log(`Search: hidden ${_searchResults.length} elements`);
 };
 

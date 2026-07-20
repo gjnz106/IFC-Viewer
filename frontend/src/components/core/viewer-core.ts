@@ -395,8 +395,10 @@ export function initThree(): void {
     ray.setFromCamera(mouse,appState.camera);
 
     // Collect only VISIBLE model meshes
-    const visA=(document.getElementById('visA') as HTMLInputElement)?.checked??true;
-    const visB=(document.getElementById('visB') as HTMLInputElement)?.checked??true;
+    const isSlotVis = (si: number) => {
+      const chk = document.getElementById(si === 0 ? 'visA' : si === 1 ? 'visB' : '') as HTMLInputElement | null;
+      return chk ? chk.checked : ((appState.loadedModels[si] as any)?.visible !== false);
+    };
     const ms: THREE.Object3D[]=[];
     appState.scene.traverse((ch: THREE.Object3D)=>{
       const mesh = ch as THREE.Mesh;
@@ -405,8 +407,7 @@ export function initThree(): void {
          && !ch.userData?.isHandle){
         // Skip meshes from unticked models
         const srcIdx=ch.userData?.srcModelIdx;
-        if(srcIdx===0&&!visA)return;
-        if(srcIdx===1&&!visB)return;
+        if(typeof srcIdx === 'number' && srcIdx >= 0 && !isSlotVis(srcIdx)) return;
         ms.push(ch);
       }
     });
@@ -458,11 +459,13 @@ export function initThree(): void {
     }
 
     // Check model is ticked (visible)
-    if(targetModelIdx===0&&!visA){log('Pick: model A unticked');return}
-    if(targetModelIdx===1&&!visB){log('Pick: model B unticked');return}
-    if(targetModelIdx>=2){
-      const fedChk=document.getElementById('fedVis'+targetModelIdx) as HTMLInputElement;
-      if(fedChk && !fedChk.checked){log('Pick: federation model '+targetModelIdx+' unticked');return}
+    const isModelSlotVis = (si: number) => {
+      const chk = document.getElementById(si === 0 ? 'visA' : si === 1 ? 'visB' : ('fedVis' + si)) as HTMLInputElement | null;
+      return chk ? chk.checked : ((appState.loadedModels[si] as any)?.visible !== false);
+    };
+    if (targetModelIdx >= 0 && !isModelSlotVis(targetModelIdx)) {
+      log('Pick: model ' + targetModelIdx + ' unticked');
+      return;
     }
     if(targetModelIdx<0||!appState.loadedModels[targetModelIdx]||!appState.ifcLoader){return}
 
@@ -696,14 +699,16 @@ export function initThree(): void {
     ctxMouse.y=-((e.clientY-r.top)/r.height)*2+1;
     ctxRay.setFromCamera(ctxMouse,appState.camera);
 
-    const visA=(document.getElementById('visA') as HTMLInputElement)?.checked??true;
-    const visB=(document.getElementById('visB') as HTMLInputElement)?.checked??true;
+    const isSlotVis = (si: number) => {
+      const chk = document.getElementById(si === 0 ? 'visA' : si === 1 ? 'visB' : '') as HTMLInputElement | null;
+      return chk ? chk.checked : ((appState.loadedModels[si] as any)?.visible !== false);
+    };
     const ms: THREE.Object3D[]=[];
     appState.scene.traverse((ch: THREE.Object3D)=>{
       const mesh = ch as THREE.Mesh;
       if(mesh.isMesh&&ch.visible&&mesh.geometry?.attributes?.position&&ch.parent?.name!=='sectionBox'&&!ch.userData?.isHandle){
         const si=ch.userData?.srcModelIdx;
-        if(si===0&&!visA)return;if(si===1&&!visB)return;
+        if(typeof si === 'number' && si >= 0 && !isSlotVis(si)) return;
         ms.push(ch);
       }
     });

@@ -141,6 +141,8 @@ window.fieldOpenSheet = function(html: string, title?: string){
     const content = propArea.innerHTML;
     if(content && !content.includes('prop-empty')){
       (window as any).fieldOpenSheet(content, 'Element Properties');
+    } else if(content && content.includes('prop-empty')){
+      (window as any).fieldCloseSheet();
     }
   });
   // Start observing after DOM is ready
@@ -185,7 +187,7 @@ window.fieldToggleWalk = function(){
   }
 };
 
-// ── Touch walk controls: virtual joystick + look zone ──
+// ── Touch/Pointer walk controls: virtual joystick + look zone ──
 let _walkJoyActive = false;
 let _walkJoyCenter = {x:0, y:0};
 let _walkJoyVec = {x:0, y:0}; // -1..1 normalized
@@ -194,49 +196,54 @@ let _walkLookJoyCenter = {x:0, y:0};
 let _walkLookVec = {x:0, y:0}; // -1..1 normalized for continuous look rotation
 
 function walkTouchInit(){
-  const joy = document.getElementById('walkJoy')!;
-  const knob = document.getElementById('walkJoyKnob')!;
-  const lookJoy = document.getElementById('walkLookJoy')!;
-  const lookKnob = document.getElementById('walkLookKnob')!;
+  const joy = document.getElementById('walkJoy');
+  const knob = document.getElementById('walkJoyKnob');
+  const lookJoy = document.getElementById('walkLookJoy');
+  const lookKnob = document.getElementById('walkLookKnob');
+  if(!joy || !knob || !lookJoy || !lookKnob) return;
 
   // walk.ts reads the live joystick vectors off window, so keep them mirrored.
   (window as any)._walkJoyVec = {x:0, y:0};
   (window as any)._walkLookVec = {x:0, y:0};
 
-  // ── Left joystick: Move ──
-  joy.ontouchstart = (e) => {
+  // ── Left joystick: Move (Pointer Events for Touch + Mouse + Stylus) ──
+  joy.onpointerdown = (e: PointerEvent) => {
     e.preventDefault();
+    try{ joy.setPointerCapture(e.pointerId); }catch(err){}
     _walkJoyActive = true;
     const rect = joy.getBoundingClientRect();
-    _walkJoyCenter = { x: rect.left + 65, y: rect.top + 65 };
-    walkJoyMove(e.touches[0], knob, _walkJoyCenter, (v) => { _walkJoyVec = v; (window as any)._walkJoyVec = v; });
+    _walkJoyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+    walkJoyMove(e, knob, _walkJoyCenter, (v) => { _walkJoyVec = v; (window as any)._walkJoyVec = v; });
   };
-  joy.ontouchmove = (e) => {
-    e.preventDefault();
-    if(_walkJoyActive && e.touches[0]) walkJoyMove(e.touches[0], knob, _walkJoyCenter, (v) => { _walkJoyVec = v; (window as any)._walkJoyVec = v; });
+  joy.onpointermove = (e: PointerEvent) => {
+    if(_walkJoyActive){
+      e.preventDefault();
+      walkJoyMove(e, knob, _walkJoyCenter, (v) => { _walkJoyVec = v; (window as any)._walkJoyVec = v; });
+    }
   };
-  joy.ontouchend = joy.ontouchcancel = (e) => {
-    e.preventDefault();
+  joy.onpointerup = joy.onpointercancel = (e: PointerEvent) => {
     _walkJoyActive = false;
     _walkJoyVec = {x:0, y:0};
     (window as any)._walkJoyVec = _walkJoyVec;
     knob.style.transform = 'translate(0px, 0px)';
   };
 
-  // ── Right joystick: Look ──
-  lookJoy.ontouchstart = (e) => {
+  // ── Right joystick: Look (Pointer Events for Touch + Mouse + Stylus) ──
+  lookJoy.onpointerdown = (e: PointerEvent) => {
     e.preventDefault();
+    try{ lookJoy.setPointerCapture(e.pointerId); }catch(err){}
     _walkLookJoyActive = true;
     const rect = lookJoy.getBoundingClientRect();
-    _walkLookJoyCenter = { x: rect.left + 65, y: rect.top + 65 };
-    walkJoyMove(e.touches[0], lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; (window as any)._walkLookVec = v; });
+    _walkLookJoyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+    walkJoyMove(e, lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; (window as any)._walkLookVec = v; });
   };
-  lookJoy.ontouchmove = (e) => {
-    e.preventDefault();
-    if(_walkLookJoyActive && e.touches[0]) walkJoyMove(e.touches[0], lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; (window as any)._walkLookVec = v; });
+  lookJoy.onpointermove = (e: PointerEvent) => {
+    if(_walkLookJoyActive){
+      e.preventDefault();
+      walkJoyMove(e, lookKnob, _walkLookJoyCenter, (v) => { _walkLookVec = v; (window as any)._walkLookVec = v; });
+    }
   };
-  lookJoy.ontouchend = lookJoy.ontouchcancel = (e) => {
-    e.preventDefault();
+  lookJoy.onpointerup = lookJoy.onpointercancel = (e: PointerEvent) => {
     _walkLookJoyActive = false;
     _walkLookVec = {x:0, y:0};
     (window as any)._walkLookVec = _walkLookVec;
@@ -244,9 +251,9 @@ function walkTouchInit(){
   };
 }
 
-function walkJoyMove(touch: Touch, knobEl: HTMLElement, center: {x:number; y:number}, setVec: (v:{x:number;y:number}) => void){
-  const dx = touch.clientX - center.x;
-  const dy = touch.clientY - center.y;
+function walkJoyMove(pos: {clientX:number; clientY:number}, knobEl: HTMLElement, center: {x:number; y:number}, setVec: (v:{x:number;y:number}) => void){
+  const dx = pos.clientX - center.x;
+  const dy = pos.clientY - center.y;
   const dist = Math.sqrt(dx*dx + dy*dy);
   const maxR = 44;
   const clamped = Math.min(dist, maxR);
@@ -668,19 +675,27 @@ window.fieldSelectStorey = function(idx: number, elevation: number){
   const yTop = yBot + h;
   // Update section box planes
   if(appState.clipPlanes.length >= 6){
+    const minX = appState.modelBounds?.min.x ?? -100;
+    const maxX = appState.modelBounds?.max.x ?? 100;
+    const minZ = appState.modelBounds?.min.z ?? -100;
+    const maxZ = appState.modelBounds?.max.z ?? 100;
     // Planes 2,3 are Y+ and Y- (top/bottom)
     appState.clipPlanes[2].constant = yTop;
     appState.clipPlanes[3].constant = -yBot;
     // Expand X,Z to full model bounds
-    appState.clipPlanes[0].constant = appState.modelBounds!.max.x + 10;
-    appState.clipPlanes[1].constant = -appState.modelBounds!.min.x + 10;
-    appState.clipPlanes[4].constant = appState.modelBounds!.max.z + 10;
-    appState.clipPlanes[5].constant = -appState.modelBounds!.min.z + 10;
+    appState.clipPlanes[0].constant = maxX + 10;
+    appState.clipPlanes[1].constant = -minX + 10;
+    appState.clipPlanes[4].constant = maxZ + 10;
+    appState.clipPlanes[5].constant = -minZ + 10;
   }
   // Move camera to look at this storey
-  const cx = (appState.modelBounds!.min.x + appState.modelBounds!.max.x)/2;
-  const cz = (appState.modelBounds!.min.z + appState.modelBounds!.max.z)/2;
-  const span = Math.max(appState.modelBounds!.max.x - appState.modelBounds!.min.x, appState.modelBounds!.max.z - appState.modelBounds!.min.z);
+  const minX = appState.modelBounds?.min.x ?? -100;
+  const maxX = appState.modelBounds?.max.x ?? 100;
+  const minZ = appState.modelBounds?.min.z ?? -100;
+  const maxZ = appState.modelBounds?.max.z ?? 100;
+  const cx = (minX + maxX)/2;
+  const cz = (minZ + maxZ)/2;
+  const span = Math.max(maxX - minX, maxZ - minZ);
   appState.camera!.position.set(cx + span*0.4, yBot + h*0.6, cz + span*0.4);
   appState.controls!.target.set(cx, yBot + h*0.3, cz);
   appState.controls!.update();
@@ -954,6 +969,9 @@ function fieldPlan2DResize(){
   fieldPlan2DRenderer.setSize(w, h);
   fieldPlan2DRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 }
+window.addEventListener('resize', () => {
+  if(fieldPlan2DActive) fieldPlan2DResize();
+});
 
 function fieldPlan2DGetStoreys(){
   const all: Array<{name:string; elevation:number}> = [];
