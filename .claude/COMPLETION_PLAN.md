@@ -808,3 +808,23 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
       `projFieldRefresh()` one-shot gọi khi mở sheet; sheet re-render qua event `ifc:cloudprojects`
       và `ifc:projectchange`.
 - **Done khi:** typecheck + test + build pass. ✅ (293 test pass, build ok). Cần test thiết bị thật.
+
+## Phase 25 — 📱 Field Mode layout pass + AI button
+**Status:** 🟡 In progress
+
+> Feedback user (kèm screenshot): "chế độ Field vẫn xấu, xem xét layout lại các chức năng và cả
+> nút AI assistant."
+
+- [x] **Bottom bar → lưới đều 6×2:** đổi `.field-bar` từ flex-wrap (dồn hàng lệch) sang
+      `display:grid; repeat(6,1fr)`, bỏ hết `.field-sep`, cap `max-width:660px` + căn giữa trên
+      tablet rộng. `.field-btn` bỏ `min-width` cứng để vừa ô lưới.
+- [x] **AI assistant thành nút thật trên bar:** thêm nút **AI** (mở đúng `.aic-panel` qua click FAB
+      ẩn), và ẩn hẳn FAB nổi (`.aic-fab-wrap`) trong Field Mode (trước đây chỉ ẩn khi walk) — hết
+      cảnh bánh xe màu đè lên model.
+- [x] **Dọn chrome desktop lẫn vào Field:** ẩn `.tp-panel` (Opacity) và `#vpHUD` ("3D View").
+      Giữ ViewCube + legend Compare/Clash (hữu ích tại công trường).
+- [x] **Show All** chuyển vào More menu (bar gọn còn 12 nút: Open, Section, Measure, Walk, Storeys,
+      Plan 2D, Photo, Fit, AI, More, Account, Desktop).
+- **Ghi chú:** 2 nút tròn tối góc trên-phải trong screenshot KHÔNG có trong code app — nhiều khả
+      năng là toolbar của Vercel preview, không xuất hiện trên production.
+- **Done khi:** typecheck + test + build pass. ✅ (293 test, build ok). Cần xem trên thiết bị thật.

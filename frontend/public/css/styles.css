@@ -1073,10 +1073,15 @@ body.field-mode .sg-panel{display:none !important}
    (Measure, Photo, Section, Walk, Fit, Plan 2D) — in Field Mode the bottom
    bar is the single toolbar. */
 body.field-mode .float-tools{display:none !important}
-/* While walking in Field Mode both thumbs live at the bottom corners (the
-   look joystick ends 80px up, the FAB tops out at ~74px) — hide the AI FAB
-   so a slipped thumb can't open the chat mid-walk. */
-body.field-mode:has(.walk-touch.show) .aic-fab-wrap{display:none !important}
+/* The AI assistant is now a proper button in the Field toolbar (opens the same
+   chat panel), so the floating color-wheel FAB is hidden in Field Mode — it
+   overlapped the model and duplicated the new bar button. */
+body.field-mode .aic-fab-wrap{display:none !important}
+/* Desktop viewport chrome that clutters the Field view — the opacity panel and
+   the top-centre "3D View" HUD are desktop-only affordances. (The ViewCube and
+   compare/clash legends stay: orientation + diff colours are useful on site.) */
+body.field-mode .tp-panel{display:none !important}
+body.field-mode #vpHUD{display:none !important}
 body.field-mode .empty-vp .ev-title{font-size:18px}
 body.field-mode .empty-vp .ev-hint{font-size:13px}
 
@@ -1085,18 +1090,21 @@ body.field-mode .empty-vp .ev-hint{font-size:13px}
   display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
   background:rgba(44,36,32,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   border-top:1px solid rgba(255,255,255,.1);
-  /* Right padding reserves the bottom-right corner for the AI assistant FAB
-     (56px + margins, position:fixed z-index 9998) — without it the FAB sat on
-     top of the bar's last button (Desktop). Padding on the flex container
-     keeps that column empty even when the bar wraps to two rows. */
-  padding:6px calc(76px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) 8px;
-  gap:4px;justify-content:center;flex-wrap:wrap;
+  /* Even 6-column grid instead of a centered flex-wrap (which packed the last
+     row unevenly). The floating AI FAB is hidden in field mode now, so the bar
+     no longer needs to reserve the bottom-right corner for it. */
+  padding:6px calc(6px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left));
+  gap:2px;
 }
-body.field-mode .field-bar{display:flex}
+body.field-mode .field-bar{
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  max-width:660px;margin-inline:auto; /* center + cap width so buttons don't stretch on wide tablets */
+}
 
 .field-btn{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-width:54px;min-height:54px;padding:6px 8px;
+  min-width:0;min-height:56px;padding:7px 4px;
   border:none;border-radius:10px;background:transparent;
   color:rgba(255,255,255,.7);cursor:pointer;
   font-family:'Hanken Grotesk';font-size:9px;font-weight:500;letter-spacing:.3px;
