@@ -32,7 +32,7 @@ function save() {
     localStorage.setItem(K.filter, appState.activeFilter || 'all');
 
     // SG gateway
-    localStorage.setItem(K.gateway, appState.sgState.gateway || 'BE');
+    localStorage.setItem(K.gateway, appState.sgState.gateway || 'design');
 
     // Colorize prefs
     localStorage.setItem(K.colMode, appState.colorize.mode || 'auto');
@@ -78,7 +78,7 @@ function restore() {
     const gw = localStorage.getItem(K.gateway);
     if (gw) {
       appState.sgState.gateway = gw as any;
-      const sel = document.getElementById('sgGwSel') as HTMLSelectElement | null;
+      const sel = document.getElementById('sgGateway') as HTMLSelectElement | null;
       if (sel) sel.value = gw;
     }
 

@@ -6,13 +6,13 @@ import { appState } from '../../store/index.js';
 declare const THREE: any;
 
 // ── Compound angle measure → decimal degrees ───────────────────────
-function compoundToDeg(v: any): number {
+export function compoundToDeg(v: any): number {
   if (!Array.isArray(v)) return Number(v);
   const sign = v[0] < 0 ? -1 : 1;
   return sign * (Math.abs(v[0]) + (v[1] || 0) / 60 + (v[2] || 0) / 3600 + (v[3] || 0) / 3600000000);
 }
 
-function sgReadParam(entity: any, paramName: string, psetNameHint?: string): any {
+export function sgReadParam(entity: any, paramName: string, psetNameHint?: string): any {
   if (!entity || !entity.psets) return null;
   for (const ps of entity.psets) {
     if (psetNameHint && ps.Name?.value !== psetNameHint) continue;
@@ -48,13 +48,13 @@ function sgReadParam(entity: any, paramName: string, psetNameHint?: string): any
   return null;
 }
 
-function sgHasParam(entity: any, paramName: string): boolean {
+export function sgHasParam(entity: any, paramName: string): boolean {
   const r = sgReadParam(entity, paramName);
   if (!r) return false;
   return r.value !== null && r.value !== undefined && r.value !== '';
 }
 
-function sgReadNumeric(entity: any, paramName: string, psetNameHint?: string): number | null {
+export function sgReadNumeric(entity: any, paramName: string, psetNameHint?: string): number | null {
   const r = sgReadParam(entity, paramName, psetNameHint);
   if (!r || r.value === null || r.value === undefined) return null;
   const n = Number(r.value);
@@ -829,8 +829,13 @@ export const SG_RULES: any[] = [
         angle: m.spatial?.trueNorthAngle ?? 0
       }));
       const ref = angles[0];
+      const TWO_PI = Math.PI * 2;
       for (let i = 1; i < angles.length; i++) {
-        const diff = Math.abs(angles[i].angle - ref.angle);
+        // Wrap-around: two TrueNorth angles near 0°/360° (e.g. 1° and 359°)
+        // are actually only 2° apart, not ~358° — normalize the raw
+        // difference into [0, π] before converting to degrees.
+        let diff = Math.abs(angles[i].angle - ref.angle) % TWO_PI;
+        if (diff > Math.PI) diff = TWO_PI - diff;
         const diffDeg = diff * 180 / Math.PI;
         if (diffDeg > 0.5) {
           failed.push({ eid: 0, name: `${angles[i].mName} vs ${ref.mName}`,
@@ -885,3 +890,6 @@ export const SG_RULES: any[] = [
     }
   }
 ];
+
+// ── Expose validator helpers on window for cross-module callers ──
+Object.assign(window as any, { sgReadNumeric, sgReadParam });

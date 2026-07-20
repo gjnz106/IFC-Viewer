@@ -1,20 +1,189 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { polygonArea3D, angleAt, type Pt } from '../../lib/measure-math.js';
+import { formatLengthMm, formatAreaM2, getUnitPref, cycleUnitPref, worldToMm } from '../../lib/units.js';
 
 // ── Module-level measure state ──
-let measureMode: boolean = false;
+// measureMode + measurePoints live on window so viewer-core's pick handler and
+// the floating-toolbar buttons share one source of truth. measurePoints is
+// mutated in place (never reassigned) so the window reference stays valid.
 let measureType: string = 'distance';
-let measurePoints: THREE.Vector3[] = [];
+const measurePoints: THREE.Vector3[] = [];
 let measureMarkers: THREE.Object3D[] = [];
 let measureLine: THREE.Line | null = null;
 let measureLabel: THREE.Sprite | null = null;
+(window as any).measureMode = false;
+(window as any).measurePoints = measurePoints;
+
+// Area mode accumulates points across many clicks (unlike distance/angle's
+// fixed count), so it needs an explicit "start a new polygon" flag instead
+// of an auto-clear-at-N-points rule.
+let areaOutline: THREE.Line | null = null;
+let areaFill: THREE.Mesh | null = null;
+let areaLabel: THREE.Sprite | null = null;
+let areaFinished = false;
+
+function mm(v: number): number {
+  return worldToMm(v, appState.loadedModels);
+}
+
+function fmtLen(v: number): string {
+  return formatLengthMm(mm(v), getUnitPref());
+}
+
+// Remove one tracked marker from both the scene and measureMarkers (used to
+// redraw a live in-progress shape — e.g. area's outline — without touching
+// the other markers like the per-vertex spheres, which addMeasurePoint
+// already tracks separately and must persist across redraws).
+function removeMarker(obj: THREE.Object3D | null): void {
+  if (!obj) return;
+  if (obj.parent) obj.parent.remove(obj);
+  const idx = measureMarkers.indexOf(obj);
+  if (idx >= 0) measureMarkers.splice(idx, 1);
+}
+
+function makeLabelSprite(text: string, color: string): THREE.Sprite {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = color;
+  ctx.beginPath(); (ctx as any).roundRect(0, 0, 256, 64, 12); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 26px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(text, 128, 42);
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, sizeAttenuation: true }));
+  sprite.renderOrder = 1000;
+  return sprite;
+}
+
+function centroid(pts: THREE.Vector3[]): THREE.Vector3 {
+  const c = new THREE.Vector3();
+  for (const p of pts) c.add(p);
+  return c.multiplyScalar(1 / pts.length);
+}
+
+// ── Area mode: click any number of points, Enter finishes the polygon ──
+function handleAreaPoint(): void {
+  removeMarker(areaOutline); areaOutline = null;
+  removeMarker(areaFill); areaFill = null;
+  removeMarker(areaLabel); areaLabel = null;
+
+  const pts = measurePoints;
+  if (pts.length < 2) {
+    (document.getElementById('measureText') as HTMLElement).textContent = 'Click at least 3 points to outline an area';
+    return;
+  }
+
+  const loopPts = [...pts, pts[0]];
+  const outlineGeo = new THREE.BufferGeometry().setFromPoints(loopPts);
+  areaOutline = new THREE.Line(outlineGeo, new THREE.LineBasicMaterial({ color: 0x2563eb, depthTest: false }));
+  areaOutline.renderOrder = 999;
+  appState.scene.add(areaOutline);
+  measureMarkers.push(areaOutline);
+
+  if (pts.length >= 3) {
+    const positions: number[] = [];
+    for (let i = 1; i < pts.length - 1; i++) {
+      positions.push(pts[0].x, pts[0].y, pts[0].z, pts[i].x, pts[i].y, pts[i].z, pts[i + 1].x, pts[i + 1].y, pts[i + 1].z);
+    }
+    const fillGeo = new THREE.BufferGeometry();
+    fillGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    fillGeo.computeVertexNormals();
+    areaFill = new THREE.Mesh(fillGeo, new THREE.MeshBasicMaterial({ color: 0x2563eb, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthTest: false }));
+    areaFill.renderOrder = 998;
+    appState.scene.add(areaFill);
+    measureMarkers.push(areaFill);
+
+    const rawArea = polygonArea3D(pts as unknown as Pt[]);
+    const factorM = mm(1) / 1000; // world-units -> metres, per-axis
+    const areaM2 = rawArea * factorM * factorM;
+    const areaText = formatAreaM2(areaM2, getUnitPref());
+
+    areaLabel = makeLabelSprite(areaText, 'rgba(37,99,235,0.9)');
+    const c = centroid(pts);
+    areaLabel.position.copy(c).add(new THREE.Vector3(0, 0.3, 0));
+    areaLabel.scale.set(2, 0.5, 1);
+    appState.scene.add(areaLabel);
+    measureMarkers.push(areaLabel);
+
+    (document.getElementById('measureText') as HTMLElement).textContent =
+      `▱ ${areaText} (${pts.length} pts) | Enter to finish, keep clicking to add points`;
+    log('Measure area: ' + areaText);
+  }
+}
+
+(window as any).finishAreaMeasure = function (): void {
+  if (measureType !== 'area' || measurePoints.length < 3 || areaFinished) return;
+  areaFinished = true;
+  (document.getElementById('measureText') as HTMLElement).textContent += ' — finished, click to start a new area';
+};
+
+// ── Angle mode: exactly 3 clicks — A, vertex B, C ──
+let angleLineA: THREE.Line | null = null;
+let angleLineB: THREE.Line | null = null;
+let angleLabel: THREE.Sprite | null = null;
+
+function handleAnglePoint(): void {
+  removeMarker(angleLineA); angleLineA = null;
+  removeMarker(angleLineB); angleLineB = null;
+  removeMarker(angleLabel); angleLabel = null;
+
+  const pts = measurePoints;
+  if (pts.length === 1) {
+    (document.getElementById('measureText') as HTMLElement).textContent = 'Click the vertex (2nd point)';
+    return;
+  }
+
+  const [a, vertex, c] = pts;
+  const lineAGeo = new THREE.BufferGeometry().setFromPoints([vertex, a]);
+  angleLineA = new THREE.Line(lineAGeo, new THREE.LineBasicMaterial({ color: 0x2563eb, depthTest: false }));
+  angleLineA.renderOrder = 999;
+  appState.scene.add(angleLineA);
+  measureMarkers.push(angleLineA);
+
+  if (pts.length === 2) {
+    (document.getElementById('measureText') as HTMLElement).textContent = 'Click the second point (C)';
+    return;
+  }
+
+  const lineBGeo = new THREE.BufferGeometry().setFromPoints([vertex, c]);
+  angleLineB = new THREE.Line(lineBGeo, new THREE.LineBasicMaterial({ color: 0x2563eb, depthTest: false }));
+  angleLineB.renderOrder = 999;
+  appState.scene.add(angleLineB);
+  measureMarkers.push(angleLineB);
+
+  const deg = angleAt(a as unknown as Pt, vertex as unknown as Pt, c as unknown as Pt);
+  const degText = deg.toFixed(1) + '°';
+  angleLabel = makeLabelSprite(degText, 'rgba(37,99,235,0.9)');
+  angleLabel.position.copy(vertex).add(new THREE.Vector3(0, 0.3, 0));
+  angleLabel.scale.set(1.4, 0.35, 1);
+  appState.scene.add(angleLabel);
+  measureMarkers.push(angleLabel);
+
+  (document.getElementById('measureText') as HTMLElement).textContent = `∠ ${degText} | Click to start a new angle`;
+  log('Measure angle: ' + degText);
+}
+
+// Decides whether a newly-clicked point should start a fresh measurement
+// (clearing the previous one first) or extend the current one. Centralized
+// here (rather than in viewer-core's pick handler) since only this module
+// knows the per-mode point-count rules.
+(window as any).measureShouldAutoClear = function (): boolean {
+  if (measureType === 'distance') return measurePoints.length >= 2;
+  if (measureType === 'angle') return measurePoints.length >= 3;
+  if (measureType === 'area') return areaFinished;
+  return false; // 'level' self-resets its own point list every click
+};
 
 // ── Level mode: single click = show elevation ──
 function handleMeasurePoint(point: THREE.Vector3): void {
+  if (measureType === 'area') { handleAreaPoint(); return; }
+  if (measureType === 'angle') { handleAnglePoint(); return; }
+
   if (measureType === 'level') {
     const el = point.y;
-    const elMM = (el * 1000).toFixed(0);
+    const elStr = fmtLen(el);
 
     // Draw vertical line from point down to Y=0
     const vPts = [point.clone(), new THREE.Vector3(point.x, 0, point.z)];
@@ -52,7 +221,7 @@ function handleMeasurePoint(point: THREE.Vector3): void {
     ctx.fillStyle = 'rgba(245,158,11,0.9)';
     ctx.beginPath(); (ctx as any).roundRect(0, 0, 256, 64, 12); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = 'bold 26px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('EL ' + el.toFixed(3) + 'm', 128, 42);
+    ctx.fillText('EL ' + elStr, 128, 42);
     const tex = new THREE.CanvasTexture(canvas);
     const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, sizeAttenuation: true });
     measureLabel = new THREE.Sprite(spriteMat);
@@ -62,10 +231,10 @@ function handleMeasurePoint(point: THREE.Vector3): void {
     appState.scene.add(measureLabel);
     measureMarkers.push(measureLabel); // Track for cleanup
 
-    (document.getElementById('measureText') as HTMLElement).textContent = `📐 EL ${el.toFixed(3)}m (${elMM}mm) | Click another point or Clear`;
+    (document.getElementById('measureText') as HTMLElement).textContent = `📐 EL ${elStr} | Click another point or Clear`;
 
     // Allow clicking more points without clearing
-    measurePoints = [];
+    measurePoints.length = 0;
     return;
   }
 
@@ -110,8 +279,9 @@ function handleMeasurePoint(point: THREE.Vector3): void {
     const dist = p1.distanceTo(p2);
     const dy = Math.abs(p2.y - p1.y);
     const hDist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.z - p1.z) ** 2);
+    const distStr = fmtLen(dist);
 
-    (document.getElementById('measureText') as HTMLElement).textContent = `📏 ${dist.toFixed(3)}m | ↕ΔEL ${dy.toFixed(3)}m | ↔ ${hDist.toFixed(3)}m`;
+    (document.getElementById('measureText') as HTMLElement).textContent = `📏 ${distStr} | ↕ΔEL ${fmtLen(dy)} | ↔ ${fmtLen(hDist)}`;
 
     // 3D label at midpoint
     const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
@@ -121,7 +291,7 @@ function handleMeasurePoint(point: THREE.Vector3): void {
     ctx.fillStyle = 'rgba(37,99,235,0.9)';
     ctx.beginPath(); (ctx as any).roundRect(0, 0, 256, 64, 12); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = 'bold 28px monospace'; ctx.textAlign = 'center';
-    ctx.fillText(dist.toFixed(3) + ' m', 128, 42);
+    ctx.fillText(distStr, 128, 42);
     const tex = new THREE.CanvasTexture(canvas);
     const spriteMat = new THREE.SpriteMaterial({ map: tex, depthTest: false, sizeAttenuation: true });
     measureLabel = new THREE.Sprite(spriteMat);
@@ -135,6 +305,102 @@ function handleMeasurePoint(point: THREE.Vector3): void {
     appState.renderer.domElement.style.cursor = 'crosshair';
   }
 }
+
+// ══ Measure tool wiring (toolbar buttons + viewer-core pick handler) ══
+// Ported from the deployed standalone (src/app/10-properties.ts) so the
+// floating-toolbar Measure button, the Distance/Level mode buttons, Clear, and
+// the 3D-pick → addMeasurePoint flow all work in the Vite build.
+const MEASURE_MODE_BTNS: { type: string; id: string; placeholder: string }[] = [
+  { type: 'distance', id: 'modeDistance', placeholder: 'Click first point' },
+  { type: 'level', id: 'modeLevel', placeholder: 'Click a point to read elevation' },
+  { type: 'area', id: 'modeArea', placeholder: 'Click points to outline an area' },
+  { type: 'angle', id: 'modeAngle', placeholder: 'Click the first point' },
+];
+
+(window as any).setMeasureMode = function (type: string): void {
+  measureType = type;
+  (window as any).clearMeasure();
+  let placeholder = 'Click first point';
+  for (const b of MEASURE_MODE_BTNS) {
+    const btn = document.getElementById(b.id);
+    if (!btn) continue;
+    const active = b.type === type;
+    btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
+    btn.style.background = active ? 'var(--blue-lt)' : 'var(--bg-card)';
+    btn.style.color = active ? 'var(--blue)' : 'var(--text-dim)';
+    btn.style.fontWeight = active ? '600' : '400';
+    if (active) placeholder = b.placeholder;
+  }
+  (document.getElementById('measureText') as HTMLElement).textContent = placeholder;
+};
+
+(window as any).toggleMeasure = function (): void {
+  const on = !(window as any).measureMode;
+  (window as any).measureMode = on;
+  document.getElementById('btnMeasure')?.classList.toggle('active', on);
+  const info = document.getElementById('measureInfo');
+  if (info) info.style.display = on ? 'flex' : 'none';
+  if (!on) {
+    (window as any).clearMeasure();
+  } else {
+    (window as any).setMeasureMode(measureType);
+    appState.renderer.domElement.style.cursor = 'crosshair';
+  }
+};
+
+(window as any).clearMeasure = function (): void {
+  measurePoints.length = 0;
+  measureMarkers.forEach(m => { if (m.parent) m.parent.remove(m); });
+  measureMarkers = [];
+  if (measureLine) { if (measureLine.parent) measureLine.parent.remove(measureLine); measureLine = null; }
+  if (measureLabel) { if (measureLabel.parent) measureLabel.parent.remove(measureLabel); measureLabel = null; }
+  areaOutline = null; areaFill = null; areaLabel = null; areaFinished = false;
+  angleLineA = null; angleLineB = null; angleLabel = null;
+  const on = (window as any).measureMode;
+  appState.renderer.domElement.style.cursor = on ? 'crosshair' : '';
+  if (on) {
+    const mode = MEASURE_MODE_BTNS.find(b => b.type === measureType);
+    (document.getElementById('measureText') as HTMLElement).textContent = mode?.placeholder || 'Click first point';
+  }
+};
+
+// Enter finishes the current area polygon (the only mode that needs an
+// explicit "done" signal — distance/angle have a fixed point count and
+// level self-resets every click).
+document.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (!(window as any).measureMode || measureType !== 'area') return;
+  if (e.key === 'Enter') { (window as any).finishAreaMeasure(); e.preventDefault(); }
+});
+
+// ── Unit preference chip (cycles mm -> m -> ft-in) ──────────────────────
+function updateMeasureUnitBtn(): void {
+  const btn = document.getElementById('measureUnitBtn');
+  if (btn) btn.textContent = getUnitPref() === 'ftin' ? 'ft' : getUnitPref();
+}
+(window as any).cycleUnitPref = function (): void {
+  cycleUnitPref();
+};
+window.addEventListener('ifc:unitschange', () => {
+  updateMeasureUnitBtn();
+  // Existing labels were baked as canvas text in the old unit — simplest
+  // correct fix is to drop the in-progress measurement rather than try to
+  // re-render every marker type in place.
+  if ((window as any).measureMode) (window as any).clearMeasure();
+});
+updateMeasureUnitBtn();
+
+// Called by viewer-core's pick handler with the clicked world point.
+(window as any).addMeasurePoint = function (point: THREE.Vector3): void {
+  const geo = new THREE.SphereGeometry(0.08, 12, 12);
+  const color = measureType === 'level' ? 0xf59e0b : 0x2563eb;
+  const sphere = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, depthTest: false }));
+  sphere.position.copy(point);
+  sphere.renderOrder = 999;
+  appState.scene.add(sphere);
+  measureMarkers.push(sphere);
+  measurePoints.push(point.clone());
+  handleMeasurePoint(point);
+};
 
 // ══ Global Opacity ══
 window.setGlobalOpacity = function (val: number): void {
@@ -153,332 +419,11 @@ window.setGlobalOpacity = function (val: number): void {
   });
 };
 
-// ══ Storey Filter ══
+// NOTE: this module used to carry a near-identical copy of the whole
+// category-filter / compare-tab / issues UI block that compare.ts owns
+// (setFilter, switchTab, buildIssues, applyCatVis, …). Because measure.ts
+// loads after compare.ts, its copies silently won the window.* assignments
+// and the two versions drifted. The block now lives ONLY in compare.ts —
+// don't re-add compare UI handlers here.
 
-// ══ Category Dropdown ══
-window.toggleCatDropdown = function (): void {
-  const dd = document.getElementById('catDropdown')!;
-  const btn = document.getElementById('catBtn')!;
-  const isOpen = dd.classList.contains('open');
-  dd.classList.toggle('open');
-  btn.classList.toggle('open');
-  if (!isOpen) (document.getElementById('catSearch') as HTMLInputElement).focus();
-};
-
-// Close dropdown when clicking outside
-document.addEventListener('click', (e: MouseEvent) => {
-  const dd = document.getElementById('catDropdown');
-  const btn = document.getElementById('catBtn');
-  if (dd && !dd.contains(e.target as Node) && !btn?.contains(e.target as Node)) {
-    dd.classList.remove('open');
-    btn?.classList.remove('open');
-  }
-});
-
-function buildCatDropdown(filter: string = ''): void {
-  const data: Record<string, any> = (window as any)._catData || {};
-  const sorted = Object.entries(data).sort((a: any, b: any) => b[1].total - a[1].total);
-  const q = filter.toLowerCase();
-  let html = '';
-  sorted.forEach(([cat, info]: [string, any]) => {
-    const name = cat.replace('Ifc', '').replace('IFC_', '');
-    if (q && !name.toLowerCase().includes(q) && !cat.toLowerCase().includes(q)) return;
-    const checked = appState.activeCategories.size === 0 || appState.activeCategories.has(cat) ? 'checked' : '';
-    const changes: string[] = [];
-    if (info.added) changes.push(`<span class="cat-dd-ch a">+${info.added}</span>`);
-    if (info.removed) changes.push(`<span class="cat-dd-ch r">−${info.removed}</span>`);
-    if (info.modified) changes.push(`<span class="cat-dd-ch m">~${info.modified}</span>`);
-    html += `<label class="cat-dd-item"><input type="checkbox" class="cat-dd-cb" data-cat="${cat}" ${checked} onchange="onCatCheck()"><span class="cat-dd-name">${name}</span><span class="cat-dd-changes">${changes.join('')}</span><span class="cat-dd-count">${info.total}</span></label>`;
-  });
-  (document.getElementById('catList') as HTMLElement).innerHTML = html;
-}
-
-window.filterCatDropdown = function (): void {
-  buildCatDropdown((document.getElementById('catSearch') as HTMLInputElement).value);
-};
-
-window.onCatCheck = function (): void {
-  const boxes = document.querySelectorAll<HTMLInputElement>('.cat-dd-cb');
-  const checked = new Set<string>();
-  boxes.forEach(b => { if (b.checked) checked.add(b.dataset.cat!); });
-
-  // If all checked → treat as no filter
-  const allCats = Object.keys((window as any)._catData || {});
-  if (checked.size === allCats.length || checked.size === 0) {
-    appState.activeCategories = new Set();
-  } else {
-    appState.activeCategories = checked;
-  }
-  updateCatTags();
-  (window as any).renderTree?.();
-  applyCatVis();
-};
-
-window.catSelectAll = function (): void {
-  document.querySelectorAll<HTMLInputElement>('.cat-dd-cb').forEach(b => b.checked = true);
-  appState.activeCategories = new Set();
-  updateCatTags();
-  (window as any).renderTree?.();
-  applyCatVis();
-};
-
-window.catSelectNone = function (): void {
-  document.querySelectorAll<HTMLInputElement>('.cat-dd-cb').forEach(b => b.checked = false);
-  appState.activeCategories = new Set(['__none__']); // Special: hide everything
-  updateCatTags();
-  (window as any).renderTree?.();
-  applyCatVis();
-};
-
-window.catSelectChanged = function (): void {
-  const data: Record<string, any> = (window as any)._catData || {};
-  document.querySelectorAll<HTMLInputElement>('.cat-dd-cb').forEach(b => {
-    const info = data[b.dataset.cat!];
-    b.checked = info && (info.added > 0 || info.removed > 0 || info.modified > 0);
-  });
-  window.onCatCheck!();
-};
-
-function updateCatTags(): void {
-  const tags = document.getElementById('catTags')!;
-  if (appState.activeCategories.size === 0) {
-    tags.innerHTML = '<span style="color:var(--text-muted);font-size:13px">All categories</span>';
-    return;
-  }
-  if (appState.activeCategories.has('__none__')) {
-    tags.innerHTML = '<span style="color:var(--red);font-size:13px">None selected</span>';
-    return;
-  }
-  let html = '';
-  appState.activeCategories.forEach(cat => {
-    const name = cat.replace('Ifc', '').replace('IFC_', '');
-    html += `<span class="cat-tag">${name}<span class="tag-x" onclick="event.stopPropagation();removeCatTag('${cat}')">×</span></span>`;
-  });
-  tags.innerHTML = html;
-}
-
-window.removeCatTag = function (cat: string): void {
-  appState.activeCategories.delete(cat);
-  if (appState.activeCategories.size === 0) {
-    document.querySelectorAll<HTMLInputElement>('.cat-dd-cb').forEach(b => b.checked = true);
-  } else {
-    document.querySelectorAll<HTMLInputElement>('.cat-dd-cb').forEach(b => b.checked = appState.activeCategories.has(b.dataset.cat!));
-  }
-  updateCatTags();
-  (window as any).renderTree?.();
-  applyCatVis();
-};
-
-// ══ Model Visibility Toggle ══
-window.toggleModelVis = function (idx: number): void {
-  const vis = (document.getElementById(idx === 0 ? 'visA' : 'visB') as HTMLInputElement).checked;
-  log('toggleModelVis: model ' + idx + ' → ' + vis);
-
-  if (appState.compareResult) {
-    applyCatVis();
-  } else {
-    if (appState.loadedModels[idx]) (appState.loadedModels[idx] as any).visible = vis;
-    // Also toggle any subsets belonging to this model
-    (window as any).viewSubsets?.forEach((s: any) => { if (s.userData?.srcModelIdx === idx) s.visible = vis; });
-    (window as any).visSubsets?.forEach((s: any) => { if (s.userData?.srcModelIdx === idx) s.visible = vis; });
-    // Colorize subsets are created per-value with srcModelIdx tag — toggle
-    // them too so un-checking Version A actually hides the colored model A
-    // elements (fixes the bug where ColorizeA elements stayed visible after
-    // un-checking).
-    if (appState.colorize && appState.colorize.subsets) {
-      appState.colorize.subsets.forEach((s: any) => { if (s.userData?.srcModelIdx === idx) s.visible = vis; });
-    }
-    (window as any).applyCategoryVisibilityViewMode?.();
-  }
-};
-
-// ══ 3D Category Visibility — rebuild subsets ══
-// Route to correct visibility handler
-function applyCatVis(): void {
-  if (appState.compareResult) applyCategoryVisibility3D();
-  else (window as any).applyCategoryVisibilityViewMode?.();
-}
-
-// ══ 3D Category Visibility — rebuild subsets (compare mode) ══
-function applyCategoryVisibility3D(): void {
-  if (!appState.ifcLoader || !appState.compareResult) return;
-  const r: any = appState.compareResult;
-  const showAll = appState.activeCategories.size === 0;
-  const showNone = appState.activeCategories.has('__none__');
-
-  // Remove old diff subsets
-  const toRemove: THREE.Object3D[] = [];
-  appState.scene.traverse((c: any) => { if (c.isMesh && c.userData?.diffSubset) toRemove.push(c); });
-  toRemove.forEach(c => { if (c.parent) c.parent.remove(c); });
-
-  const filterByCat = (items: any[]): any[] => {
-    if (showNone) return [];
-    if (showAll) return items;
-    return items.filter(e => { const en = e.entity || e.a || e.b; return appState.activeCategories.has(en?.type || 'Unknown'); });
-  };
-
-  const matAdd = new THREE.MeshPhongMaterial({ color: 0x16a34a, transparent: false, opacity: 1.0, side: THREE.DoubleSide, depthWrite: true, clippingPlanes: appState.clipPlanes });
-  const matRem = new THREE.MeshPhongMaterial({ color: 0xdc2626, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: true, clippingPlanes: appState.clipPlanes });
-  const matMod = new THREE.MeshPhongMaterial({ color: 0xf59e0b, transparent: false, opacity: 1.0, side: THREE.DoubleSide, depthWrite: true, clippingPlanes: appState.clipPlanes });
-  const matUnch = new THREE.MeshPhongMaterial({ color: 0xd1d5db, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false, clippingPlanes: appState.clipPlanes });
-
-  const makeSub = (mi: number, ids: number[], mat: THREE.Material, name: string): void => {
-    if (!ids.length || !appState.loadedModels[mi]) return;
-    try {
-      const sub = (appState.ifcLoader as any).ifcManager.createSubset({ modelID: (appState.loadedModels[mi] as any).modelID, ids, material: mat, scene: appState.scene, removePrevious: false, customID: name + '_cat' });
-      if (sub) {
-        sub.position.copy((appState.loadedModels[mi] as any).position);
-        sub.updateMatrixWorld(true);
-        sub.userData.diffSubset = name;
-        sub.userData.srcModelIdx = mi;
-        sub.visible = (document.getElementById(mi === 0 ? 'visA' : 'visB') as HTMLInputElement).checked;
-      }
-    } catch (e) {}
-  };
-
-  const fA = filterByCat(r.added), fR = filterByCat(r.removed), fM = filterByCat(r.modified), fU = filterByCat(r.unchanged);
-  makeSub(1, fA.map((e: any) => e.entity.expressID), matAdd, 'added');
-  makeSub(0, fR.map((e: any) => e.entity.expressID), matRem, 'removed');
-  makeSub(1, fM.map((e: any) => e.b.expressID), matMod, 'modified-b');
-  makeSub(1, fU.map((e: any) => e.b.expressID), matUnch, 'unchanged-b');
-
-  // Base models: in compare mode, model A shows only "removed" subsets.
-  // Base mesh is hidden but subsets handle visibility via srcModelIdx check above.
-  // Respect user checkbox for base model visibility
-  const visAChecked = (document.getElementById('visA') as HTMLInputElement).checked;
-  const visBChecked = (document.getElementById('visB') as HTMLInputElement).checked;
-
-  // Model A: if user ticked it, show as faded red overlay so they can see the old version
-  if (appState.loadedModels[0]) {
-    (appState.loadedModels[0] as any).visible = visAChecked && !showNone;
-    if (visAChecked) {
-      (appState.loadedModels[0] as any).traverse((c: any) => {
-        if (c.isMesh) {
-          c.visible = true;
-          const ms: any[] = Array.isArray(c.material) ? c.material : [c.material];
-          ms.forEach((m: any) => { m.color = new THREE.Color(0xe8a0a0); m.opacity = 0.12; m.transparent = true; m.depthWrite = false; m.needsUpdate = true; m.clippingPlanes = appState.clipPlanes; });
-        }
-      });
-    }
-  }
-  // Model B base: very faded background
-  if (appState.loadedModels[1]) {
-    (appState.loadedModels[1] as any).visible = visBChecked && !showNone;
-    (appState.loadedModels[1] as any).traverse((c: any) => { if (c.isMesh) { const ms: any[] = Array.isArray(c.material) ? c.material : [c.material]; ms.forEach((m: any) => { m.opacity = 0.04; m.transparent = true; m.depthWrite = false; m.needsUpdate = true; }); } });
-  }
-}
-
-window.setFilter = function (f: string): void {
-  appState.activeFilter = f;
-  document.querySelectorAll('.fchip').forEach((c: any) => c.classList.toggle('on', c.dataset.f === f));
-  (window as any).renderTree?.();
-  // Also filter issues list
-  filterIssuesList();
-};
-
-function filterIssuesList(): void {
-  document.querySelectorAll('.issue-card').forEach((card: any) => {
-    if (appState.activeFilter === 'all') { card.style.display = ''; return; }
-    const status = card.querySelector('.issue-status');
-    if (status) {
-      const s = status.textContent.toLowerCase();
-      card.style.display = (s === appState.activeFilter) ? '' : 'none';
-    }
-  });
-  // Update nav count
-  const visible = document.querySelectorAll('.issue-card:not([style*="display: none"])');
-  (document.getElementById('issueNavInfo') as HTMLElement).textContent = visible.length + ' issues';
-}
-
-// ══ Issues Panel ══
-// Note: issuesList and currentIssueIdx are tracked in appState
-
-window.switchTab = function (tab: string): void {
-  const tabs = document.querySelectorAll('.ptab');
-  tabs.forEach((t: any, i) => t.classList.toggle('on', (tab === 'tree' && i === 0) || (tab === 'issues' && i === 1) || (tab === 'search' && i === 2)));
-  (document.getElementById('eTree') as HTMLElement).style.display = tab === 'tree' ? '' : 'none';
-  document.getElementById('issuesList')!.classList.toggle('show', tab === 'issues');
-  document.getElementById('issueNav')!.classList.toggle('show', tab === 'issues');
-  document.getElementById('searchPanel')!.classList.toggle('show', tab === 'search');
-  if (tab === 'search') (window as any).searchInit?.();
-};
-
-function buildIssues(): void {
-  if (!appState.compareResult) return;
-  const r: any = appState.compareResult;
-  appState.issuesList = [];
-  let num = 1;
-
-  // Each changed element = 1 issue
-  r.added.forEach((e: any) => {
-    const en = e.entity;
-    appState.issuesList.push({
-      num: num++, status: 'added', gid: e.gid,
-      name: en.name || '(unnamed)', type: en.type, tag: en.tag || '',
-      detail: 'New element in Version B',
-      expressID: en.expressID, modelIdx: 1,
-      diffs: null
-    });
-  });
-  r.removed.forEach((e: any) => {
-    const en = e.entity;
-    appState.issuesList.push({
-      num: num++, status: 'removed', gid: e.gid,
-      name: en.name || '(unnamed)', type: en.type, tag: en.tag || '',
-      detail: 'Removed from Version A',
-      expressID: en.expressID, modelIdx: 0,
-      diffs: null
-    });
-  });
-  r.modified.forEach((e: any) => {
-    const en = e.b || e.a;
-    const details = e.diffs.map((d: any) => `${d.prop}: ${d.oldVal} → ${d.newVal}`).join(', ');
-    appState.issuesList.push({
-      num: num++, status: 'modified', gid: e.gid,
-      name: en.name || '(unnamed)', type: en.type, tag: en.tag || '',
-      detail: details,
-      expressID: en.expressID, modelIdx: 1,
-      diffs: e.diffs
-    });
-  });
-
-  (document.getElementById('issueCount') as HTMLElement).textContent = String(appState.issuesList.length);
-
-  // Render issue cards
-  let html = '';
-  if (appState.issuesList.length === 0) {
-    html = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:14px">No changes detected</div>';
-  } else {
-    appState.issuesList.forEach((iss: any, i: number) => {
-      html += `<div class="issue-card" id="issue-${i}" onclick="focusIssue(${i})">
-        <div class="issue-hdr">
-          <span class="issue-num">#${iss.num}</span>
-          <span class="issue-status ${iss.status}">${iss.status.toUpperCase()}</span>
-          <span class="issue-type">${(iss.type || '').replace('Ifc', '')}</span>
-        </div>
-        <div class="issue-name">${iss.name}</div>
-        <div class="issue-detail">${iss.detail}</div>
-      </div>`;
-    });
-  }
-  (document.getElementById('issuesList') as HTMLElement).innerHTML = html;
-  document.getElementById('panelTabs')!.classList.add('show');
-
-  // Always switch to issues tab after compare
-  window.switchTab!('issues');
-}
-
-window.focusIssue = function (idx: number): void {
-  if (idx < 0 || idx >= appState.issuesList.length) { log('focusIssue: bad idx', idx); return; }
-  appState.currentIssueIdx = idx;
-  const iss = appState.issuesList[idx];
-  const targetEID = iss.expressID;
-  const targetModelIdx = iss.modelIdx;
-  log(`focusIssue #${iss.num}: eid=${targetEID} model=${targetModelIdx} status=${iss.status}`);
-
-  // Highlight active card
-  document.querySelectorAll('.issue-card').forEach((c: any, i) => c.classList.toggle('active', i === idx));
-  (document.getElementById('issueNavInfo') as HTMLElement).textContent = `${idx + 1} / ${appState.issuesList.length}`;
-};
-
-export { buildIssues, handleMeasurePoint, applyCatVis, buildCatDropdown, updateCatTags, filterIssuesList };
+export { handleMeasurePoint };

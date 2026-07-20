@@ -31,6 +31,7 @@ import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { setStatus } from './focus-highlight.js';
 import { fedRenderSlots } from '../compare/federation-load.js';
+import { disposeModel } from '../core/viewer-core.js';
 import { IFC_NAMES } from '../../lib/constants.js';
 
 // ── Section Plan parallel to clicked face (Dalux-style) ──
@@ -133,7 +134,16 @@ async function initIFC(){
   setStatus('loading','Loading WASM...');
   try{
     appState.ifcLoader=new IFCLoader();
-    await appState.ifcLoader.ifcManager.setWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/');
+    // Self-host the web-ifc WASM (in frontend/public/vendor/web-ifc/, version-matched
+    // to the bundled web-ifc) instead of a CDN — the CDN can be blocked and then the
+    // loader falls back to a same-origin path that the SPA rewrite answers with HTML,
+    // causing "expected magic word 00 61 73 6d, found 3c 21 44 4f". A real static file
+    // is served before the rewrite, so this is robust on both Vercel and Firebase.
+    // Production self-hosts the wasm at /vendor/web-ifc/. The standalone review
+    // build (opened from file://, no server) sets window.__WASM_BASE__ to a CDN
+    // URL so it can fetch the version-matched wasm without a same-origin path.
+    const wasmBase = (window as any).__WASM_BASE__ || '/vendor/web-ifc/';
+    await appState.ifcLoader.ifcManager.setWasmPath(wasmBase);
     await appState.ifcLoader.ifcManager.applyWebIfcConfig({USE_FAST_BOOLS:false});
     await appState.ifcLoader.ifcManager.parser.setupOptionalCategories({[IFCSPACE]:false,[IFCOPENINGELEMENT]:false});
     log('WASM ready');setStatus('done','Ready');setTimeout(()=>setStatus('',''),2000);return true;
@@ -333,7 +343,7 @@ async function loadIFC(idx: number){
   const st=idx<2?document.getElementById('us'+idx):null;
   if(st){st.className='uc-status prog';st.textContent='⏳ Parsing...';}
   try{
-    if(appState.loadedModels[idx]){appState.scene.remove(appState.loadedModels[idx]!);appState.loadedModels[idx]=null}
+    if(appState.loadedModels[idx]){disposeModel(appState.loadedModels[idx]);appState.scene.remove(appState.loadedModels[idx]!);appState.loadedModels[idx]=null}
     // Invalidate cached props for this slot so Colorize rescans on next use
     if(window._colorizeInvalidate)window._colorizeInvalidate(idx);
     // If no models remain at all, reset shared offset
@@ -432,7 +442,7 @@ async function loadIFC(idx: number){
       if(appState.files[1])document.getElementById('clashFileB')!.textContent=appState.files[1]!.name;
       document.getElementById('clashFileA')!.classList.toggle('loaded',!!appState.loadedModels[0]);
       document.getElementById('clashFileB')!.classList.toggle('loaded',!!appState.loadedModels[1]);
-      (document.getElementById('btnRunClash') as HTMLButtonElement).disabled=!(appState.loadedModels[0]&&appState.loadedModels[1]);
+      (window as any).updateClashRunButtonState?.();
     }
 
     // Build category filter from loaded models
@@ -561,7 +571,9 @@ async function buildCatFromModels(){
   log('Categories found:',Object.keys(window._catData).length,'types');
   document.getElementById('catFilter')!.classList.add('show');
   // Show panel tabs so Search is accessible even without compare
-  document.getElementById('panelTabs')!.classList.add('show');
+  // (#panelTabs is vestigial — the redesigned tab strip is always visible — so
+  // guard against null instead of crashing the load/compare flow.)
+  document.getElementById('panelTabs')?.classList.add('show');
   appState.activeCategories=new Set();
   (window as any).buildCatDropdown?.();
   (window as any).updateCatTags?.();
@@ -582,6 +594,7 @@ function applyCategoryVisibilityViewMode(){
   // Remove old view subsets
   viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
   viewSubsets=[];
+  (window as any).viewSubsets=viewSubsets; // mirrored (same ref — later .push() stays in sync): compare.ts/measure.ts read this to hide/show category-filter subsets when toggling model A/B visibility
 
   for(let idx=0;idx<2;idx++){
     if(!appState.loadedModels[idx])continue;
@@ -640,11 +653,12 @@ window.exitCompare=function(){
   // Remove all diff subsets
   const toRemove: any[]=[];
   appState.scene.traverse(c=>{if((c as any).isMesh&&(c as any).userData?.diffSubset)toRemove.push(c)});
-  toRemove.forEach(c=>{if(c.parent)c.parent.remove(c)});
+  toRemove.forEach(c=>{if(c.parent)c.parent.remove(c);disposeModel(c)});
 
   // Remove view subsets
-  viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
+  viewSubsets.forEach(s=>{if(s.parent)s.parent.remove(s);disposeModel(s)});
   viewSubsets=[];
+  (window as any).viewSubsets=viewSubsets; // mirrored (same ref — later .push() stays in sync): compare.ts/measure.ts read this to hide/show category-filter subsets when toggling model A/B visibility
 
   // Clear compare result
   appState.compareResult=null;
@@ -679,7 +693,7 @@ window.exitCompare=function(){
   (document.getElementById('eTree') as HTMLElement).style.display='';
 
   // Hide issues
-  document.getElementById('panelTabs')!.classList.remove('show');
+  document.getElementById('panelTabs')?.classList.remove('show');
   document.getElementById('issuesList')!.classList.remove('show');
   document.getElementById('issuesList')!.innerHTML='';
   document.getElementById('issueNav')!.classList.remove('show');
@@ -920,6 +934,7 @@ function initSectionDrag(){
     if(hits.length>0){
       const hitObj=hits[0].object;
       dragHandle={obj:hitObj,faceIdx:hitObj.userData.faceIdx,axis:hitObj.userData.axis,dir:hitObj.userData.dir};
+      (window as any).dragHandle=dragHandle; // mirrored: viewer-core's pick handler reads this to skip a click right after a handle drag
       const camDir=new THREE.Vector3();appState.camera.getWorldDirection(camDir);
       const axis=dragHandle.axis;
       let pn: THREE.Vector3;
@@ -946,7 +961,7 @@ function initSectionDrag(){
     dragStart.copy(pt);updateSectionFromSliders();
   });
 
-  window.addEventListener('pointerup',()=>{if(dragHandle){dragHandle=null;dragPlane=null;dragStart=null;appState.controls.enabled=true}});
+  window.addEventListener('pointerup',()=>{if(dragHandle){dragHandle=null;(window as any).dragHandle=null;dragPlane=null;dragStart=null;appState.controls.enabled=true}});
 
   // Hover — only arrows
   let lastH: any=null;
@@ -1015,4 +1030,22 @@ window.handleFile=async function(idx: number){
     const f=(e as DragEvent).dataTransfer!.files[0];if(f&&f.name.toLowerCase().endsWith('.ifc')){appState.files[idx]=f;el.classList.add('loaded');
     document.getElementById('fn'+idx)!.textContent=f.name;document.getElementById('fs'+idx)!.textContent=(f.size/1048576).toFixed(2)+' MB';
     (async()=>{if(!appState.ifcLoader){if(!await initIFC())return}await loadIFC(idx)})()}});
+});
+
+// ── Expose cross-module callers on window ──
+// Invoked as window.X() from other modules (viewer-core pick handler, file-input
+// /drive loaders, focus tools). In the deployed standalone these share one scope;
+// the Vite port must attach them so the runtime calls resolve.
+Object.assign(window as any, {
+  clearHighlight, createSectionBox3D, initIFC, loadIFC,
+  sectionPlanParallelToFace, updateSectionHandleSizes, zoomToElement,
+  // These three were previously only reachable as window.X() from other
+  // modules (main.ts, compare.ts, color-schemes.ts, clash.ts, focus-highlight.ts)
+  // but were never actually attached to window, so those call sites silently
+  // no-op'd: main.ts's post-init `initSectionDrag()` call never ran at all
+  // (section-box arrow-handle dragging was completely non-functional), and
+  // applyCategoryVisibilityViewMode/updateSectionFromSliders never re-synced
+  // section clipping / category-filter subsets after Compare/Colorize/focus
+  // changes in other modules.
+  initSectionDrag, applyCategoryVisibilityViewMode, updateSectionFromSliders,
 });

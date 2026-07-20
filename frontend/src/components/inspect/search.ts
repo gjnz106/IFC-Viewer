@@ -371,3 +371,7 @@ window.searchToggleAdvanced = function(){
 
 // Export public functions for use in main.ts or HTML
 export { searchInit, searchDebounce, searchRun };
+
+// ── Expose on window for HTML handlers (oninput="searchDebounce()",
+// onkeydown → searchRun) + tab init (searchInit) ──
+Object.assign(window as any, { searchInit, searchRun, searchDebounce });

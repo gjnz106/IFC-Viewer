@@ -2,30 +2,27 @@ import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 
-// ── Toggle panel ──
-window.toggleSGCheckPanel = function(){
-  const panel = document.getElementById('sgPanel');
-  const btn = document.getElementById('btnSGCheck');
-  const sgState = appState.sgState as any;
-  sgState.open = !sgState.open;
-  btn!.classList.toggle('active', sgState.open);
+// ── SG panel open/close primitive ──
+// The router reconciles the page's desired state through this (validate page
+// = open, everything else = closed). #sgPanel is embedded directly in the
+// right panel's "SG Check" tab (v5 shell — see index.html's .sg-in-panel),
+// not a separate bottom dock, so this only needs to toggle its `.show` class
+// and keep the right-panel tab UI in sync via rpSelect(); no bresize/bottom-h
+// handling here any more (that's Clash's own bottom-docked panel now).
+export function sgSetPanel(open: boolean){
+  const sgState = appState.sgState;
+  if(!!sgState.open === open) return;
+  sgState.open = open;
+  document.getElementById('btnSGCheck')?.classList.toggle('active', open);
+  document.getElementById('sgPanel')?.classList.toggle('show', open);
+  (window as any).rpSelect?.(open ? 'sg' : 'props');
+  if(window._vpResize) window._vpResize();
+}
 
-  if(sgState.open){
-    // Close other bottom panels (clash) to avoid stacking
-    if((window as any).clashMode)(window as any).toggleClashMode();
-    panel!.classList.add('show');
-    const br = document.getElementById('bresize');
-    if(br) br.style.display = '';
-    if(window._vpResize) window._vpResize();
-  }else{
-    panel!.classList.remove('show');
-    // If neither bottom panel is open, hide the resize handle
-    if(!(window as any).clashMode){
-      const br = document.getElementById('bresize');
-      if(br) br.style.display = 'none';
-    }
-    if(window._vpResize) window._vpResize();
-  }
+// Header CTA + legacy callers: navigation alias so hash/sidebar/persisted
+// page stay in sync with the panel state.
+window.toggleSGCheckPanel = function(){
+  window.navigateTo?.(appState.sgState.open ? 'viewer' : 'validate');
 };
 
 // ── PDF export (uses jsPDF via dynamic import — already used by reports elsewhere) ──
@@ -339,3 +336,7 @@ export function escapeHtml(s: any): string {
   if(s == null) return '';
   return String(s).replace(/[&<>"']/g, (c: string) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
 }
+
+// federation-load.ts calls window.escapeHtml(fname) non-defensively when rendering
+// federation slot names; attach it so that path doesn't throw.
+(window as any).escapeHtml = escapeHtml;

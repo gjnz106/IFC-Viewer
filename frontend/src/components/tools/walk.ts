@@ -1,17 +1,42 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { buildWalkStoreys, storeyWorldY, type WalkStorey } from '../../lib/storeys.js';
+import { escapeHtml } from '../../lib/escape.js';
 
 // ══════════════════════════════════════════════════════════════
 // ══ FIRST PERSON WALK MODE ══
 // ══════════════════════════════════════════════════════════════
 
 // appState.walkActive tracks the active/inactive state
-let walkSpeed: number = 0.15; // m per frame
+// Movement is delta-time based (metres per SECOND) so speed is identical
+// regardless of frame rate — the previous per-frame model made fast machines
+// zoom and slow ones crawl.
+const WALK_BASE_SPEED = 3.5;            // m/s at 1× multiplier
+const SPEED_STEPS = [0.5, 1, 2, 4];     // presets cycled by the speed pill
+let walkSpeedMult = 1;                  // current speed multiplier
 const walkKeys: Record<string, boolean> = { w: false, a: false, s: false, d: false, q: false, e: false, shift: false };
 let walkYaw: number = 0;
 let walkPitch: number = 0;
 let walkAnimId: number | null = null;
+let _walkLast = 0;                      // timestamp of previous frame (ms)
+
+// ── Walk levels (storey picker) ──────────────────────────────────────
+let walkLevels: WalkStorey[] = [];
+let walkLevelIdx = -1;                  // index into walkLevels, -1 = none selected yet
+let walkClipEnabled = true;
+
+function updateSpeedPill(): void {
+  const el = document.getElementById('walkSpeedPill');
+  if (el) el.textContent = (walkSpeedMult % 1 === 0 ? walkSpeedMult.toFixed(0) : walkSpeedMult.toFixed(1)) + '×';
+}
+
+// Cycle through the speed presets (used by the Field-mode speed pill button).
+(window as any).walkCycleSpeed = function (): void {
+  const idx = SPEED_STEPS.findIndex((s) => s >= walkSpeedMult - 1e-3);
+  walkSpeedMult = SPEED_STEPS[(idx + 1) % SPEED_STEPS.length];
+  updateSpeedPill();
+};
 
 window.toggleWalkMode = function (): void {
   appState.walkActive = !appState.walkActive;
@@ -27,6 +52,13 @@ window.toggleWalkMode = function (): void {
     appState.camera.getWorldDirection(dir);
     walkYaw = Math.atan2(dir.x, dir.z);
     walkPitch = Math.asin(Math.max(-1, Math.min(1, dir.y)));
+    // Drop to standing eye height facing the model so it is always in view on
+    // entry (previously the camera kept its orbit pose, often leaving the model
+    // off-screen — the "I can't see anything in walk mode" report).
+    (window as any).walkFrameModel?.();
+    _walkLast = 0;
+    updateSpeedPill();
+    walkBuildLevels();
     // Request pointer lock for smooth mouse look
     appState.renderer.domElement.requestPointerLock && appState.renderer.domElement.requestPointerLock();
     walkLoop();
@@ -38,8 +70,106 @@ window.toggleWalkMode = function (): void {
     appState.controls.update();
     document.exitPointerLock && document.exitPointerLock();
     if (walkAnimId) { cancelAnimationFrame(walkAnimId); walkAnimId = null; }
+    walkRestoreClip();
+    walkHideLevels();
     log('Walk mode OFF');
   }
+};
+
+// ── Level picker: build/render the storey strip, teleport + clip ────────
+
+function walkHideLevels(): void {
+  const el = document.getElementById('walkLevels') as HTMLElement | null;
+  if (el) el.style.display = 'none';
+}
+
+// Restore whatever clip state the user had before walk-level clipping
+// touched planes[2]/[3] (Y top/bottom) — the user's own section box if one
+// was active, otherwise fully open. Must run on EVERY walk-exit path
+// (toggleWalkMode's exit branch AND the pointerlockchange force-exit below)
+// or the Y clip silently persists into orbit mode.
+function walkRestoreClip(): void {
+  if (walkLevelIdx < 0) return; // never touched the planes
+  walkLevelIdx = -1;
+  if (appState.sectionActive) {
+    (window as any).updateSectionFromSliders?.();
+  } else if (appState.clipPlanes.length >= 6) {
+    appState.clipPlanes[2].constant = 99999;
+    appState.clipPlanes[3].constant = 99999;
+  }
+}
+
+async function walkBuildLevels(): Promise<void> {
+  walkLevels = await buildWalkStoreys();
+  walkLevelIdx = -1;
+  renderWalkLevelPills();
+}
+
+function renderWalkLevelPills(): void {
+  const wrap = document.getElementById('walkLevels') as HTMLElement | null;
+  const pillsEl = document.getElementById('walkLevelPills');
+  const clipChk = document.getElementById('walkClipChk') as HTMLInputElement | null;
+  if (!wrap || !pillsEl) return;
+  if (clipChk) clipChk.checked = walkClipEnabled;
+  if (walkLevels.length === 0) {
+    pillsEl.innerHTML = '<span class="field-storey-pill" style="opacity:.5;cursor:default">No storeys</span>';
+  } else {
+    pillsEl.innerHTML = walkLevels.map((s, i) => {
+      const elevStr = s.elevation >= 0 ? '+' + s.elevation.toFixed(1) : s.elevation.toFixed(1);
+      return `<button class="field-storey-pill${i === walkLevelIdx ? ' on' : ''}" onclick="walkGoToStorey(${i})">${escapeHtml(s.name)} (${elevStr}m)</button>`;
+    }).join('');
+  }
+  wrap.style.display = appState.walkActive ? 'flex' : 'none';
+}
+
+// Teleport to standing eye height above the given storey's floor, clamp
+// X/Z into the model bounds, and (if enabled) clip away every other storey.
+(window as any).walkGoToStorey = function (idx: number): void {
+  const s = walkLevels[idx];
+  if (!s) return;
+  walkLevelIdx = idx;
+
+  const offsetY = appState.sharedCenterOffset?.y || 0;
+  const floorY = storeyWorldY(s.elevation, offsetY);
+  const topY = storeyWorldY(s.topElevation, offsetY);
+
+  // Eye height ~1.6m, converted from metres into this model's project units.
+  const lengthFactor = appState.loadedModels[s.modelIdx]?.units?.lengthFactor || 1000;
+  const eyeOffset = 1.6 * 1000 / lengthFactor;
+  const floorMargin = 0.3 * 1000 / lengthFactor;
+  const ceilMargin = 0.1 * 1000 / lengthFactor;
+
+  const bounds = appState.modelBounds;
+  const px = bounds ? Math.min(Math.max(appState.camera.position.x, bounds.min.x), bounds.max.x) : appState.camera.position.x;
+  const pz = bounds ? Math.min(Math.max(appState.camera.position.z, bounds.min.z), bounds.max.z) : appState.camera.position.z;
+  (window as any).walkSetPose?.(px, floorY + eyeOffset, pz, walkYaw, 0);
+
+  if (walkClipEnabled && appState.clipPlanes.length >= 6) {
+    // Planes 2,3 are Y+ (ceiling) / Y- (floor) — same pair Field Mode's
+    // storey clip uses (fieldSelectStorey in fieldmode.ts).
+    appState.clipPlanes[2].constant = topY + ceilMargin;
+    appState.clipPlanes[3].constant = -(floorY - floorMargin);
+  }
+
+  renderWalkLevelPills();
+};
+
+(window as any).walkCycleStorey = function (dir: number): void {
+  if (walkLevels.length === 0) return;
+  const next = walkLevelIdx < 0 ? (dir > 0 ? 0 : walkLevels.length - 1) : Math.max(0, Math.min(walkLevels.length - 1, walkLevelIdx + dir));
+  (window as any).walkGoToStorey(next);
+};
+
+(window as any).walkToggleStoreyClip = function (): void {
+  walkClipEnabled = !walkClipEnabled;
+  if (walkClipEnabled && walkLevelIdx >= 0) {
+    (window as any).walkGoToStorey(walkLevelIdx); // re-apply clip for the current level
+  } else if (!walkClipEnabled && appState.clipPlanes.length >= 6) {
+    appState.clipPlanes[2].constant = 99999;
+    appState.clipPlanes[3].constant = 99999;
+  }
+  const clipChk = document.getElementById('walkClipChk') as HTMLInputElement | null;
+  if (clipChk) clipChk.checked = walkClipEnabled;
 };
 
 // ── Bridge for Field Mode (iPad) touch controls ──────────────────────
@@ -93,6 +223,12 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (k === 'e') walkKeys.e = true;
   if (k === 'shift' || e.shiftKey) walkKeys.shift = true;
   if (k === 'escape') { window.toggleWalkMode!(); e.preventDefault(); }
+  // Level picker — keyboard-first on desktop since pointer lock (mouse-look)
+  // swallows clicks on the HUD pills. PageUp/PageDown are the primary keys;
+  // '[' / ']' mirror them for keyboards/layouts without dedicated Page keys.
+  if (k === 'pageup' || k === ']') { (window as any).walkCycleStorey?.(1); e.preventDefault(); }
+  if (k === 'pagedown' || k === '[') { (window as any).walkCycleStorey?.(-1); e.preventDefault(); }
+  if (k === 'l') { (window as any).walkToggleStoreyClip?.(); }
 });
 document.addEventListener('keyup', (e: KeyboardEvent) => {
   const k = (e.key || '').toLowerCase();
@@ -115,11 +251,12 @@ document.addEventListener('mousemove', (e: MouseEvent) => {
   }
 });
 
-// Scroll = adjust speed
+// Scroll = adjust speed (continuous, clamped to the preset range)
 document.addEventListener('wheel', (e: WheelEvent) => {
   if (!appState.walkActive) return;
-  walkSpeed *= e.deltaY > 0 ? 0.85 : 1.18;
-  walkSpeed = Math.max(0.01, Math.min(5, walkSpeed));
+  walkSpeedMult *= e.deltaY > 0 ? 0.85 : 1.18;
+  walkSpeedMult = Math.max(0.25, Math.min(8, walkSpeedMult));
+  updateSpeedPill();
   e.preventDefault();
 }, { passive: false });
 
@@ -135,13 +272,23 @@ document.addEventListener('pointerlockchange', () => {
     appState.controls.target.copy(appState.camera.position).add(new THREE.Vector3(0, 0, -10).applyQuaternion(appState.camera.quaternion));
     appState.controls.update();
     if (walkAnimId) { cancelAnimationFrame(walkAnimId); walkAnimId = null; }
+    walkRestoreClip();
+    walkHideLevels();
   }
 });
 
 function walkLoop(): void {
   if (!appState.walkActive) return;
 
-  const spd = walkKeys.shift ? walkSpeed * 3 : walkSpeed;
+  // Delta-time in seconds (clamped so a stall/tab-switch can't teleport us).
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  let dt = _walkLast ? (now - _walkLast) / 1000 : 1 / 60;
+  _walkLast = now;
+  if (dt > 0.1) dt = 0.1;
+  const dtScale = dt * 60; // 1.0 at 60fps — keeps look rates feeling the same
+
+  // Metres to move this frame = base × multiplier × (×2.5 sprint) × dt.
+  const spd = WALK_BASE_SPEED * walkSpeedMult * (walkKeys.shift ? 2.5 : 1) * dt;
 
   // Direction vectors
   const forward = new THREE.Vector3(-Math.sin(walkYaw), 0, -Math.cos(walkYaw));
@@ -172,8 +319,8 @@ function walkLoop(): void {
     // only near full deflection do we approach max speed. This stops the view
     // from whipping around when the stick is nudged. Base rates reduced too.
     const ease = (v: number) => Math.sign(v) * v * v;
-    walkYaw -= ease(_walkLookVec.x) * 0.022;   // horizontal look speed (reduced + eased)
-    walkPitch -= ease(_walkLookVec.y) * 0.015;  // vertical look speed (reduced + eased)
+    walkYaw -= ease(_walkLookVec.x) * 0.022 * dtScale;   // horizontal look speed (reduced + eased)
+    walkPitch -= ease(_walkLookVec.y) * 0.015 * dtScale;  // vertical look speed (reduced + eased)
     walkPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, walkPitch));
   }
 
@@ -187,8 +334,9 @@ function walkLoop(): void {
   );
   appState.camera.lookAt(appState.camera.position.clone().add(lookDir));
 
-  // Render
-  appState.renderer.render(appState.scene, appState.camera);
+  // NOTE: no renderer.render() here — the single main render loop in
+  // viewer-core draws every frame. Rendering here too caused two rAF loops to
+  // fight over the frame, which showed up as stutter/jitter in walk mode.
 
   walkAnimId = requestAnimationFrame(walkLoop);
 }

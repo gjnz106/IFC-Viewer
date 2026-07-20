@@ -7,25 +7,28 @@
 // Panel toggles — the button's active (dark) state always mirrors whether
 // its panel is visible. Uses computed display so it can't desync from the
 // initial inline styles.
-function setPanel(panelId: string, btnId: string, open: boolean): void {
+function setPanel(panelId: string, btnId: string, collapsedClass: string, open: boolean): void {
   const p = document.getElementById(panelId);
   const btn = document.getElementById(btnId);
+  const app = document.getElementById('app');
   if (!p || !btn) return;
   p.style.display = open ? 'flex' : 'none';
   if (open) p.style.flexDirection = 'column';
   btn.classList.toggle('hdr-panel-btn-active', open);
+  app?.classList.toggle(collapsedClass, !open);
+  (window as any)._vpResize?.();
 }
 
 window.toggleLeftPanel = function (): void {
   const p = document.getElementById('leftPanel');
   if (!p) return;
-  setPanel('leftPanel', 'btnToggleLeft', getComputedStyle(p).display === 'none');
+  setPanel('leftPanel', 'btnToggleLeft', 'left-collapsed', getComputedStyle(p).display === 'none');
 };
 
 window.toggleRightPanel = function (): void {
   const p = document.getElementById('rightPanel');
   if (!p) return;
-  setPanel('rightPanel', 'btnToggleRight', getComputedStyle(p).display === 'none');
+  setPanel('rightPanel', 'btnToggleRight', 'right-collapsed', getComputedStyle(p).display === 'none');
 };
 
 window.toggleExportMenu = function (): void {
@@ -48,6 +51,8 @@ window.openRightPanel = function (): void {
   p.style.display = 'flex';
   p.style.flexDirection = 'column';
   document.getElementById('btnToggleRight')?.classList.add('hdr-panel-btn-active');
+  document.getElementById('app')?.classList.remove('right-collapsed');
+  (window as any)._vpResize?.();
 };
 
 // Auto-open the Properties panel whenever real property content is rendered
@@ -88,12 +93,15 @@ window.colorizeSetProp = function (v: string): void {
         input.value = savedLink;
         if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
       }
+      (window as any).projFillSettings?.();
+      (window as any).projFillSettingsUnits?.();
       el.style.display = 'flex';
     } else {
       const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
       if (input) {
         localStorage.setItem('projectDriveLink', input.value.trim());
       }
+      (window as any).projSaveSettings?.();
       el.style.display = 'none';
     }
   }
@@ -110,6 +118,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 (window as any).toggleTeamPanel = function (): void {
   const el = document.getElementById('teamOverlay');
+  if (el) {
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'flex';
+  }
+};
+
+(window as any).toggleProfilePanel = function (): void {
+  const el = document.getElementById('profileOverlay');
   if (el) {
     const open = el.style.display !== 'none';
     el.style.display = open ? 'none' : 'flex';

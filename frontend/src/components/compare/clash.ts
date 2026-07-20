@@ -3,10 +3,20 @@
 // ══════════════════════════════════════════════════════════════
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
+import { log } from '../core/ifc-category.js';
+import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
+import { escapeHtml, escapeCsv } from '../../lib/escape.js';
+import { disposeModel } from '../core/viewer-core.js';
+import { computeGeometryHashes } from '../../lib/geometry-hash.js';
+
+// Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
+(window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
 
 // Module-level variables (not in appState)
 let clashSubsets: THREE.Group[] = [];
 let currentClashIdx = -1;
+// Warning banner text when the candidate cap was hit (some pairs not checked).
+let _clashCapNote = '';
 let clashFilterCounterA = 0, clashFilterCounterB = 0;
 let clashPropertyCacheA: Record<number, any> = {}, clashPropertyCacheB: Record<number, any> = {}; // eid→{propName:value}
 
@@ -34,6 +44,7 @@ interface ClashResultData {
   elB: { eid: number; name: string; type: string; objectType: string; tag: string; modelIdx: number; bbox: any };
   penetration: number;
   isHard: boolean;
+  isDuplicate?: boolean;
   verticesAinB: number;
   verticesBinA: number;
   point: { x: number; y: number; z: number };
@@ -113,7 +124,7 @@ function renderClashRules(side: string): void {
     return;
   }
   const elTypes = getClashElementTypes(side);
-  const escA = (s: any) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const escA = escapeHtml; // shared escaper (also handles > and ')
   let html = '';
   rows.forEach((r, i) => {
     const typeOpts = ['<option value="">— select —</option>']
@@ -251,7 +262,7 @@ const CLASH_PRESETS: Record<string, { A: string[] | '*'; B: string[] | '*' }> = 
 
 window.applyClashPreset = function(presetKey: string): void {
   const preset = CLASH_PRESETS[presetKey];
-  if (!preset) { (window as any).log('Unknown clash preset: ' + presetKey); return; }
+  if (!preset) { log('Unknown clash preset: ' + presetKey); return; }
   ['A', 'B'].forEach(side => {
     const list = preset[side as 'A' | 'B'];
     let categories: string[]; // final list of Revit category labels for this side
@@ -279,7 +290,7 @@ window.applyClashPreset = function(presetKey: string): void {
   const nameMap: Record<string, string> = { 'struct-mep': 'Structure ↔ MEP', 'arch-mep': 'Architecture ↔ MEP', 'struct-arch': 'Structure ↔ Architecture', 'all-all': 'All ↔ All' };
   const nameEl = document.getElementById('clashRuleName') as HTMLInputElement | null;
   if (nameEl && nameMap[presetKey]) nameEl.value = nameMap[presetKey];
-  (window as any).log('Applied clash preset: ' + presetKey);
+  log('Applied clash preset: ' + presetKey);
 };
 
 window.swapClashSets = function(): void {
@@ -292,7 +303,7 @@ window.swapClashSets = function(): void {
   clashRuleRows.B = a.filter(r => !r.elementType || availB.has(r.elementType));
   renderClashRules('A');
   renderClashRules('B');
-  (window as any).log('Swapped Source ↔ Target sets');
+  log('Swapped Source ↔ Target sets');
 };
 
 // Compatibility shim — old code referenced these but they're no longer in UI.
@@ -327,36 +338,70 @@ function getClashFilters(side: string): any[] {
   return flat;
 }
 
+// Enter/exit are the primitives the router reconciles page state against.
+// window.toggleClashMode stays only as a navigation alias for legacy callers
+// (hidden #btnClash) — it routes through navigateTo so the hash, sidebar
+// highlight and persisted page can never drift from the real mode.
+// A single loaded model is enough to run Clash when "Include results from a
+// single: Model" (self-clash) is checked — otherwise both A and B are
+// required, as before. Shared by enterClashMode, loadIFC's clash-mode
+// branch (section-visibility.ts), and the checkbox's own onchange so all
+// three stay in sync.
+export function updateClashRunButtonState(): void {
+  const btn = document.getElementById('btnRunClash') as HTMLButtonElement | null;
+  if (!btn) return;
+  const singleModel = (document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  const ok = singleModel ? !!appState.loadedModels[0] : !!(appState.loadedModels[0] && appState.loadedModels[1]);
+  btn.disabled = !ok;
+}
+window.updateClashRunButtonState = updateClashRunButtonState;
+
+// Duplicate detection compares Source against Target — meaningless in
+// self-clash mode where every element trivially "duplicates" its own
+// position, so the two options are mutually exclusive in the UI.
+export function clashSyncDuplicateUI(): void {
+  const single = (document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  const dupChk = document.getElementById('clashTypeDuplicate') as HTMLInputElement | null;
+  if (!dupChk) return;
+  dupChk.disabled = !!single;
+  if (single) dupChk.checked = false;
+}
+window.clashSyncDuplicateUI = clashSyncDuplicateUI;
+
+export function enterClashMode(): void {
+  if (appState.clashMode) return;
+  // The router exits compare before entering the clash page; this guard only
+  // protects direct programmatic calls.
+  if (appState.compareResult) { log('Clash: exit compare first'); return; }
+  appState.clashMode = true;
+  document.getElementById('btnClash')!.classList.add('active');
+
+  document.getElementById('clashPanel')!.classList.add('show');
+  // Show the bottom panel resize handle (sits between 3D canvas and panel)
+  const br = document.getElementById('bresize'); if (br) br.style.display = '';
+  document.getElementById('eTree')!.style.display = 'none';
+  document.getElementById('issuesList')!.classList.remove('show');
+  document.getElementById('panelTabs')?.classList.remove('show');
+  document.getElementById('issueNav')!.classList.remove('show');
+  document.getElementById('btnRunClash')!.style.display = '';
+  document.getElementById('btnCompare')!.style.display = 'none';
+
+  if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
+  if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
+  updateClashRunButtonState();
+  clashSyncDuplicateUI();
+
+  // Initialize default rule rows (reads loaded model categories internally)
+  initClashRulesDefault();
+  // The bottom panel just claimed ~320px of viewport height — reflow 3D
+  if ((window as any)._vpResize) (window as any)._vpResize();
+}
+
 window.toggleClashMode = function(): void {
-  if (appState.compareResult) { (window as any).log('Exit compare first'); return; }
-  appState.clashMode = !appState.clashMode;
-  document.getElementById('btnClash')!.classList.toggle('active', appState.clashMode);
-
-  if (appState.clashMode) {
-    document.getElementById('clashPanel')!.classList.add('show');
-    // Show the bottom panel resize handle (sits between 3D canvas and panel)
-    const br = document.getElementById('bresize'); if (br) br.style.display = '';
-    document.getElementById('eTree')!.style.display = 'none';
-    document.getElementById('issuesList')!.classList.remove('show');
-    document.getElementById('panelTabs')!.classList.remove('show');
-    document.getElementById('issueNav')!.classList.remove('show');
-    document.getElementById('btnRunClash')!.style.display = '';
-    document.getElementById('btnCompare')!.style.display = 'none';
-
-    if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
-    if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
-    (document.getElementById('btnRunClash') as HTMLButtonElement).disabled = !(appState.loadedModels[0] && appState.loadedModels[1]);
-
-    // Initialize default rule rows (reads loaded model categories internally)
-    initClashRulesDefault();
-    // The bottom panel just claimed ~320px of viewport height — reflow 3D
-    if ((window as any)._vpResize) (window as any)._vpResize();
-  } else {
-    window.exitClashMode();
-  }
+  window.navigateTo?.(appState.clashMode ? 'viewer' : 'clash');
 };
 
-window.exitClashMode = function(): void {
+export function exitClashMode(): void {
   appState.clashMode = false;
   document.getElementById('btnClash')!.classList.remove('active');
   document.getElementById('clashPanel')!.classList.remove('show');
@@ -375,13 +420,13 @@ window.exitClashMode = function(): void {
   if(panelBtn2){panelBtn2.disabled=!bothLoaded;panelBtn2.style.opacity=bothLoaded?'1':'.35';}
   document.getElementById('clashGroupBar')!.style.display = 'none';
 
-  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); });
+  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
   clashSubsets = []; appState.clashResults = []; currentClashIdx = -1;
   clashPropertyCacheA = {}; clashPropertyCacheB = {};
   // Remove focus highlights
   const oldFocus: THREE.Object3D[] = [];
   appState.scene.traverse(c => { if ((c as any).userData?.clashFocus) oldFocus.push(c); });
-  oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); });
+  oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); disposeModel(c); });
 
   for (let i = 0; i < 2; i++) {
     if (!appState.loadedModels[i]) continue;
@@ -397,12 +442,14 @@ window.exitClashMode = function(): void {
 
   document.getElementById('clashStats')!.style.display = 'none';
   document.getElementById('clashList')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div>';
-  document.getElementById('clashFiltersA')!.innerHTML = '';
-  document.getElementById('clashFiltersB')!.innerHTML = '';
+  // (Formerly wiped #clashFiltersA/B here — those IDs died with the pre-rule-row
+  // clash UI, so the two lines threw every exit and aborted the reflow below.
+  // Rule rows persist in clashRuleRows and re-render on the next enter.)
   // Bottom panel just released its height back to the canvas — reflow 3D
   if ((window as any)._vpResize) (window as any)._vpResize();
-  (window as any).log('Exited clash mode');
-};
+  log('Exited clash mode');
+}
+window.exitClashMode = exitClashMode;
 
 // ── Build per-element bounding boxes for a model ──
 function buildElementBBoxes(modelIdx: number): Record<number, any> {
@@ -461,39 +508,136 @@ function bboxPenetration(a: any, b: any): number {
   return Math.min(ox, oy, oz); // penetration depth = smallest overlap axis
 }
 
+// Euclidean separation between two AABBs (0 when they overlap on every axis).
+// Used for true clearance / near-miss detection: bboxPenetration only measures
+// overlap depth and is 0 for separated boxes, so it can never surface a gap.
+export function bboxGap(a: any, b: any): number {
+  const dx = Math.max(0, a.mnX - b.mxX, b.mnX - a.mxX);
+  const dy = Math.max(0, a.mnY - b.mxY, b.mnY - a.mxY);
+  const dz = Math.max(0, a.mnZ - b.mxZ, b.mnZ - a.mxZ);
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+// ── Clash box size/volume filter — suppresses trivial hard clashes ──
+// (a wall's edge grazing a slab by 2mm) below a user-chosen threshold.
+// Only meaningful for hard clashes: clearances have no overlap box.
+export interface BoxFilterConfig {
+  sizeOn: boolean; sizeMm: number; side: 'shortest' | 'longest';
+  volOn: boolean; volM3: number;
+}
+export function passesBoxFilter(ox: number, oy: number, oz: number, cfg: BoxFilterConfig): boolean {
+  if (cfg.sizeOn) {
+    const sizeM = cfg.side === 'shortest' ? Math.min(ox, oy, oz) : Math.max(ox, oy, oz);
+    if (sizeM * 1000 < cfg.sizeMm) return false;
+  }
+  if (cfg.volOn) {
+    const volM3 = ox * oy * oz;
+    if (volM3 < cfg.volM3) return false;
+  }
+  return true;
+}
+
+// ── Duplicate detection — pure pairing logic ──
+// Given per-element geometry hashes (world-space, 1cm-quantized — see
+// lib/geometry-hash.ts) and IFC type names for two sets, finds every
+// (eidA, eidB) pair with equal hash AND equal type. Hash-bucketing keeps
+// this O(n+m) instead of the O(n*m) nested scan a naive version would need.
+// `sameSet` dedupes reciprocal pairs when comparing a set against itself
+// (single-model self-clash) — without it, (wallX,wallY) and (wallY,wallX)
+// would both appear when the two sides share elements.
+export interface HashedElement { hash: number; type: string; }
+export function findDuplicatePairs(
+  setA: Record<number, HashedElement>,
+  setB: Record<number, HashedElement>,
+  sameSet: boolean,
+): { eidA: number; eidB: number }[] {
+  const bucketB = new Map<number, number[]>();
+  for (const key of Object.keys(setB)) {
+    const eidB = Number(key);
+    const h = setB[eidB].hash;
+    let list = bucketB.get(h);
+    if (!list) { list = []; bucketB.set(h, list); }
+    list.push(eidB);
+  }
+  const pairs: { eidA: number; eidB: number }[] = [];
+  const seen = sameSet ? new Set<string>() : null;
+  for (const key of Object.keys(setA)) {
+    const eidA = Number(key);
+    const bucket = bucketB.get(setA[eidA].hash);
+    if (!bucket) continue;
+    for (const eidB of bucket) {
+      if (sameSet) {
+        if (eidA === eidB) continue;
+        const pairKey = eidA < eidB ? eidA + '_' + eidB : eidB + '_' + eidA;
+        if (seen!.has(pairKey)) continue;
+        seen!.add(pairKey);
+      }
+      if (setA[eidA].type !== setB[eidB].type) continue;
+      pairs.push({ eidA, eidB });
+    }
+  }
+  return pairs;
+}
+
+function clashBadge(cl: any): string {
+  if (cl.isDuplicate) return '👯';
+  return cl.isHard ? '⛔' : '⚠️';
+}
+
+function clashTypeLabel(cl: any): string {
+  if (cl.isDuplicate) return 'Duplicate';
+  return cl.isHard ? 'Hard' : 'Clearance';
+}
+
+// Precompute world-space vertices per expressID, once per model, for only the
+// eids that survived the bbox pre-filter. meshIntersectionTest() used to
+// traverse the ENTIRE model twice (once per direction) for every single
+// candidate pair — with up to CAND_CAP=2000 candidates that's up to 4000 full
+// model traversals just to test intersection. Building this map once and
+// having meshIntersectionTest do a plain lookup collapses that to 2 traversals
+// total regardless of candidate count.
+function buildEidVertexMap(model: THREE.Group, eids: Set<number>): Map<number, THREE.Vector3[]> {
+  const map = new Map<number, THREE.Vector3[]>();
+  model.traverse(c => {
+    if (!(c as any).isMesh || !(c as any).geometry?.attributes?.expressID || !(c as any).geometry?.attributes?.position) return;
+    const eidArr: ArrayLike<number> = (c as any).geometry.attributes.expressID.array;
+    const pos: ArrayLike<number> = (c as any).geometry.attributes.position.array;
+    const wm = (c as THREE.Mesh).matrixWorld;
+    for (let i = 0; i < eidArr.length; i++) {
+      const eid = eidArr[i];
+      if (!eids.has(eid)) continue;
+      const pi = i * 3;
+      let list = map.get(eid);
+      if (!list) { list = []; map.set(eid, list); }
+      list.push(new THREE.Vector3(pos[pi], pos[pi + 1], pos[pi + 2]).applyMatrix4(wm));
+    }
+  });
+  return map;
+}
+
 // ── Sample-based mesh intersection test ──
 // Instead of full triangle-triangle intersection (very expensive),
 // we sample vertices from element A and check if any are inside element B's bbox
 // For more accurate results, we do a bidirectional check
-function meshIntersectionTest(elA: any, elB: any, modelA: THREE.Group, modelB: THREE.Group): any {
+function meshIntersectionTest(elA: any, elB: any, vertsA: Map<number, THREE.Vector3[]>, vertsB: Map<number, THREE.Vector3[]>): any {
   // Collect vertices of A that are inside B's bbox (expanded slightly)
   const pad = 0.01;
 
-  const checkInside = (srcModel: THREE.Group, srcEid: number, targetBBox: any) => {
-    let inside = 0, total = 0;
-    srcModel.traverse(c => {
-      if (!(c as any).isMesh || !(c as any).geometry?.attributes?.expressID || !(c as any).geometry?.attributes?.position) return;
-      const eids: ArrayLike<number> = (c as any).geometry.attributes.expressID.array;
-      const pos: ArrayLike<number> = (c as any).geometry.attributes.position.array;
-      const wm = (c as THREE.Mesh).matrixWorld;
-      const v = new THREE.Vector3();
-      for (let i = 0; i < eids.length; i++) {
-        if (eids[i] !== srcEid) continue;
-        total++;
-        const pi = i * 3;
-        v.set(pos[pi], pos[pi + 1], pos[pi + 2]).applyMatrix4(wm);
-        if (v.x >= targetBBox.mnX - pad && v.x <= targetBBox.mxX + pad &&
-            v.y >= targetBBox.mnY - pad && v.y <= targetBBox.mxY + pad &&
-            v.z >= targetBBox.mnZ - pad && v.z <= targetBBox.mxZ + pad) {
-          inside++;
-        }
+  const checkInside = (verts: THREE.Vector3[] | undefined, targetBBox: any) => {
+    if (!verts) return { inside: 0, total: 0 };
+    let inside = 0;
+    for (const v of verts) {
+      if (v.x >= targetBBox.mnX - pad && v.x <= targetBBox.mxX + pad &&
+          v.y >= targetBBox.mnY - pad && v.y <= targetBBox.mxY + pad &&
+          v.z >= targetBBox.mnZ - pad && v.z <= targetBBox.mxZ + pad) {
+        inside++;
       }
-    });
-    return { inside, total };
+    }
+    return { inside, total: verts.length };
   };
 
-  const rAB = checkInside(modelA, elA.eid, elB);
-  const rBA = checkInside(modelB, elB.eid, elA);
+  const rAB = checkInside(vertsA.get(elA.eid), elB);
+  const rBA = checkInside(vertsB.get(elB.eid), elA);
 
   return {
     verticesAinB: rAB.inside,
@@ -506,9 +650,19 @@ function meshIntersectionTest(elA: any, elB: any, modelA: THREE.Group, modelB: T
 
 // ── Main Clash Detection ──
 window.runClashDetection = async function(): Promise<void> {
-  if (!appState.loadedModels[0] || !appState.loadedModels[1]) return;
+  // "Include results from a single: Model" self-clashes model A against
+  // itself instead of A vs B — the Target Set rules still apply, just
+  // evaluated against model 0's elements instead of model 1's.
+  const singleModelChk = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  const targetModelIdx = singleModelChk ? 0 : 1;
+  if (!appState.loadedModels[0] || !appState.loadedModels[targetModelIdx]) return;
   const lo = document.getElementById('loadOv')!, lt = document.getElementById('loadTxt')!, lf = document.getElementById('loadFill')!;
   lo.classList.add('on');
+
+  // Re-running without exiting first would otherwise leave the previous run's
+  // clash-zone marker meshes orphaned in the scene (never disposed).
+  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
+  clashSubsets = [];
 
   // ── Read configuration from new BIMcollab-style UI ──
   // Tolerances. The "Minimum distance" field controls what previously was the
@@ -539,7 +693,7 @@ window.runClashDetection = async function(): Promise<void> {
     return;
   }
 
-  (window as any).log('Clash config: Source types=' + catsA.size + ', Target types=' + catsB.size + ', filtersA=' + filtersA.length + ', filtersB=' + filtersB.length + ', tolerance=' + tolerance + 'm, type=' + clashTypeFilter);
+  log('Clash config: Source types=' + catsA.size + ', Target types=' + catsB.size + ', filtersA=' + filtersA.length + ', filtersB=' + filtersB.length + ', tolerance=' + tolerance + 'm, type=' + clashTypeFilter);
 
   // ── Phase 1: Build filtered element sets ──
   lt.textContent = 'Building Source Set (Model A)...'; lf.style.width = '5%';
@@ -556,24 +710,30 @@ window.runClashDetection = async function(): Promise<void> {
       const ids = catIDs[cat]?.[modelIdx];
       if (!ids) continue;
       for (const eid of ids) {
-        // Get properties for filter matching
+        // Get properties for filter matching — skip the (awaited) IFC lookup
+        // entirely when this category has no property filters, since
+        // passesFilters() always returns true for an empty filter list and
+        // the fetched values would go unused. With thousands of elements per
+        // category this was previously the dominant cost of Phase 1.
         let entity: any = { expressID: eid, type: cat, name: '', objectType: '', tag: '', description: '', predefinedType: '' };
-        try {
-          const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[modelIdx] as any).modelID, eid, false);
-          if (p) {
-            entity.name = p.Name?.value || '';
-            entity.objectType = p.ObjectType?.value || '';
-            entity.tag = p.Tag?.value || '';
-            entity.description = p.Description?.value || '';
-            entity.predefinedType = p.PredefinedType?.value || '';
-            entity.Name = entity.name; entity.ObjectType = entity.objectType;
-            entity.Tag = entity.tag; entity.Description = entity.description;
-            entity.PredefinedType = entity.predefinedType;
-          }
-        } catch (e) {}
+        if (propFilters.length) {
+          try {
+            const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[modelIdx] as any).modelID, eid, false);
+            if (p) {
+              entity.name = p.Name?.value || '';
+              entity.objectType = p.ObjectType?.value || '';
+              entity.tag = p.Tag?.value || '';
+              entity.description = p.Description?.value || '';
+              entity.predefinedType = p.PredefinedType?.value || '';
+              entity.Name = entity.name; entity.ObjectType = entity.objectType;
+              entity.Tag = entity.tag; entity.Description = entity.description;
+              entity.PredefinedType = entity.predefinedType;
+            }
+          } catch (e) {}
 
-        // Apply property filters
-        if (!passesFilters(entity, propFilters)) continue;
+          // Apply property filters
+          if (!passesFilters(entity, propFilters)) continue;
+        }
 
         elements[eid] = entity;
         propCache[eid] = entity;
@@ -583,9 +743,9 @@ window.runClashDetection = async function(): Promise<void> {
   };
 
   const setA = await buildFilteredSet(0, catsA, filtersA);
-  lt.textContent = 'Building Target Set (Model B)...'; lf.style.width = '15%';
+  lt.textContent = singleModelChk ? 'Building Target Set...' : 'Building Target Set (Model B)...'; lf.style.width = '15%';
   await new Promise(r => setTimeout(r, 20));
-  const setB = await buildFilteredSet(1, catsB, filtersB);
+  const setB = await buildFilteredSet(targetModelIdx, catsB, filtersB);
 
   clashPropertyCacheA = setA.propCache;
   clashPropertyCacheB = setB.propCache;
@@ -593,20 +753,20 @@ window.runClashDetection = async function(): Promise<void> {
   const sourceEids = new Set(Object.keys(setA.elements).map(Number));
   const targetEids = new Set(Object.keys(setB.elements).map(Number));
 
-  (window as any).log(`Filtered sets: Source=${sourceEids.size} elements, Target=${targetEids.size} elements`);
+  log(`Filtered sets: Source=${sourceEids.size} elements, Target=${targetEids.size} elements`);
 
   // ── Phase 2: Build BBoxes only for filtered elements ──
   lt.textContent = 'Computing bounding boxes...'; lf.style.width = '20%';
   await new Promise(r => setTimeout(r, 20));
 
   const allBBoxA = buildElementBBoxes(0);
-  const allBBoxB = buildElementBBoxes(1);
+  const allBBoxB = singleModelChk ? allBBoxA : buildElementBBoxes(targetModelIdx);
 
   // Filter to only Source/Target set elements
   const arrA = Object.values(allBBoxA).filter(e => sourceEids.has(e.eid));
   const arrB = Object.values(allBBoxB).filter(e => targetEids.has(e.eid));
 
-  (window as any).log(`BBoxes: Source=${arrA.length}, Target=${arrB.length}`);
+  log(`BBoxes: Source=${arrA.length}, Target=${arrB.length}`);
   lt.textContent = `BBox pre-filter (${arrA.length} × ${arrB.length})...`; lf.style.width = '30%';
   await new Promise(r => setTimeout(r, 20));
 
@@ -614,9 +774,20 @@ window.runClashDetection = async function(): Promise<void> {
   const candidates: { a: any; b: any; penetration: number }[] = [];
   let checked = 0;
   const total = arrA.length * arrB.length;
+  // Self-clash: Source/Target categories can overlap (e.g. "Walls" on both
+  // sides), which would otherwise generate both (x,y) and (y,x) — the same
+  // pair twice. Dedupe by unordered eid pair; a pair with only one possible
+  // order (disjoint categories) is never seen twice so it's unaffected.
+  const seenSelfPairs = singleModelChk ? new Set<string>() : null;
 
   for (const a of arrA) {
     for (const b of arrB) {
+      if (singleModelChk) {
+        if (a.eid === b.eid) { checked++; continue; }
+        const pairKey = a.eid < b.eid ? a.eid + '_' + b.eid : b.eid + '_' + a.eid;
+        if (seenSelfPairs!.has(pairKey)) { checked++; continue; }
+        seenSelfPairs!.add(pairKey);
+      }
       if (bboxOverlap(a, b, tolerance)) {
         const pen = bboxPenetration(a, b);
         candidates.push({ a, b, penetration: pen });
@@ -630,27 +801,52 @@ window.runClashDetection = async function(): Promise<void> {
     }
   }
 
-  (window as any).log(`BBox pre-filter: ${candidates.length} candidates`);
+  log(`BBox pre-filter: ${candidates.length} candidates`);
   lt.textContent = `Mesh intersection (${candidates.length} pairs)...`; lf.style.width = '60%';
   await new Promise(r => setTimeout(r, 20));
 
   // ── Phase 4: Mesh intersection + property enrichment ──
   appState.clashResults = [];
-  const maxCheck = Math.min(candidates.length, 2000);
+  const CAND_CAP = 2000;
+  const capped = candidates.length > CAND_CAP;   // note if we drop candidates
+  const maxCheck = Math.min(candidates.length, CAND_CAP);
   candidates.sort((a, b) => b.penetration - a.penetration);
   const skipTypes = new Set(['IfcSpace', 'IfcSite', 'IfcBuilding', 'IfcBuildingStorey', 'IfcProject']);
+
+  const checkedEidsA = new Set<number>(), checkedEidsB = new Set<number>();
+  for (let i = 0; i < maxCheck; i++) { checkedEidsA.add(candidates[i].a.eid); checkedEidsB.add(candidates[i].b.eid); }
+  const vertsMapA = buildEidVertexMap(appState.loadedModels[0]!, checkedEidsA);
+  const vertsMapB = singleModelChk
+    ? buildEidVertexMap(appState.loadedModels[0]!, checkedEidsB)
+    : buildEidVertexMap(appState.loadedModels[targetModelIdx]!, checkedEidsB);
+
+  // Box size/volume filter config — only meaningful for hard clashes.
+  const boxFilterCfg: BoxFilterConfig = {
+    sizeOn: !!(document.getElementById('clashTolBoxSize') as HTMLInputElement | null)?.checked,
+    sizeMm: parseFloat((document.getElementById('clashTolBoxSizeVal') as HTMLInputElement | null)?.value || '0') || 0,
+    side: (document.getElementById('clashTolShortest') as HTMLInputElement | null)?.checked ? 'shortest' : 'longest',
+    volOn: !!(document.getElementById('clashTolBoxVol') as HTMLInputElement | null)?.checked,
+    volM3: parseFloat((document.getElementById('clashTolBoxVolVal') as HTMLInputElement | null)?.value || '0') || 0,
+  };
 
   for (let i = 0; i < maxCheck; i++) {
     const { a, b, penetration } = candidates[i];
 
-    const meshTest = meshIntersectionTest(a, b, appState.loadedModels[0]!, appState.loadedModels[1]!);
+    const meshTest = meshIntersectionTest(a, b, vertsMapA, vertsMapB);
     const isHard = meshTest.isHard;
 
     // Apply clash type filter
     if (clashTypeFilter === 'hard' && !isHard) continue;
     if (clashTypeFilter === 'clearance' && isHard) continue;
 
-    if (isHard || penetration > tolerance) {
+    // Acceptance:
+    //  • hard clash → geometry actually intersects
+    //  • clearance   → real gap between boxes is within the minimum distance
+    //    (bboxGap, not penetration which is 0 for separated boxes — the old
+    //    `penetration > tolerance` test silently dropped every near-miss).
+    const gap = isHard ? 0 : bboxGap(a, b);
+    const accept = isHard || gap <= tolerance;
+    if (accept) {
       const entA = clashPropertyCacheA[a.eid] || {};
       const entB = clashPropertyCacheB[b.eid] || {};
       const typeA = entA.type || '';
@@ -658,11 +854,20 @@ window.runClashDetection = async function(): Promise<void> {
 
       if (skipTypes.has(typeA) || skipTypes.has(typeB)) continue;
 
+      if (isHard && (boxFilterCfg.sizeOn || boxFilterCfg.volOn)) {
+        const ox = Math.max(0, Math.min(a.mxX, b.mxX) - Math.max(a.mnX, b.mnX));
+        const oy = Math.max(0, Math.min(a.mxY, b.mxY) - Math.max(a.mnY, b.mnY));
+        const oz = Math.max(0, Math.min(a.mxZ, b.mxZ) - Math.max(a.mnZ, b.mnZ));
+        if (!passesBoxFilter(ox, oy, oz, boxFilterCfg)) continue;
+      }
+
       appState.clashResults.push({
         idx: appState.clashResults.length,
         elA: { eid: a.eid, name: entA.name || '', type: typeA, objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: a },
-        elB: { eid: b.eid, name: entB.name || '', type: typeB, objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: 1, bbox: b },
-        penetration, isHard,
+        elB: { eid: b.eid, name: entB.name || '', type: typeB, objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: b },
+        // For clearances the displayed distance is the gap; for hard clashes it's
+        // the penetration depth. `gap` kept separately for reporting.
+        penetration: isHard ? penetration : gap, gap, isHard,
         verticesAinB: meshTest.verticesAinB,
         verticesBinA: meshTest.verticesBinA,
         point: {
@@ -680,7 +885,67 @@ window.runClashDetection = async function(): Promise<void> {
     }
   }
 
-  (window as any).log(`Clash detection complete: ${appState.clashResults.length} clashes found`);
+  // If we hit the candidate cap, some pairs were never mesh-tested — make that
+  // explicit instead of letting the user believe the run was exhaustive.
+  if (capped) {
+    _clashCapNote = `⚠️ Chỉ kiểm tra ${maxCheck.toLocaleString()} / ${candidates.length.toLocaleString()} cặp gần nhau nhất (giới hạn để tránh treo). Thu hẹp Source/Target set để quét đầy đủ.`;
+    log(`Clash: candidate cap hit — checked ${maxCheck} of ${candidates.length} bbox candidates (deepest first). Narrow the sets for a complete run.`);
+  } else {
+    _clashCapNote = '';
+  }
+
+  // ── Duplicate detection — identical geometry (same hash + type) between
+  // Source and Target. Bypasses the bbox/mesh-intersection pipeline above
+  // entirely: duplicates are exact-position matches by definition, so there's
+  // nothing to sample-test. Skipped in single-model mode — there every
+  // element trivially "duplicates" its own position, which is meaningless.
+  if (cDuplicate && !singleModelChk) {
+    lt.textContent = 'Checking for duplicates...'; lf.style.width = '95%';
+    await new Promise(r => setTimeout(r, 20));
+    const hashesA = computeGeometryHashes(0);
+    const hashesB = computeGeometryHashes(targetModelIdx);
+    const hashedA: Record<number, HashedElement> = {};
+    for (const eid of sourceEids) if (hashesA[eid]) hashedA[eid] = { hash: hashesA[eid].hash, type: clashPropertyCacheA[eid]?.type || '' };
+    const hashedB: Record<number, HashedElement> = {};
+    for (const eid of targetEids) if (hashesB[eid]) hashedB[eid] = { hash: hashesB[eid].hash, type: clashPropertyCacheB[eid]?.type || '' };
+
+    const dupPairs = findDuplicatePairs(hashedA, hashedB, false);
+    for (const { eidA, eidB } of dupPairs) {
+      const entA = clashPropertyCacheA[eidA] || {};
+      const entB = clashPropertyCacheB[eidB] || {};
+      const c = hashesA[eidA].center;
+      appState.clashResults.push({
+        idx: appState.clashResults.length,
+        elA: { eid: eidA, name: entA.name || '', type: entA.type || '', objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: null },
+        elB: { eid: eidB, name: entB.name || '', type: entB.type || '', objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: null },
+        penetration: 0, gap: 0, isHard: true, isDuplicate: true,
+        verticesAinB: 0, verticesBinA: 0,
+        point: { x: c.x, y: c.y, z: c.z },
+      });
+    }
+    if (dupPairs.length) log(`Duplicate detection: ${dupPairs.length} pair(s) with identical geometry`);
+  }
+
+  // Names were skipped in buildFilteredSet() for categories with no property
+  // filter (see comment there) to avoid awaiting getItemProperties for every
+  // candidate element. Backfill them now, but only for the actual result set
+  // — typically orders of magnitude smaller than "every element checked".
+  for (const cl of appState.clashResults) {
+    if (!cl.elA.name) {
+      try {
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[0] as any).modelID, cl.elA.eid, false);
+        if (p?.Name?.value) cl.elA.name = p.Name.value;
+      } catch (e) {}
+    }
+    if (!cl.elB.name) {
+      try {
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[targetModelIdx] as any).modelID, cl.elB.eid, false);
+        if (p?.Name?.value) cl.elB.name = p.Name.value;
+      } catch (e) {}
+    }
+  }
+
+  log(`Clash detection complete: ${appState.clashResults.length} clashes found`);
   lt.textContent = `Done! ${appState.clashResults.length} clashes`; lf.style.width = '100%';
   await new Promise(r => setTimeout(r, 300));
   lo.classList.remove('on');
@@ -766,15 +1031,27 @@ function showClashResults(): void {
 
   appState.scene.add(clashGroup);
   clashSubsets.push(clashGroup);
-  (window as any).log('Created ' + appState.clashResults.length + ' clash zone markers');
+  log('Created ' + appState.clashResults.length + ' clash zone markers');
 
   // Stats
   const hard = appState.clashResults.filter((c: any) => c.isHard).length;
   const near = appState.clashResults.length - hard;
+  const dup = appState.clashResults.filter((c: any) => c.isDuplicate).length;
   document.getElementById('clashStats')!.style.display = '';
   document.getElementById('clashTotal')!.textContent = String(appState.clashResults.length);
   document.getElementById('clashHard')!.textContent = String(hard);
   document.getElementById('clashNear')!.textContent = String(near);
+  const dupEl = document.getElementById('clashDup');
+  if (dupEl) dupEl.textContent = String(dup);
+
+  // Snapshot theo thời gian (plan 2.4, giống Validate): lưu + so với lần chạy trước.
+  try {
+    const stats = { total: appState.clashResults.length, hard, near };
+    const { delta } = recordSnapshot('clash', stats);
+    const d = delta.find(x => x.key === 'total');
+    if (d && d.delta !== 0) log(`Clash snapshot đã lưu — total ${d.prev}→${d.curr} (${d.delta > 0 ? '+' : ''}${d.delta} so với lần trước).`);
+    else log('Clash snapshot đã lưu.');
+  } catch (e: any) { log('Clash snapshot err:', e?.message); }
 
   // Render clash cards
   let html = '';
@@ -782,16 +1059,17 @@ function showClashResults(): void {
     const penMM = (cl.penetration * 1000).toFixed(0);
     html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
       <div class="cc-hdr">
-        <span class="cc-num">#${i + 1} ${cl.isHard ? '⛔' : '⚠️'}</span>
+        <span class="cc-num">#${i + 1} ${clashBadge(cl)}</span>
         <span class="cc-dist">${penMM}mm</span>
       </div>
-      <div class="cc-el">A: ${cl.elA.name || '#' + cl.elA.eid}</div>
-      <div class="cc-type">${(cl.elA.type || '').replace('Ifc', '')}</div>
-      <div class="cc-el" style="margin-top:2px">B: ${cl.elB.name || '#' + cl.elB.eid}</div>
-      <div class="cc-type">${(cl.elB.type || '').replace('Ifc', '')}</div>
+      <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
+      <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
+      <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
+      <div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>
     </div>`;
   });
   if (!html) html = '<div style="padding:20px;text-align:center;color:var(--green);font-size:14px;font-weight:600">✓ No clashes detected!</div>';
+  if (_clashCapNote) html = `<div style="margin:6px 8px;padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;font-size:11.5px;color:var(--text-dim);line-height:1.4">${escapeHtml(_clashCapNote)}</div>` + html;
   document.getElementById('clashList')!.innerHTML = html;
 }
 
@@ -806,11 +1084,11 @@ window.regroupClashes = function(): void {
     appState.clashResults.forEach((cl: any, i: number) => {
       const penMM = (cl.penetration * 1000).toFixed(0);
       html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
-        <div class="cc-hdr"><span class="cc-num">#${i + 1} ${cl.isHard ? '⛔' : '⚠️'}</span><span class="cc-dist">${penMM}mm</span></div>
-        <div class="cc-el">A: ${cl.elA.name || '#' + cl.elA.eid}</div>
-        <div class="cc-type">${(cl.elA.type || '').replace('Ifc', '')}</div>
-        <div class="cc-el" style="margin-top:2px">B: ${cl.elB.name || '#' + cl.elB.eid}</div>
-        <div class="cc-type">${(cl.elB.type || '').replace('Ifc', '')}</div>
+        <div class="cc-hdr"><span class="cc-num">#${i + 1} ${clashBadge(cl)}</span><span class="cc-dist">${penMM}mm</span></div>
+        <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
+        <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
+        <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
+        <div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>
       </div>`;
     });
     list.innerHTML = html;
@@ -840,16 +1118,16 @@ window.regroupClashes = function(): void {
     const gid = 'cg_' + key.replace(/\W/g, '_');
     html += `<div class="clash-group-hdr" onclick="toggleClashGroup('${gid}')">
       <span class="cg-arr" id="arr_${gid}">▼</span>
-      <span>${key.replace('Ifc', '')}</span>
+      <span>${escapeHtml(key.replace('Ifc', ''))}</span>
       <span class="cg-count">${items.length}</span>
     </div>
     <div class="clash-group-body" id="body_${gid}">`;
     items.forEach(({ cl, origIdx }) => {
       const penMM = (cl.penetration * 1000).toFixed(0);
       html += `<div class="clash-card" id="clash-${origIdx}" onclick="focusClash(${origIdx})">
-        <div class="cc-hdr"><span class="cc-num">#${origIdx + 1} ${cl.isHard ? '⛔' : '⚠️'}</span><span class="cc-dist">${penMM}mm</span></div>
-        <div class="cc-el">A: ${cl.elA.name || '#' + cl.elA.eid}</div>
-        <div class="cc-el" style="margin-top:1px">B: ${cl.elB.name || '#' + cl.elB.eid}</div>
+        <div class="cc-hdr"><span class="cc-num">#${origIdx + 1} ${clashBadge(cl)}</span><span class="cc-dist">${penMM}mm</span></div>
+        <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
+        <div class="cc-el" style="margin-top:1px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
       </div>`;
     });
     html += `</div>`;
@@ -938,7 +1216,11 @@ window.focusClash = function(idx: number): void {
 
   const b = appState.modelBounds;
   const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
-  const toSl = (val: number, mn: number, range: number) => Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100)));
+  // A perfectly flat model (all vertices share one X/Y/Z, e.g. a single-storey
+  // 2D-ish plan) makes range 0 on that axis — (val-mn)/0 is NaN, which used to
+  // get written straight into the slider's value attribute. Fall back to the
+  // middle of the range (50%) when there's nothing to divide by.
+  const toSl = (val: number, mn: number, range: number) => range > 0 ? Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100))) : 50;
 
   (document.getElementById('slXp') as HTMLInputElement).value = String(toSl(mxX, b.min.x, sx));
   (document.getElementById('slXn') as HTMLInputElement).value = String(toSl(mnX, b.min.x, sx));
@@ -961,39 +1243,50 @@ window.focusClash = function(idx: number): void {
     <span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:var(--red)">CLASH #${idx + 1} — ${cl.isHard ? 'HARD CLASH' : 'CLEARANCE'}</span>
   </div>
   <div class="ps"><div class="ps-t">Clash Info</div>
-    <div class="pr"><div class="pk">Penetration</div><div class="pv" style="color:var(--red);font-weight:700">${penMM} mm</div></div>
-    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.isHard ? 'Hard (geometry intersects)' : 'Clearance (bbox overlap)'}</div></div>
+    <div class="pr"><div class="pk">${cl.isHard ? 'Penetration' : 'Gap'}</div><div class="pv" style="color:${cl.isHard ? 'var(--red)' : 'var(--amber)'};font-weight:700">${penMM} mm</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.isHard ? 'Hard (geometry intersects)' : 'Clearance (within min distance)'}</div></div>
   </div>
   <div class="ps"><div class="ps-t"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ef4444;margin-right:4px"></span>Element A — Source</div>
-    <div class="pr"><div class="pk">Name</div><div class="pv">${cl.elA.name || '—'}</div></div>
-    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.elA.type || '—'}</div></div>
-    <div class="pr"><div class="pk">Tag</div><div class="pv">${cl.elA.tag || '—'}</div></div>
+    <div class="pr"><div class="pk">Name</div><div class="pv">${escapeHtml(cl.elA.name) || '—'}</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${escapeHtml(cl.elA.type) || '—'}</div></div>
+    <div class="pr"><div class="pk">Tag</div><div class="pv">${escapeHtml(cl.elA.tag) || '—'}</div></div>
     <div class="pr"><div class="pk">ExpressID</div><div class="pv">${cl.elA.eid}</div></div>
   </div>
   <div class="ps"><div class="ps-t"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3b82f6;margin-right:4px"></span>Element B — Target</div>
-    <div class="pr"><div class="pk">Name</div><div class="pv">${cl.elB.name || '—'}</div></div>
-    <div class="pr"><div class="pk">Type</div><div class="pv">${cl.elB.type || '—'}</div></div>
-    <div class="pr"><div class="pk">Tag</div><div class="pv">${cl.elB.tag || '—'}</div></div>
+    <div class="pr"><div class="pk">Name</div><div class="pv">${escapeHtml(cl.elB.name) || '—'}</div></div>
+    <div class="pr"><div class="pk">Type</div><div class="pv">${escapeHtml(cl.elB.type) || '—'}</div></div>
+    <div class="pr"><div class="pk">Tag</div><div class="pv">${escapeHtml(cl.elB.tag) || '—'}</div></div>
     <div class="pr"><div class="pk">ExpressID</div><div class="pv">${cl.elB.eid}</div></div>
   </div>`;
   document.getElementById('propArea')!.innerHTML = h;
 
-  (window as any).log(`Focused clash #${idx + 1}: ${cl.elA.name} vs ${cl.elB.name} (${penMM}mm)`);
+  log(`Focused clash #${idx + 1}: ${cl.elA.name} vs ${cl.elB.name} (${penMM}mm)`);
 };
 
 window.exportClashCSV = function(): void {
   if (!appState.clashResults.length) return;
   let csv = '#,Type,Penetration_mm,ElementA_Name,ElementA_Type,ElementA_ID,ElementB_Name,ElementB_Type,ElementB_ID,X,Y,Z\n';
   appState.clashResults.forEach((cl: any, i: number) => {
-    csv += `${i + 1},${cl.isHard ? 'Hard' : 'Clearance'},${(cl.penetration * 1000).toFixed(1)},"${cl.elA.name}",${cl.elA.type},${cl.elA.eid},"${cl.elB.name}",${cl.elB.type},${cl.elB.eid},${cl.point.x.toFixed(3)},${cl.point.y.toFixed(3)},${cl.point.z.toFixed(3)}\n`;
+    // Every text field is quoted + formula-injection-guarded via escapeCsv so a
+    // malicious IFC name (commas, quotes, a leading =/+/-/@) can't corrupt rows
+    // or execute in a spreadsheet.
+    csv += [
+      i + 1, clashTypeLabel(cl), (cl.penetration * 1000).toFixed(1),
+      escapeCsv(cl.elA.name), escapeCsv(cl.elA.type), cl.elA.eid,
+      escapeCsv(cl.elB.name), escapeCsv(cl.elB.type), cl.elB.eid,
+      cl.point.x.toFixed(3), cl.point.y.toFixed(3), cl.point.z.toFixed(3)
+    ].join(',') + '\n';
   });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'ifc-clash-report.csv'; a.click();
-  (window as any).log('Clash CSV exported: ' + appState.clashResults.length + ' clashes');
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.href = url; a.download = 'ifc-clash-report.csv'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  log('Clash CSV exported: ' + appState.clashResults.length + ' clashes');
 };
 
 // ══ Clash BCF Export ══
 window.exportClashBCF = async function(): Promise<void> {
-  if (!appState.clashResults.length) { (window as any).log('No clashes to export'); return; }
+  if (!appState.clashResults.length) { log('No clashes to export'); return; }
   if (!(window as any).JSZip) {
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
@@ -1002,7 +1295,7 @@ window.exportClashBCF = async function(): Promise<void> {
   }
 
   (window as any).setStatus('loading', 'Exporting Clash BCF...');
-  (window as any).log('Exporting BCF for ' + appState.clashResults.length + ' clashes...');
+  log('Exporting BCF for ' + appState.clashResults.length + ' clashes...');
   const zip = new (window as any).JSZip();
   const now = new Date().toISOString();
   const pid = crypto.randomUUID();
@@ -1019,7 +1312,7 @@ window.exportClashBCF = async function(): Promise<void> {
     const tx = x - mdlPos.x, ty = y - mdlPos.y, tz = z - mdlPos.z;
     return { x: tx, y: tz, z: -ty };
   };
-  (window as any).log('Clash BCF model offset (three-space): (' + mdlPos.x.toFixed(2) + ', ' + mdlPos.y.toFixed(2) + ', ' + mdlPos.z.toFixed(2) + ')');
+  log('Clash BCF model offset (three-space): (' + mdlPos.x.toFixed(2) + ', ' + mdlPos.y.toFixed(2) + ', ' + mdlPos.z.toFixed(2) + ')');
 
   // Save camera + section box + previous focus state before mutating the scene
   // for snapshot rendering. focusClash() modifies all of these; we restore at end.
@@ -1036,7 +1329,7 @@ window.exportClashBCF = async function(): Promise<void> {
   };
 
   zip.file('bcf.version', '<?xml version="1.0" encoding="UTF-8"?>\n<Version VersionId="2.1" xsi:noNamespaceSchemaLocation="version.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><DetailedVersion>2.1</DetailedVersion></Version>');
-  zip.file('project.bcfp', '<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Project ProjectId="' + pid + '"><n>IFC Delta Clash Detection</n></Project></ProjectExtension>');
+  zip.file('project.bcfp', '<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Project ProjectId="' + pid + '"><Name>IFC Delta Clash Detection</Name></Project></ProjectExtension>');
 
   for (let i = 0; i < appState.clashResults.length; i++) {
     const cl = appState.clashResults[i];
@@ -1108,7 +1401,7 @@ window.exportClashBCF = async function(): Promise<void> {
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r as FrameRequestCallback)));
       appState.renderer.render(appState.scene, appState.camera);
       try { snap64 = appState.renderer.domElement.toDataURL('image/png').split(',')[1]; } catch (e) {}
-    } catch (e: any) { (window as any).log('Clash snapshot err #' + (i + 1) + ':', e?.message); }
+    } catch (e: any) { log('Clash snapshot err #' + (i + 1) + ':', e?.message); }
 
     // ── BCF camera in IFC coords ──
     // Position the BCF perspective camera at the same 3/4 angle that
@@ -1151,7 +1444,7 @@ window.exportClashBCF = async function(): Promise<void> {
       '</ClippingPlanes>';
 
     const penMM = (cl.penetration * 1000).toFixed(1);
-    const title = 'Clash #' + (i + 1) + ' ' + (cl.isHard ? 'HARD' : 'CLEARANCE') + ' (' + penMM + 'mm) — ' + (cl.elA.name || cl.elA.type) + ' vs ' + (cl.elB.name || cl.elB.type);
+    const title = 'Clash #' + (i + 1) + ' ' + clashTypeLabel(cl).toUpperCase() + ' (' + penMM + 'mm) — ' + (cl.elA.name || cl.elA.type) + ' vs ' + (cl.elB.name || cl.elB.type);
     const desc = 'Penetration: ' + penMM + 'mm | Source: ' + (cl.elA.name || '#' + cl.elA.eid) + ' (' + cl.elA.type + ') | Target: ' + (cl.elB.name || '#' + cl.elB.eid) + ' (' + cl.elB.type + ')';
 
     // Build schema-valid <Component> XML (same structure as compare BCF)
@@ -1186,7 +1479,7 @@ window.exportClashBCF = async function(): Promise<void> {
       '<CreationDate>' + now + '</CreationDate><CreationAuthor>IFC Delta</CreationAuthor>' +
       '<ModifiedDate>' + now + '</ModifiedDate>' +
       '<Priority>' + (cl.isHard ? 'Critical' : 'Normal') + '</Priority>' +
-      '<Labels><Label>Clash Detection</Label><Label>' + (cl.isHard ? 'Hard Clash' : 'Clearance') + '</Label></Labels>' +
+      '<Labels><Label>Clash Detection</Label><Label>' + (cl.isDuplicate ? 'Duplicate' : (cl.isHard ? 'Hard Clash' : 'Clearance')) + '</Label></Labels>' +
       '</Topic>\n' +
       '<Comment Guid="' + crypto.randomUUID() + '"><Date>' + now + '</Date><Author>IFC Delta</Author><Comment>' + (window as any).escXml(desc) + '</Comment><Viewpoint Guid="' + vid + '"/></Comment>\n' +
       '<Viewpoints Guid="' + vid + '"><Viewpoint>viewpoint.bcfv</Viewpoint><Snapshot>snapshot.png</Snapshot></Viewpoints>\n' +
@@ -1258,7 +1551,8 @@ window.exportClashBCF = async function(): Promise<void> {
   appState.renderer.render(appState.scene, appState.camera);
 
   const blob = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ifc-delta-clashes.bcf'; a.click();
+  const a = document.createElement('a'); const bcfUrl = URL.createObjectURL(blob); a.href = bcfUrl; a.download = 'ifc-delta-clashes.bcf'; a.click();
+  setTimeout(() => URL.revokeObjectURL(bcfUrl), 1000);
   (window as any).setStatus('done', 'BCF exported'); setTimeout(() => (window as any).setStatus('', ''), 3000);
-  (window as any).log('Clash BCF exported: ' + appState.clashResults.length + ' issues');
+  log('Clash BCF exported: ' + appState.clashResults.length + ' issues');
 };

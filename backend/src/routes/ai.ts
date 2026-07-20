@@ -1,6 +1,93 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 
 export const aiRouter = Router();
+
+/* ═══════════════════════════════════════════════════════════════════════
+   XÁC THỰC + GIỚI HẠN TẦN SUẤT (Firebase ID token, không cần service account)
+   ───────────────────────────────────────────────────────────────────────
+   Web API key của Firebase vốn công khai theo thiết kế (đã lộ trong bundle
+   frontend — xem frontend/src/lib/auth.ts), nên ta dùng endpoint REST
+   "accounts:lookup" để xác thực ID token gửi từ client mà KHÔNG cần
+   Admin SDK / service-account secret. Mỗi request tới /chat phải kèm
+   header `Authorization: Bearer <Firebase ID token>`.
+═══════════════════════════════════════════════════════════════════════ */
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyCrqJiIxlahcHZuwa7xS7KMX8Z5c6Ky3Oo';
+
+async function verifyFirebaseToken(idToken: string): Promise<{ uid: string; email?: string } | null> {
+  try {
+    const resp = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      }
+    );
+    if (!resp.ok) return null;
+    const data: any = await resp.json();
+    const user = data?.users?.[0];
+    if (!user?.localId) return null;
+    // Chỉ chấp nhận tài khoản đã xác minh email — khớp gate ở frontend (auth.ts).
+    if (!user.emailVerified) return null;
+    return { uid: user.localId, email: user.email };
+  } catch (err) {
+    console.error('[ai] Firebase token verification failed:', err);
+    return null;
+  }
+}
+
+function requireAuth() {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const header = req.headers.authorization || '';
+    const idToken = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (!idToken) {
+      return res.status(401).json({ error: 'Thiếu Authorization: Bearer <Firebase ID token>.' });
+    }
+    const user = await verifyFirebaseToken(idToken);
+    if (!user) {
+      return res.status(401).json({ error: 'Token không hợp lệ hoặc đã hết hạn.' });
+    }
+    (req as any).uid = user.uid;
+    (req as any).userEmail = user.email;
+    next();
+  };
+}
+
+// ── Giới hạn tần suất theo uid (in-memory, đủ dùng cho team ~20 người trên
+//    1 instance backend; sliding-window đơn giản, reset theo cửa sổ cố định) ──
+const RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 20);
+const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000); // 10 phút
+
+const rateBuckets = new Map<string, { count: number; windowStart: number }>();
+
+function rateLimitByUid() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const uid = (req as any).uid as string;
+    const now = Date.now();
+    const bucket = rateBuckets.get(uid);
+    if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      rateBuckets.set(uid, { count: 1, windowStart: now });
+      return next();
+    }
+    if (bucket.count >= RATE_LIMIT_MAX) {
+      const retryAfterSec = Math.ceil((bucket.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000);
+      res.setHeader('Retry-After', String(retryAfterSec));
+      return res.status(429).json({
+        error: `Vượt giới hạn ${RATE_LIMIT_MAX} yêu cầu AI / ${RATE_LIMIT_WINDOW_MS / 60000} phút. Thử lại sau ${retryAfterSec}s.`,
+      });
+    }
+    bucket.count++;
+    next();
+  };
+}
+
+// Dọn bucket cũ định kỳ để tránh Map phình to vô hạn (an toàn dù team nhỏ).
+setInterval(() => {
+  const now = Date.now();
+  for (const [uid, bucket] of rateBuckets) {
+    if (now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) rateBuckets.delete(uid);
+  }
+}, 15 * 60 * 1000).unref();
 
 /* ═══════════════════════════════════════════════════════════════════════
    AI PROXY ĐA NHÀ CUNG CẤP (multi-provider)
@@ -263,19 +350,34 @@ async function callGoogle(cfg: ProviderConfig, apiKey: string, body: AIChatReque
 
 /* ───────────────────────────── ROUTES ──────────────────────────── */
 // POST /api/ai/chat — proxy tới provider được chọn, giữ API key ở server.
-aiRouter.post('/chat', async (req: Request, res: Response) => {
+// Yêu cầu Firebase ID token hợp lệ (đã xác minh email) + giới hạn tần suất theo uid.
+aiRouter.post('/chat', requireAuth(), rateLimitByUid(), async (req: Request, res: Response) => {
   const body: AIChatRequest = req.body;
   const providerId = (body.provider || 'anthropic').toLowerCase();
   const cfg = PROVIDERS[providerId];
+  const uid = (req as any).uid as string;
+  const userEmail = (req as any).userEmail as string | undefined;
+  // Audit trail: ai chỉ ghi metadata (uid/provider/model/kết quả), KHÔNG ghi
+  // nội dung câu hỏi/trả lời — không có DB nên ghi ra log của hosting
+  // (Vercel/Firebase đều giữ log stdout, đủ để tra cứu chi phí/lạm dụng).
+  function audit(status: number, extra: Record<string, unknown> = {}) {
+    console.log(JSON.stringify({
+      audit: 'ai_chat', uid, email: userEmail, provider: providerId,
+      model: body.model || cfg?.defaultModel, status, ts: new Date().toISOString(), ...extra,
+    }));
+  }
 
   if (!cfg) {
+    audit(400, { reason: 'unsupported_provider' });
     return res.status(400).json({ error: `Provider không hỗ trợ: ${providerId}. Hỗ trợ: ${Object.keys(PROVIDERS).join(', ')}` });
   }
   const apiKey = cfg.apiKey();
   if (!apiKey) {
+    audit(503, { reason: 'provider_not_configured' });
     return res.status(503).json({ error: `AI provider "${providerId}" chưa cấu hình. Đặt biến môi trường ${cfg.envKey}.` });
   }
   if (!body.messages || !Array.isArray(body.messages)) {
+    audit(400, { reason: 'missing_messages' });
     return res.status(400).json({ error: 'messages array is required' });
   }
 
@@ -286,11 +388,14 @@ aiRouter.post('/chat', async (req: Request, res: Response) => {
 
     if (!result.ok) {
       console.error(`[ai] ${providerId} API error:`, result.status, result.error);
+      audit(result.status, { reason: 'provider_error' });
       return res.status(result.status).json({ error: result.error });
     }
+    audit(200, { usage: result.data?.usage });
     return res.json(result.data);
   } catch (err) {
     console.error(`[ai] Proxy error (${providerId}):`, err);
+    audit(500, { reason: 'exception' });
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

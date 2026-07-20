@@ -1,8 +1,23 @@
 // ══════════════════════════════════════════════════════════════════════
 // ── 2D Plan Overlay (Option A: top-down ortho mini-renderer) ─────────
 // ══════════════════════════════════════════════════════════════════════
+import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { planBasis, worldToUV, uvToWorld, rotatedExtent } from './plan-geometry.js';
+import { FED_LABELS } from '../../lib/constants.js';
+import { storeyWorldY } from '../../lib/storeys.js';
+
+// PlanStorey.elevation/topElev are raw IFC values (used for display labels
+// like "+3.00m"); any comparison against world-space Y (camera position,
+// raycast hits, clip planes) must go through this — the scene is shifted by
+// -sharedCenterOffset, so world Y = elevation - offset.y. This was
+// previously done inconsistently here (Field Mode's fieldSelectStorey in
+// fieldmode.ts always applied it; this module never did), which put the
+// storey slab in the wrong place whenever the offset was non-zero.
+function worldElev(elevation: number): number {
+  return storeyWorldY(elevation, appState.sharedCenterOffset?.y || 0);
+}
 
 interface PlanStorey {
   name: string;
@@ -19,6 +34,8 @@ interface PlanView {
   follow: boolean;
   storeyClip: any[];
   dirty: boolean;
+  /** True-north rotation (radians) — 0 when no model provides trueNorthAngle. */
+  tnAngle: number;
 }
 
 interface PlanDragState {
@@ -36,8 +53,37 @@ let planView: PlanView | null = null;
 let planStoreys: PlanStorey[] = [];
 let planDragState: PlanDragState | null = null;
 
-declare const THREE: any;
-declare const FED_LABELS: string[];
+// ── True-north rotation ──────────────────────────────────────────────
+// The whole plan is aligned to True North (not just an indicator arrow):
+// the orthographic camera's `up` is rotated by tnAngle and re-applied via
+// lookAt(), and every world↔pixel conversion below uses the SAME rotated
+// basis (planBasis/worldToUV/uvToWorld/rotatedExtent, unit-tested in
+// ./plan-geometry.test.ts) — so the render, the camera-heading marker, the
+// section rect, and click-to-pick/click-to-jump all agree pixel-for-pixel.
+// At tnAngle=0 (no IfcMapConversion / trueNorthAngle on any loaded model)
+// this basis reduces EXACTLY to the previous axis-aligned math, so models
+// without geo-referencing render identically to before.
+function computeTrueNorthAngle(): number {
+  for (let i = 0; i < appState.loadedModels.length; i++) {
+    const m: any = appState.loadedModels[i];
+    if (m?.spatial?.trueNorthAngle) return m.spatial.trueNorthAngle;
+  }
+  return 0;
+}
+
+// World (x,z) → normalized screen fraction (u,v ∈ 0..1, v=0 at camera.top).
+function planWorldToUV(wx: number, wz: number): [number, number] {
+  const cam = planView!.camera;
+  return worldToUV(wx, wz, { x: cam.position.x, z: cam.position.z },
+    { left: cam.left, right: cam.right, top: cam.top, bottom: cam.bottom }, planView!.tnAngle);
+}
+
+// Normalized screen fraction (u,v) → world (x,z) — inverse of planWorldToUV.
+function planUVToWorld(u: number, v: number): [number, number] {
+  const cam = planView!.camera;
+  return uvToWorld(u, v, { x: cam.position.x, z: cam.position.z },
+    { left: cam.left, right: cam.right, top: cam.top, bottom: cam.bottom }, planView!.tnAngle);
+}
 
 // Forward declarations to satisfy TypeScript's linear scoping
 declare function planSelectStorey(idx: number | string): void;
@@ -62,6 +108,7 @@ window.togglePlanOverlay = function(): void {
 };
 
 function rebuildPlanStoreyList(): void {
+  if (planView) planView.tnAngle = computeTrueNorthAngle();
   planStoreys = [];
   const multiModel = appState.loadedModels.filter((m: any) => m?.spatial?.storeys?.length).length > 1;
   for (let mi = 0; mi < appState.loadedModels.length; mi++) {
@@ -104,11 +151,16 @@ function rebuildPlanStoreyList(): void {
     const camY = appState.camera.position.y;
     let bestI = 0, bestD = Infinity;
     planStoreys.forEach((s, i) => {
-      const d = Math.abs((s.elevation + s.topElev) / 2 - camY);
+      const d = Math.abs((worldElev(s.elevation) + worldElev(s.topElev)) / 2 - camY);
       if (d < bestD) { bestD = d; bestI = i; }
     });
     sel.value = String(bestI);
     planSelectStorey(bestI);
+  } else if (planView) {
+    // A storey was already selected — re-apply planFit() so a tnAngle that
+    // changed (e.g. federation model added/removed) is picked up immediately
+    // instead of staying stale until the next manual storey/resize action.
+    planFit();
   }
 }
 
@@ -138,7 +190,8 @@ function initPlanView(): void {
     storey: null,
     follow: false,
     storeyClip,
-    dirty: true
+    dirty: true,
+    tnAngle: 0
   };
 
   setupPlanInteraction();
@@ -151,8 +204,8 @@ window.planSelectStorey = function(idxStr: number | string): void {
   if (idx < 0 || idx >= planStoreys.length) return;
   planView.storey = idx;
   const s = planStoreys[idx];
-  planView.storeyClip[0].constant = -(s.elevation - 0.1);
-  planView.storeyClip[1].constant = (s.topElev + 0.1);
+  planView.storeyClip[0].constant = -(worldElev(s.elevation) - 0.1);
+  planView.storeyClip[1].constant = (worldElev(s.topElev) + 0.1);
   (document.getElementById('planInfoStorey') as HTMLElement).textContent =
     s.name + ' [' + s.elevation.toFixed(2) + ' → ' + s.topElev.toFixed(2) + 'm]';
   planFit();
@@ -165,8 +218,14 @@ window.planFit = function(): void {
   if (!b || !b.min || !b.max) return;
   const cx = (b.min.x + b.max.x) / 2;
   const cz = (b.min.z + b.max.z) / 2;
-  const sx = (b.max.x - b.min.x);
-  const sz = (b.max.z - b.min.z);
+
+  // Extent of the model's axis-aligned bbox AS SEEN from the (possibly
+  // true-north-rotated) plan camera. At tnAngle=0 this reduces exactly to the
+  // plain (sx, sz) axis-aligned extent used before — so unrotated plans are
+  // framed identically to before this change.
+  const { sx, sz } = rotatedExtent(
+    { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z }, planView.tnAngle);
+
   const w = planView.canvas.clientWidth || 320;
   const h = planView.canvas.clientHeight || 240;
   const canvasAspect = w / h;
@@ -182,6 +241,11 @@ window.planFit = function(): void {
   const cam = planView.camera;
   cam.left = -halfW; cam.right = halfW;
   cam.top = halfH; cam.bottom = -halfH;
+  // Set `up` BEFORE lookAt() — THREE only bakes `up` into the camera's actual
+  // rotation when lookAt() runs, so this is what makes the true-north
+  // rotation actually visible in the render (not just in the overlay math).
+  const bas = planBasis(planView.tnAngle);
+  cam.up.set(bas.ux, 0, bas.uz);
   cam.position.set(cx, b.max.y + 100, cz);
   cam.lookAt(cx, 0, cz);
   cam.updateProjectionMatrix();
@@ -254,11 +318,11 @@ function drawPlanCameraMarker(): void {
     svg.setAttribute('viewBox', `0 0 ${cw} ${ch}`);
   }
 
+  // Same rotated basis the render + planFit() use (planWorldToUV) — every
+  // overlay element below (camera fan, section rect, scale bar) is placed
+  // through this one function, so they always agree with what's rendered.
   const worldToPx = (wx: number, wz: number): [number, number] => {
-    const relX = wx - pcam.position.x;
-    const relZup = pcam.position.z - wz;
-    const u = (relX - pcam.left) / fw;
-    const v = 1 - (relZup - pcam.bottom) / fh;
+    const [u, v] = planWorldToUV(wx, wz);
     return [u * cw, v * ch];
   };
 
@@ -305,7 +369,7 @@ function drawPlanCameraMarker(): void {
   let onStorey = true;
   if (storey) {
     const camY = appState.camera.position.y;
-    onStorey = (camY >= storey.elevation - 0.5) && (camY <= storey.topElev + 0.5);
+    onStorey = (camY >= worldElev(storey.elevation) - 0.5) && (camY <= worldElev(storey.topElev) + 0.5);
   }
   const fanFill   = onStorey ? 'rgba(37,99,235,0.18)' : 'rgba(120,120,120,0.10)';
   const fanStroke = onStorey ? '#2563eb' : '#9ca3af';
@@ -335,21 +399,14 @@ function drawPlanCameraMarker(): void {
       fill="rgba(245,158,11,0.07)" stroke="#f59e0b" stroke-width="1.4" stroke-dasharray="6 3"/>`;
   }
 
-  let tnAngle = 0;
-  for (let i = 0; i < appState.loadedModels.length; i++) {
-    if (appState.loadedModels[i]?.spatial?.trueNorthAngle) {
-      tnAngle = appState.loadedModels[i].spatial.trueNorthAngle;
-      break;
-    }
-  }
-  if (planView && planView.camera) {
-    planView.camera.up.set(-Math.sin(tnAngle), 0, -Math.cos(tnAngle));
-    planView.camera.updateProjectionMatrix();
-  }
-  const tnDeg = tnAngle * 180 / Math.PI;
+  // The plan itself is now rotated to True North (camera.up + lookAt in
+  // planFit()), so "up on screen" IS True North by construction — the arrow
+  // stays fixed pointing up as a "this view is True-North-aligned" indicator,
+  // instead of rotating to point at it (that was the old, purely-cosmetic
+  // behavior from when the render itself never actually rotated).
   const NORTH_X = cw - 22, NORTH_Y = 22;
   const northArrow = `
-    <g transform="translate(${NORTH_X},${NORTH_Y}) rotate(${(-tnDeg).toFixed(1)})">
+    <g transform="translate(${NORTH_X},${NORTH_Y})">
       <circle cx="0" cy="0" r="14" fill="white" opacity="0.9" stroke="#374151" stroke-width="0.8"/>
       <polygon points="0,-9 -4,7 0,4 4,7" fill="#dc2626" stroke="white" stroke-width="0.5"/>
       <text x="0" y="-2" text-anchor="middle" font-family="Inter" font-size="9" font-weight="700" fill="#dc2626" stroke="white" stroke-width="2.5" paint-order="stroke">N</text>
@@ -431,6 +488,7 @@ function setupPlanInteraction(): void {
     panel.style.right = 'auto';
   });
   hdr.addEventListener('pointerup', () => { planDragState = null; });
+  hdr.addEventListener('pointercancel', () => { planDragState = null; });
 
   resize.addEventListener('pointerdown', (e: PointerEvent) => {
     e.stopPropagation();
@@ -451,6 +509,28 @@ function setupPlanInteraction(): void {
     if (planView) planFit();
   });
   resize.addEventListener('pointerup', () => { planDragState = null; });
+  resize.addEventListener('pointercancel', () => { planDragState = null; });
+
+  // Mouse-wheel zoom — the desktop counterpart of Field Mode's pinch-zoom on
+  // the same view (fieldmode.ts's touch handler for the mobile Plan 2D).
+  // There was previously no way to zoom this panel at all besides the Fit
+  // button (which re-frames to the whole model, not incremental zoom).
+  // Same clamp bounds as the mobile pinch-zoom, centered on the current view.
+  wrap.addEventListener('wheel', (e: WheelEvent) => {
+    if (!planView || planView.storey === null) return;
+    e.preventDefault();
+    const cam = planView.camera;
+    const scale = e.deltaY > 0 ? 1.1 : 1 / 1.1;
+    const cx = (cam.left + cam.right) / 2;
+    const cy = (cam.top + cam.bottom) / 2;
+    const hw = (cam.right - cam.left) / 2 * scale;
+    const hh = (cam.top - cam.bottom) / 2 * scale;
+    if (hw < 0.5 || hw > 5000) return;
+    cam.left = cx - hw; cam.right = cx + hw;
+    cam.top = cy + hh; cam.bottom = cy - hh;
+    cam.updateProjectionMatrix();
+    planView.dirty = true;
+  }, { passive: false });
 
   wrap.addEventListener('click', (e: MouseEvent) => {
     if (!planView || planDragState) return;
@@ -459,12 +539,10 @@ function setupPlanInteraction(): void {
     const u = (e.clientX - rect.left) / rect.width;
     const v = (e.clientY - rect.top)  / rect.height;
     const pcam = planView.camera;
-    const fw = pcam.right - pcam.left;
-    const fh = pcam.top - pcam.bottom;
-    const relX   = u * fw + pcam.left;
-    const relZup = (1 - v) * fh + pcam.bottom;
-    const wx = pcam.position.x + relX;
-    const wz = pcam.position.z - relZup;
+    // Same rotated basis as the render (planFit sets camera.up/lookAt from
+    // planView.tnAngle) — this stays correct whether or not the plan is
+    // aligned to True North.
+    const [wx, wz] = planUVToWorld(u, v);
 
     if (e.shiftKey) {
       const ray = new THREE.Raycaster();
@@ -479,7 +557,7 @@ function setupPlanInteraction(): void {
       });
       const hits = ray.intersectObjects(ms, false);
       const s = planStoreys[planView.storey as number];
-      const yLo = s.elevation - 0.5, yHi = s.topElev + 0.5;
+      const yLo = worldElev(s.elevation) - 0.5, yHi = worldElev(s.topElev) + 0.5;
       const validHit = hits.find((h: any) => {
         if (h.point.y < yLo || h.point.y > yHi) return false;
         if (appState.sectionActive && appState.clipPlanes.length === 6) {
@@ -493,7 +571,7 @@ function setupPlanInteraction(): void {
         log('Plan shift-click: no element on this storey at that point');
         return;
       }
-      const hit = validHit;
+      const hit = validHit as any;
       const eid = hit.object?.geometry?.attributes?.expressID?.array?.[hit.faceIndex * 3];
       if (eid == null) {
         log('Plan shift-click: hit has no expressID');

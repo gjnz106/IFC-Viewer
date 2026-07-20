@@ -9,6 +9,8 @@ import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log, ifcClassToRevitCategory } from '../core/ifc-category.js';
 import { IFC_NAMES } from '../../lib/constants.js';
+import { parseMaterialLayers, type MaterialLayerSet } from './material-layers.js';
+import { formatLengthMm, formatAreaM2, formatVolumeM3, getUnitPref } from '../../lib/units.js';
 
 function renderPropertiesAccordion(elementHeader: string, groups: any[]): void {
   const esc=(s: any)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -68,7 +70,36 @@ window.propAccordionToggleAll=function(expand: boolean){
   });
 };
 
+// ── Right-panel tabs: Properties / SG Check ──
+// The SG panel is embedded directly in this tab now (class .sg-in-panel —
+// v5 shell), so there's no separate "empty" placeholder to manage: sgSetPanel()
+// (validator-export.ts) already toggles #sgPanel's `.show` class off the
+// router's page state — this just picks which of the two tabs is visible.
+window.rpSelect = function(tab: 'props' | 'sg'){
+  document.getElementById('rpTabProps')?.classList.toggle('on', tab==='props');
+  document.getElementById('rpTabSG')?.classList.toggle('on', tab==='sg');
+  const propArea=document.getElementById('propArea') as HTMLElement|null;
+  const sgPanel=document.getElementById('sgPanel') as HTMLElement|null;
+  if(propArea) propArea.style.display = tab==='props' ? '' : 'none';
+  // Force-hide the SG panel whenever Properties is the selected tab, even if
+  // appState.sgState.open is still true (e.g. switching tabs without leaving
+  // the validate page) — otherwise both panels would render stacked at once.
+  // On the SG tab, clear the inline override so the page-driven `.show` class
+  // (sgSetPanel) decides visibility normally.
+  if(sgPanel) sgPanel.style.display = tab==='sg' ? '' : 'none';
+  if(tab==='sg'){
+    // Entering the SG tab means entering the validate page — go through the
+    // router so the hash and persisted page stay in sync.
+    if(!appState.sgState.open) window.navigateTo?.('validate');
+  }
+};
+
 async function showProps(props: any, modelIdx: number): Promise<void> {
+  // Reveal the right panel if it's collapsed so the properties table is visible
+  // when an element is picked (it defaults to display:none).
+  const rp = document.getElementById('rightPanel');
+  if (rp && getComputedStyle(rp).display === 'none') rp.style.display = 'flex';
+  (window as any).rpSelect?.('props');
   const mid=(appState.loadedModels[modelIdx] as any)?.modelID;
   const eid=props.expressID;
   const mgr=appState.ifcLoader?.ifcManager;
@@ -102,24 +133,22 @@ async function showProps(props: any, modelIdx: number): Promise<void> {
   };
   const spatial = (appState.loadedModels[modelIdx] as any)?.spatial || null;
 
-  // Format a number with unit. Length values get thousands-separator + mm
-  // suffix (e.g. "1,619 mm"). Area/volume show 2 decimals + unit.
+  // Format a number with unit. `units.*Factor` converts the raw IFC-internal
+  // value to mm/m²/m³ (per-model, from readProjectUnits) — the global
+  // display pref (mm/m/ft-in, Settings modal) only controls how that
+  // already-normalized value is *shown*, layered on top via lib/units.ts.
+  const pref = getUnitPref();
   const fmtLength=(raw: any): string=>{
     if(typeof raw!=='number'||isNaN(raw))return '';
-    const mm = raw * units.lengthFactor;
-    // Round to 0 decimals for mm (engineering convention)
-    const rounded = Math.round(mm);
-    return rounded.toLocaleString('en-US') + ' ' + units.lengthUnit;
+    return formatLengthMm(raw * units.lengthFactor, pref);
   };
   const fmtArea=(raw: any): string=>{
     if(typeof raw!=='number'||isNaN(raw))return '';
-    const m2 = raw * units.areaFactor;
-    return m2.toFixed(2) + ' ' + units.areaUnit;
+    return formatAreaM2(raw * units.areaFactor, pref);
   };
   const fmtVolume=(raw: any): string=>{
     if(typeof raw!=='number'||isNaN(raw))return '';
-    const m3 = raw * units.volumeFactor;
-    return m3.toFixed(3) + ' ' + units.volumeUnit;
+    return formatVolumeM3(raw * units.volumeFactor, pref);
   };
 
   // Pretty-print a property value of any IfcProperty* subtype.
@@ -231,10 +260,12 @@ async function showProps(props: any, modelIdx: number): Promise<void> {
 
   // ── Material (HasAssociations → IfcRelAssociatesMaterial) ──
   let materialLabel='';
+  let materialLayers: MaterialLayerSet|null=null;
   try{
     if(mgr.getMaterialsProperties){
       const mats=await (mgr as any).getMaterialsProperties(mid, eid, true, true);
       if(Array.isArray(mats)&&mats.length>0){
+        materialLayers=parseMaterialLayers(mats);
         const names: string[]=[];
         const walk=(m: any)=>{
           if(!m)return;
@@ -351,6 +382,15 @@ async function showProps(props: any, modelIdx: number): Promise<void> {
     if(gY!==null)addRow('Global Y', fmtLength(gY));
     if(gZ!==null)addRow('Global Z', fmtLength(gZ));
     if(botY!==null)addRow('Elevation', fmtLength(botY));
+  }
+
+  // ── Material Layers (IfcMaterialLayerSet) — từng lớp + độ dày ──
+  if(materialLayers && materialLayers.layers.length){
+    beginGroup('Material Layers'+(materialLayers.setName?' — '+materialLayers.setName:''));
+    materialLayers.layers.forEach((l,i)=>
+      addRow(`${i+1}. ${l.name}`, l.thickness!=null?fmtLength(l.thickness):'—'));
+    if(materialLayers.totalThickness!=null)
+      addRow('Total thickness', fmtLength(materialLayers.totalThickness));
   }
 
   // ── All Property Sets (instance + type, merged by web-ifc) ──

@@ -135,6 +135,7 @@ export function rebuildModelSubset(mi: number): void {
     if((s as any).userData?.srcModelIdx===mi){if(s.parent)s.parent.remove(s);return false}
     return true;
   });
+  (window as any).visSubsets=visSubsets; // mirrored (.filter() makes a NEW array — must re-mirror; later .push() then stays in sync): compare.ts/measure.ts read this to hide/show colorize subsets when toggling model A/B visibility
 
   // Hide base model
   appState.loadedModels[mi]!.visible=false;
@@ -192,6 +193,23 @@ function getAllExpressIDsForModel(mi: number): number[] {
   return[...ids];
 }
 
+// Accessors for Saved Viewpoints (components/tools/viewpoints.ts) — the
+// hidden/isolated sets are module-private everywhere else, so capture and
+// restore go through these rather than duplicating the hide/isolate logic.
+export function getVisibilityState(): { hiddenKeys: string[]; isolated: number[] | null } {
+  return { hiddenKeys: [...hiddenExpressIDs], isolated: isolatedIDs ? [...isolatedIDs] : null };
+}
+
+export function applyVisibilityState(state: { hiddenKeys: string[]; isolated: number[] | null }): void {
+  hiddenExpressIDs = new Set(state.hiddenKeys || []);
+  isolatedIDs = state.isolated ? new Set(state.isolated) : null;
+  for (let i = 0; i < 2; i++) {
+    if (appState.loadedModels[i]) rebuildModelSubset(i);
+  }
+  const btn = document.getElementById('btnShowAll');
+  if (btn) (btn as HTMLElement).style.display = (hiddenExpressIDs.size > 0 || isolatedIDs) ? '' : 'none';
+}
+
 export function showAllHidden(): void {
   
   hiddenExpressIDs.clear();
@@ -200,6 +218,7 @@ export function showAllHidden(): void {
 
   visSubsets.forEach(s=>{if(s.parent)s.parent.remove(s)});
   visSubsets=[];
+  (window as any).visSubsets=visSubsets;
 
   const visA=(document.getElementById('visA') as HTMLInputElement|null)?.checked??true;
   const visB=(document.getElementById('visB') as HTMLInputElement|null)?.checked??true;
@@ -305,3 +324,8 @@ export function initSectionDrag(): void {
 
 // Re-export colorizeFadeBase and colorizeDisposeSubsets for modules that import from color-schemes
 export { colorizeFadeBase, colorizeDisposeSubsets };
+
+// ── Expose cross-module callers on window ──
+// window.getElementBBox (zoom-to/measure), window.isolateExpressID /
+// window.hideExpressID (context menu) are called from other modules.
+Object.assign(window as any, { getElementBBox, hideExpressID, isolateExpressID });

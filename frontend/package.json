@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-wasm.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/copy-wasm.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build:standalone": "vite build --config vite.config.standalone.ts"
   },
   "dependencies": {
     "firebase": "^10.14.1",
@@ -21,6 +25,8 @@
     "@types/three": "^0.160.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
-    "vite-plugin-top-level-await": "^1.4.1"
+    "vite-plugin-singlefile": "^2.3.3",
+    "vite-plugin-top-level-await": "^1.4.1",
+    "vitest": "^4.1.9"
   }
 }

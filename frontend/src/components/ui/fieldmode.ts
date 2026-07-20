@@ -50,24 +50,37 @@ function fieldResizeViewport(){
   appState.camera!.updateProjectionMatrix();
 }
 
-window.fieldEnterMode = function(){
+// Enter/exit are the primitives the router reconciles the 'field' page
+// against. All UI entry points (header Field button, the in-field Desktop
+// button, the touch-device hint below) go through navigateTo instead of
+// calling these directly, so hash/sidebar/persisted page can't drift.
+export function enterFieldMode(){
+  if(fieldActive) return;
   fieldActive = true;
+  window.fieldActive = true; // mirrored: viewer-core's pick handler reads this to switch to tap-only (no properties/highlight) behavior
   document.body.classList.add('field-mode');
   fieldResizeViewport();
   fieldToast('Field Mode — tap elements to inspect');
   // Setup long-press for context menu on touch devices
   fieldSetupLongPress();
   log('Field mode activated');
-};
+}
 
-window.fieldExitMode = function(){
+export function exitFieldMode(){
+  if(!fieldActive) return;
   fieldActive = false;
+  window.fieldActive = false;
   document.body.classList.remove('field-mode');
   (window as any).fieldCloseSheet();
   document.getElementById('fieldStoreys')!.classList.remove('show');
   fieldResizeViewport();
   log('Field mode deactivated');
-};
+}
+
+export function isFieldActive(){ return fieldActive; }
+
+window.fieldEnterMode = enterFieldMode;
+window.fieldExitMode = exitFieldMode;
 
 // ── Field toast notification ──
 function fieldToast(msg: string, duration = 2500){
@@ -330,9 +343,17 @@ window.fieldSelectStorey = function(idx: number, elevation: number){
 };
 
 // ── Long-press for context menu (touch devices) ──
+// Called from enterFieldMode() every time Field Mode is entered (router.ts
+// re-enters it on every hash navigation into the field page). exitFieldMode()
+// never tears these down, and the canvas is a single long-lived DOM element,
+// so without this guard each re-entry stacked another full set of touch
+// listeners — long-press/double-tap firing N times after N toggles.
+let _longPressReady = false;
 function fieldSetupLongPress(){
+  if(_longPressReady) return;
   const canvas = appState.renderer?.domElement;
   if(!canvas) return;
+  _longPressReady = true;
   let lpTimer: ReturnType<typeof setTimeout> | null = null;
   let lpPos = {x:0, y:0};
   let lpMoved = false;
@@ -548,8 +569,19 @@ window.fieldClosePlan2D = function(){
   document.getElementById('fieldPlan2D')!.classList.remove('show');
   document.getElementById('fieldBtnPlan2D')!.classList.remove('on');
   if(_fp2dAnimId){ cancelAnimationFrame(_fp2dAnimId); _fp2dAnimId = null; }
-  // Remove storey clip planes
+  // Restore the standard 6 fully-open clip planes (±X/±Y/±Z at 99999) instead
+  // of leaving the array empty. section-visibility.ts's sliders and other
+  // callers hold `clippingPlanes: appState.clipPlanes` and index it at
+  // [0..5] directly — Plan 2D's storey view only ever pushes 2 planes onto
+  // this same shared array (fieldPlan2DSelectStorey), so truncating to 0 on
+  // close used to break the main app's section box until a full page reload.
   appState.clipPlanes.length = 0;
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(-1,0,0), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(1,0,0), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,-1,0), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,1,0), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,0,-1), 99999));
+  appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,0,1), 99999));
 };
 
 function fieldPlan2DResize(){
@@ -777,7 +809,7 @@ if('ontouchstart' in window && window.innerWidth <= 1200){
       _fieldHinted = true;
       setTimeout(()=>{
         if(!fieldActive && confirm('Touch device detected. Switch to Field Mode for easier on-site viewing?')){
-          (window as any).fieldEnterMode();
+          window.navigateTo?.('field');
         }
       }, 1500);
     }
@@ -789,3 +821,6 @@ if('ontouchstart' in window && window.innerWidth <= 1200){
 }
 
 export { fieldToast, fieldBuildStoreys, walkTouchInit };
+
+// ── Expose on window for cross-module caller (walk mode touch init) ──
+Object.assign(window as any, { walkTouchInit });

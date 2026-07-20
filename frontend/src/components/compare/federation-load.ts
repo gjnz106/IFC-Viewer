@@ -9,6 +9,9 @@ import {
 } from 'web-ifc';
 import { appState } from '../../store/index.js';
 import { FED_COLORS, IFC_NAMES } from '../../lib/constants.js';
+import { runCompare as computeDiff } from './compare.js';
+import { log } from '../core/ifc-category.js';
+import { disposeModel } from '../core/viewer-core.js';
 
 // ══ Federation file management (slots 2+) ══════════════════════════
 let _fedPendingSlot = -1;
@@ -38,6 +41,7 @@ window.fedHandleFile = function(ev: Event){
 window.fedRemoveSlot = function(idx: number){
   if(idx < 2) return;
   if(appState.loadedModels[idx]){
+    disposeModel(appState.loadedModels[idx]);
     appState.scene.remove(appState.loadedModels[idx]!);
     appState.loadedModels[idx] = null;
   }
@@ -86,13 +90,18 @@ export function fedRenderSlots(): void {
     const size = appState.files[i] ? (appState.files[i]!.size/1048576).toFixed(1)+'MB' : '';
     const statusText = loaded ? '✓ Loaded' : '⏳ Loading...';
     const statusCls = loaded ? 'color:var(--green)' : 'color:var(--amber)';
+    // Reflect the model's actual current visibility (set by fedToggleVis),
+    // not just "loaded" — re-rendering this list (e.g. when another
+    // federation file finishes loading) used to always mark the checkbox
+    // checked, silently re-showing a model the user had just hidden.
+    const isVisible = loaded && appState.loadedModels[i]!.visible !== false;
     html += `<div class="fed-slot ${loaded?'loaded':''}">
       <div class="fed-slot-color" style="background:${color}"></div>
       <div class="fed-slot-info">
         <div class="fed-slot-name" title="${(window as any).escapeHtml(fname)}">${(window as any).escapeHtml(fname)}</div>
         <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}</div>
       </div>
-      <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${loaded?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">
+      <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${isVisible?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">
       <button class="fed-slot-rm" onclick="fedRemoveSlot(${i})" title="Remove this file">✕</button>
     </div>`;
   }
@@ -103,6 +112,84 @@ export function fedRenderSlots(): void {
 export function getLoadedModelCount(): number {
   return appState.loadedModels.filter(m=>!!m).length;
 }
+
+// ══ Unload everything (used by project switching) ══════════════════
+// There was previously no "clear the whole workspace" path — fedRemoveSlot
+// only ever handled federation slots (≥2), and loadIFC only replaces the
+// single slot it's given. Switching projects needs a full teardown so the
+// next project starts from a pristine state.
+export function unloadAllModels(): void {
+  if (appState.walkActive) (window as any).toggleWalkMode?.();
+
+  // Clear overlays that read appState.loadedModels to restore visibility —
+  // must run before the models themselves are disposed below.
+  (window as any).clearMeasure?.();
+  window.clearHighlight?.();
+  if (appState.colorize.active) (window as any).colorizeClear?.();
+  (window as any).showAllHidden?.();
+
+  // Sweep diff subsets (exitCompare already ran via the router's navigateTo,
+  // but this is idempotent and cheap to call defensively).
+  disposeDiffSubsets();
+
+  // Dispose + remove every model slot. Mutate the arrays in place (not
+  // reassign) — other modules read appState.loadedModels/.files by property
+  // lookup each time, but this keeps the same array identity just in case.
+  for (let i = 0; i < appState.loadedModels.length; i++) {
+    const m = appState.loadedModels[i];
+    if (m) {
+      disposeModel(m);
+      appState.scene.remove(m);
+      if (window._colorizeInvalidate) window._colorizeInvalidate(i);
+    }
+  }
+  appState.loadedModels.length = 0;
+  appState.loadedModels.push(null, null);
+  appState.files.length = 0;
+  appState.files.push(null, null);
+
+  appState.fedNextSlot = 2;
+  appState.sharedCenterOffset = null;
+  appState.modelBounds.min.set(0, 0, 0);
+  appState.modelBounds.max.set(0, 0, 0);
+  appState.compareResult = null;
+  appState.clashResults = [];
+  appState.sgState.cachedCtx = null;
+  appState.sgState.cachedCtxKey = null;
+  appState.aiIndex = null;
+  appState.aiIndexKey = null;
+  appState.activeCategories = new Set();
+  (window as any)._catData = {};
+  (window as any)._catModelIDs = {};
+
+  if (appState.sectionActive) {
+    window.toggleSectionBox?.();
+  } else {
+    appState.clipPlanes.forEach(p => { p.constant = 99999; });
+  }
+
+  for (const idx of [0, 1]) {
+    document.getElementById('uc' + idx)?.classList.remove('loaded');
+    const fn = document.getElementById('fn' + idx); if (fn) fn.textContent = '';
+    const fs = document.getElementById('fs' + idx); if (fs) fs.textContent = '';
+    const us = document.getElementById('us' + idx);
+    if (us) { us.className = 'uc-badge-loaded'; us.textContent = 'Loading…'; }
+    const visRow = document.getElementById('visRow' + idx) as HTMLElement | null;
+    if (visRow) visRow.style.display = 'none';
+  }
+  fedRenderSlots();
+
+  const emptyVP = document.getElementById('emptyVP') as HTMLElement | null;
+  if (emptyVP) emptyVP.style.display = 'flex';
+  const btnCompare = document.getElementById('btnCompare') as HTMLButtonElement | null;
+  if (btnCompare) btnCompare.disabled = true;
+  const panelBtn = document.getElementById('btnRunComparePanel') as HTMLButtonElement | null;
+  if (panelBtn) { panelBtn.disabled = true; panelBtn.style.opacity = '.35'; }
+  const propArea = document.getElementById('propArea');
+  if (propArea) propArea.innerHTML = '<div class="prop-empty">Click element in 3D to inspect</div>';
+  if (window.requestPlanRebuild) window.requestPlanRebuild();
+}
+window.unloadAllModels = unloadAllModels;
 
 // Helper: iterate all loaded models with callback(model, index)
 export function forEachModel(fn: (model: THREE.Group, index: number) => void): void {
@@ -146,23 +233,37 @@ window.runCompare=async function(){
       for(const[gid,e]of Object.entries(pB)){
         if(appState.activeCategories.has((e as any).type))filteredB[gid]=e;
       }
-      (window as any).log('Category filter applied: A='+Object.keys(filteredA).length+'/'+Object.keys(pA).length+', B='+Object.keys(filteredB).length+'/'+Object.keys(pB).length);
+      log('Category filter applied: A='+Object.keys(filteredA).length+'/'+Object.keys(pA).length+', B='+Object.keys(filteredB).length+'/'+Object.keys(pB).length);
     }
 
     lt.textContent='Comparing...';(lf as HTMLElement).style.width='70%';await new Promise(r=>setTimeout(r,50));
-    appState.compareResult=(window as any).doCompare(filteredA,filteredB);
+    appState.compareResult=computeDiff(filteredA,filteredB);
     lt.textContent=`Done! ${(appState.compareResult as any).added.length+(appState.compareResult as any).removed.length+(appState.compareResult as any).modified.length} changes`;(lf as HTMLElement).style.width='100%';
     await new Promise(r=>setTimeout(r,300));
 
     // ── Color-coded subsets per entity status ──
     await applyDiffColors();
     (window as any).showResultsUI();
-  }catch(e: any){(window as any).log('Compare err:',e.message);lt.textContent='Error: '+e.message}
+  }catch(e: any){log('Compare err:',e.message);lt.textContent='Error: '+e.message}
   lo.classList.remove('on');
 };
 
+// createSubset() keys each subset by (modelID, material.uuid, customID) — since
+// applyDiffColors() builds a fresh material every run, re-running Compare never
+// reuses the previous subsetID, so the old 'added'/'removed'/'modified-*'/
+// 'unchanged-*' meshes are orphaned rather than replaced. Sweep them out (and
+// dispose their geometry/material) before creating the new set.
+function disposeDiffSubsets(): void {
+  const stale = appState.scene.children.filter((c: any) => c.userData?.diffSubset);
+  stale.forEach((sub: any) => {
+    appState.scene.remove(sub);
+    disposeModel(sub);
+  });
+}
+
 async function applyDiffColors(): Promise<void> {
   const r=appState.compareResult as any;
+  disposeDiffSubsets();
 
   // Backup original materials before modifying
   [0,1].forEach(i=>{if(appState.loadedModels[i])appState.loadedModels[i]!.traverse(c=>{if((c as any).isMesh){
@@ -188,7 +289,7 @@ async function applyDiffColors(): Promise<void> {
   const unchangedIDsA=r.unchanged.map((e: any)=>e.a.expressID);
   const unchangedIDsB=r.unchanged.map((e: any)=>e.b.expressID);
 
-  (window as any).log('Creating subsets: added='+addedIDs.length+', removed='+removedIDs.length+', modified='+modifiedIDsA.length+', unchanged='+unchangedIDsA.length);
+  log('Creating subsets: added='+addedIDs.length+', removed='+removedIDs.length+', modified='+modifiedIDsA.length+', unchanged='+unchangedIDsA.length);
 
   // Helper to create subset and position it
   const makeSub=(modelIdx: number,ids: number[],mat: any,name: string)=>{
@@ -209,12 +310,12 @@ async function applyDiffColors(): Promise<void> {
         sub.userData.srcModelIdx=modelIdx;
         // Propagate srcModelIdx to ALL child meshes for picking
         sub.traverse(ch=>{if((ch as any).isMesh){ch.userData.srcModelIdx=modelIdx;ch.userData.diffSubset=name}});
-        (window as any).log('Subset '+name+': created with '+ids.length+' elements for model '+modelIdx);
+        log('Subset '+name+': created with '+ids.length+' elements for model '+modelIdx);
       }else{
-        (window as any).log('Subset '+name+': createSubset returned null');
+        log('Subset '+name+': createSubset returned null');
       }
       return sub;
-    }catch(e: any){(window as any).log('Subset error ('+name+'):',e.message);return null}
+    }catch(e: any){log('Subset error ('+name+'):',e.message);return null}
   };
 
   // Added: only in model B (green solid)
@@ -345,8 +446,8 @@ async function getAllProps(modelID: number): Promise<Record<string, any>> {
     }catch(e){}
   }
 
-  (window as any).log(`getAllProps method1 (by type): found ${found} entities`);
-  (window as any).log('  Types: '+Object.entries(typeCounts).map(([t,c])=>t+'='+c).join(', '));
+  log(`getAllProps method1 (by type): found ${found} entities`);
+  log('  Types: '+Object.entries(typeCounts).map(([t,c])=>t+'='+c).join(', '));
 
   // METHOD 2: Always scan ALL lines to catch entities with types not in PRODUCT_TYPES
   // This ensures we never miss elements due to unknown IFC type codes
@@ -393,72 +494,17 @@ async function getAllProps(modelID: number): Promise<Record<string, any>> {
         }
       }catch(e){}
     }
-    if(extra>0)(window as any).log(`getAllProps method2 (full scan): found ${extra} additional entities (types not in predefined list)`);
-  }catch(e: any){(window as any).log('getAllProps method2 error:',e.message)}
+    if(extra>0)log(`getAllProps method2 (full scan): found ${extra} additional entities (types not in predefined list)`);
+  }catch(e: any){log('getAllProps method2 error:',e.message)}
 
   return props;
 }
 
-// ══ Geometry Hash — detect shape/position changes per element ══
-export function computeGeometryHashes(modelIdx: number): Record<number, any> {
-  const hashes: Record<number, any>={};
-  const model=appState.loadedModels[modelIdx];
-  if(!model)return hashes;
+// computeGeometryHashes() used to be duplicated here — moved to
+// lib/geometry-hash.ts (imported by compare.ts, the only caller) so both
+// halves of Compare share one implementation instead of two that could drift.
 
-  model.traverse(c=>{
-    if(!(c as any).isMesh||!(c as any).geometry?.attributes?.expressID||!(c as any).geometry?.attributes?.position)return;
-    const eidArr=(c as any).geometry.attributes.expressID.array;
-    const posArr=(c as any).geometry.attributes.position.array;
-
-    // Group vertices by expressID
-    const eidVerts: Record<number, any>={};
-    for(let i=0;i<eidArr.length;i++){
-      const eid=eidArr[i];
-      if(!eid||eid<=0)continue;
-      if(!eidVerts[eid])eidVerts[eid]={verts:[],count:0,mnX:Infinity,mnY:Infinity,mnZ:Infinity,mxX:-Infinity,mxY:-Infinity,mxZ:-Infinity};
-      const ev=eidVerts[eid];
-      const pi=i*3;
-      if(pi+2>=posArr.length)continue;
-      const x=posArr[pi],y=posArr[pi+1],z=posArr[pi+2];
-      if(isNaN(x))continue;
-      ev.count++;
-      // Track bounding box
-      if(x<ev.mnX)ev.mnX=x;if(x>ev.mxX)ev.mxX=x;
-      if(y<ev.mnY)ev.mnY=y;if(y>ev.mxY)ev.mxY=y;
-      if(z<ev.mnZ)ev.mnZ=z;if(z>ev.mxZ)ev.mxZ=z;
-      // Sample some vertices for hash (not all — too slow for large models)
-      if(ev.verts.length<50) ev.verts.push(Math.round(x*100),Math.round(y*100),Math.round(z*100));
-    }
-
-    // Build hash per expressID
-    for(const[eid,ev]of Object.entries(eidVerts)){
-      const sx=((ev as any).mxX-(ev as any).mnX).toFixed(2);
-      const sy=((ev as any).mxY-(ev as any).mnY).toFixed(2);
-      const sz=((ev as any).mxZ-(ev as any).mnZ).toFixed(2);
-      const cx=(((ev as any).mnX+(ev as any).mxX)/2).toFixed(2);
-      const cy=(((ev as any).mnY+(ev as any).mxY)/2).toFixed(2);
-      const cz=(((ev as any).mnZ+(ev as any).mxZ)/2).toFixed(2);
-
-      // Hash combines: vertex count + sampled vertex positions + bbox
-      const hashStr=(ev as any).verts.join(',')+`|${(ev as any).count}|${sx},${sy},${sz}`;
-      let hash=0;
-      for(let i=0;i<hashStr.length;i++){hash=((hash<<5)-hash)+hashStr.charCodeAt(i);hash|=0}
-
-      hashes[parseInt(eid)]={
-        vertCount:(ev as any).count,
-        hash:hash,
-        bboxStr:`${sx}×${sy}×${sz} @(${cx},${cy},${cz})`,
-        size:{x:parseFloat(sx),y:parseFloat(sy),z:parseFloat(sz)},
-        center:{x:parseFloat(cx),y:parseFloat(cy),z:parseFloat(cz)}
-      };
-    }
-  });
-
-  return hashes;
-}
-
-export function doCompare(a: Record<string, any>, b: Record<string, any>): any {
-  const added: any[]=[],removed: any[]=[],modified: any[]=[],unchanged: any[]=[];
-
-  // NOTE: doCompare() body continues in a later source file (08-federation-load.js ends here)
-}
+// ── Expose cross-module callers on window ──
+// window.getAllProps (AI index), window.findModelIdx (pick), window.fedRenderSlots
+// (federation UI) are called from other modules.
+Object.assign(window as any, { fedRenderSlots, findModelIdx, getAllProps });

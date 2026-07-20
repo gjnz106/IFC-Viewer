@@ -117,17 +117,39 @@ const IFC_TO_REVIT_CAT: Record<string, string> = {
   'IfcProject':'(Project)',
 };
 
+// Case-insensitive index of IFC_TO_REVIT_CAT, built once. Numeric lookups
+// sometimes hand back an ALL-CAPS class name (e.g. 'IFCWALLSTANDARDCASE');
+// reconstructing its PascalCase form by only capitalizing the first letter
+// (the old approach) produces 'Ifcwallstandardcase', which can never match a
+// multi-word key like 'IfcWallStandardCase' — there's no way to recover word
+// boundaries from an all-caps string. Comparing lowercase-to-lowercase sidesteps
+// that entirely.
+const IFC_TO_REVIT_CAT_LOWER: Record<string, string> = {};
+for (const k in IFC_TO_REVIT_CAT) IFC_TO_REVIT_CAT_LOWER[k.toLowerCase()] = IFC_TO_REVIT_CAT[k];
+
 // Resolve a raw IFC class name (e.g. 'IfcDoor') into the Revit Category
 // equivalent ('Doors'). Returns the input if no mapping exists, and strips
 // unknown 'IFC_' numeric prefixes that slipped through. Pure function.
 export function ifcClassToRevitCategory(cls: string): string {
   if(!cls)return cls||'Unknown';
-  // Normalize: sometimes we get an ALL-CAPS IFCDOOR from numeric lookups
-  // — try title-case variant too
-  return IFC_TO_REVIT_CAT[cls] || IFC_TO_REVIT_CAT[cls.charAt(0)+cls.slice(1).toLowerCase()] || cls;
+  return IFC_TO_REVIT_CAT[cls] || IFC_TO_REVIT_CAT_LOWER[cls.toLowerCase()] || cls;
 }
 
 export function log(...a: any[]): void { console.log('[IFC]',...a) }
+
+// Free GPU buffers for a model/mesh subtree before dropping the last JS
+// reference to it. Three.js meshes hold onto geometry/material even after
+// scene.remove() — the driver only reclaims them on an explicit dispose(),
+// so skipping this leaks VRAM every time a model is replaced or unloaded.
+export function disposeModel(root: any): void {
+  if (!root) return;
+  root.traverse((c: any) => {
+    if (!c.isMesh) return;
+    c.geometry?.dispose?.();
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    mats.forEach((m: any) => m?.dispose?.());
+  });
+}
 
 // ══ Three.js ══
 export function initThree(): void {
@@ -147,10 +169,17 @@ export function initThree(): void {
   appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,0,-1), 99999));
   appState.clipPlanes.push(new THREE.Plane(new THREE.Vector3(0,0,1), 99999));
 
-  appState.camera = new THREE.PerspectiveCamera(50,c.clientWidth/c.clientHeight,0.01,100000);
+  // near=0.05 (not 0.01): a 0.01→100000 range is a 10^7 depth ratio that
+  // destroys depth-buffer precision → z-fighting where building faces flicker
+  // and drop out while orbiting. logarithmicDepthBuffer (below) restores
+  // precision across the whole range; the modest near bump adds headroom.
+  appState.camera = new THREE.PerspectiveCamera(50,c.clientWidth/c.clientHeight,0.05,100000);
   appState.camera.position.set(30,25,30);
 
-  appState.renderer = new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:true});
+  // logarithmicDepthBuffer: BIM scenes span cm-scale detail to km-scale sites,
+  // so a linear depth buffer z-fights badly (faces disappear on rotate). The
+  // log buffer spreads precision evenly across near..far and fixes that.
+  appState.renderer = new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:true,logarithmicDepthBuffer:true});
   appState.renderer.setSize(c.clientWidth,c.clientHeight);
   appState.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
   appState.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -401,7 +430,7 @@ export function initThree(): void {
 
     // ── Measure mode: add point and return ──
     if((window as any).measureMode){
-      if((window as any).measurePoints.length>=2)(window as any).clearMeasure();
+      if((window as any).measureShouldAutoClear?.())(window as any).clearMeasure();
       (window as any).addMeasurePoint(validHit.point);
       return;
     }
@@ -436,16 +465,22 @@ export function initThree(): void {
       if(eid>0)foundEid=eid;
     }catch(e){}
 
-    // Fallback: expressID attribute (works on both base and subset geometry)
+    // Fallback: expressID attribute (works on both base and subset geometry).
+    // Check ALL THREE vertices of the hit face, not just the first: in merged
+    // compare/diff subsets a face can start on a vertex whose expressID is 0
+    // (degenerate/boundary), which made selection "sometimes not register"
+    // after running Compare. Any vertex with a valid id resolves the element.
     if(!foundEid&&(hit.object as THREE.Mesh).geometry.attributes.expressID){
       try{
         const geom = (hit.object as THREE.Mesh).geometry;
-        const idx2=geom.index
-          ? geom.index.array[hit.faceIndex!*3]
-          : hit.faceIndex!*3;
-        if(idx2 >= 0 && idx2 < geom.attributes.expressID.array.length){
-          const eid=(geom.attributes.expressID.array as any)[idx2];
-          if(eid>0)foundEid=eid;
+        const eidArr = geom.attributes.expressID.array as any;
+        const base = hit.faceIndex!*3;
+        for(let k=0;k<3;k++){
+          const vi = geom.index ? geom.index.array[base+k] : (base+k);
+          if(vi >= 0 && vi < eidArr.length){
+            const eid = eidArr[vi];
+            if(eid>0){foundEid=eid;break}
+          }
         }
       }catch(e){}
     }
@@ -524,79 +559,28 @@ export function initThree(): void {
     }catch(pe: any){log('Props err:',pe.message)}
   });
 
-  // ── Apply pending pivot when the user starts a rotate drag ──
-  // We intercept pointerdown in the CAPTURE phase (third arg = true) so this
-  // handler runs BEFORE OrbitControls' own pointerdown. That way, by the
-  // time OrbitControls captures the initial camera/target state for its
-  // rotation gesture, our pivot swap is already done — OrbitControls sees
-  // the new target and the (offset) camera, computes spherical from the
-  // post-swap offset, and rotation behaves correctly.
-  //
-  // View preservation: target moves to bb.center; camera shifts by the same
-  // delta. Since the camera-to-target offset is unchanged, the rendered
-  // frame is identical (no visible jump). From this drag onwards the orbit
-  // pivots around the picked element.
-  //
-  // Only consume the pivot on LEFT button (rotate). Right/middle (pan) keep
-  // the pivot pending until the user actually rotates.
-  appState.renderer.domElement.addEventListener('pointerdown',(e: PointerEvent)=>{
-    // Snapshot camera + target BEFORE any pivot work, so a click that turns
-    // out to be on empty space (deselect) can restore the exact view.
+  // ── Snapshot the view on every pointerdown ──
+  // Used by restoreViewSnap() when a click misses all geometry (deselect) —
+  // NOT for moving the orbit pivot (see note below).
+  appState.renderer.domElement.addEventListener('pointerdown',()=>{
     (window as any)._viewSnap={px:appState.camera.position.x,py:appState.camera.position.y,pz:appState.camera.position.z,tx:appState.controls.target.x,ty:appState.controls.target.y,tz:appState.controls.target.z};
-    // ── Stale-pivot guard ──
-    // If the user clicked an element earlier (which staged a pendingPivot),
-    // then performed a pan or middle-click drag (which moves controls.target
-    // independently), the pivot is now stale: applying it on the next rotate
-    // would shift camera by a huge accumulated delta → view jumps to fit.
-    // So: any non-left button click invalidates the pending pivot before it
-    // can do harm. The user's next click on a fresh element will set a new one.
-    if(e.button!==0){
-      window._pendingPivot=null;
-      return;
-    }
-    if(!window._pendingPivot)return;
-    const newT=window._pendingPivot;
-    const dx=newT.x-appState.controls.target.x;
-    const dy=newT.y-appState.controls.target.y;
-    const dz=newT.z-appState.controls.target.z;
-    // Skip if delta is negligible (target already at pivot — no work needed)
-    if(Math.abs(dx)<1e-6 && Math.abs(dy)<1e-6 && Math.abs(dz)<1e-6){
-      window._pendingPivot=null;
-      return;
-    }
-    // Sanity check: if the pivot is unreasonably far from the current target
-    // (more than 10× the camera-to-target distance), it's stale — discard
-    // rather than blast the camera into orbit. This catches cases where
-    // panning + wheel zoom moved the target hundreds of metres while the
-    // pivot still points at the originally clicked element.
-    const camDist=appState.camera.position.distanceTo(appState.controls.target)||1;
-    const pivotDist=Math.sqrt(dx*dx+dy*dy+dz*dz);
-    if(pivotDist > camDist*10){
-      log('Pivot rejected: stale (delta '+pivotDist.toFixed(1)+' >> camDist '+camDist.toFixed(1)+')');
-      window._pendingPivot=null;
-      return;
-    }
-    // Atomic shift: target and camera move by the same delta → camera-to-
-    // target offset is unchanged → view is pixel-identical.
-    appState.controls.target.x = newT.x;
-    appState.controls.target.y = newT.y;
-    appState.controls.target.z = newT.z;
-    appState.camera.position.x += dx;
-    appState.camera.position.y += dy;
-    appState.camera.position.z += dz;
-    // No controls.update() here — letting OrbitControls' own pointerdown
-    // (which fires next, in bubble phase) capture the new state freshly.
-    // Calling update() here can interfere with damping state.
-    window._pendingPivot=null;
-  }, true /* capture phase: run before OrbitControls' bubble-phase listener */);
+  }, true);
 
-  // Wheel zoom also invalidates pendingPivot — wheel moves both camera and
-  // target via our custom wheel handler, so the pivot's relationship to the
-  // current target is broken. Without this guard, scrolling after a click
-  // leaves the pivot stale → next rotate jumps.
-  appState.renderer.domElement.addEventListener('wheel',()=>{
-    window._pendingPivot=null;
-  }, {passive:true, capture:true});
+  // ── Why picking no longer re-centres the orbit pivot ──
+  // This used to move controls.target to the clicked element so the NEXT
+  // rotate-drag would orbit around it. Both variants tried (shift camera+target
+  // together, or target only) caused a visible snap: OrbitControls.update()
+  // runs every frame and unconditionally calls camera.lookAt(target), so the
+  // instant controls.target changed, the very next frame's lookAt() snapped
+  // the camera to face the new point — a sudden jerk right as the user pressed
+  // down to rotate (reported as "giật khi bấm vô các element, view không cố
+  // định"). There is no way to relocate an OrbitControls pivot without EITHER
+  // teleporting the camera OR snapping its orientation on the next update();
+  // the only jump-free option is to leave the pivot alone and let rotation
+  // always orbit the model's existing target — the standard, stable behavior.
+  // `_pendingPivot` is still set at pick time (above) purely to aim wheel/pinch
+  // zoom at the clicked element — that only changes zoom distance via smoothed
+  // applyZoomVelocity(), never orientation, so it has no jump/jerk risk.
 
   // ── Reusable resize hook ──
   // Called from window 'resize' event AND from the column/row drag handlers
@@ -636,7 +620,7 @@ export function initThree(): void {
       if(!dragging)return;
       // Compute new width: for left sidebar, width = clientX (distance from
       // viewport left edge). For right, width = window.innerWidth - clientX.
-      const raw = fromLeft ? e.clientX : (window.innerWidth - e.clientX);
+      const raw = fromLeft ? e.clientX - 52 : (window.innerWidth - e.clientX);
       const clamped = Math.max(minPx, Math.min(maxPx, raw));
       root.style.setProperty(varName, clamped+'px');
       window._vpResize();
@@ -725,10 +709,19 @@ export function initThree(): void {
       if(mi>=0&&appState.loadedModels[mi]){
         let eid: number|null=null;
         try{eid=appState.ifcLoader.ifcManager.getExpressId((hit.object as THREE.Mesh).geometry,hit.faceIndex!)}catch(ex){}
+        // Check ALL three vertices of the hit face, not just the first — same
+        // fix as the left-click pick path above: on merged compare/diff
+        // subsets a face can start on a vertex whose expressID is 0
+        // (degenerate/boundary), which made right-click "No element" at a
+        // spot left-click could select fine after running Compare.
         if(!eid&&(hit.object as THREE.Mesh).geometry.attributes.expressID){
           const geom = (hit.object as THREE.Mesh).geometry;
-          const idx2=geom.index?geom.index.array[hit.faceIndex!*3]:hit.faceIndex!*3;
-          eid=(geom.attributes.expressID.array as any)[idx2];
+          const eidArr=geom.attributes.expressID.array as any;
+          const base=hit.faceIndex!*3;
+          for(let k=0;k<3;k++){
+            const vi=geom.index?geom.index.array[base+k]:(base+k);
+            if(vi>=0&&vi<eidArr.length&&eidArr[vi]>0){eid=eidArr[vi];break}
+          }
         }
 
         if(eid&&eid>0){
@@ -781,14 +774,28 @@ export function initThree(): void {
   // Only the cheap handle-size rescaling runs per frame.
   (function loop(){
     requestAnimationFrame(loop);
-    // Apply any pending smooth wheel-zoom BEFORE controls.update() so that
-    // damping picks up the small camera movement each frame — gives Revit-
-    // like glide instead of a series of instant steps.
-    applyZoomVelocity();
-    appState.controls.update();
-    if((window as any).sectionBox)(window as any).updateSectionHandleSizes();
+    // In walk mode the walk loop owns the camera — running OrbitControls.update()
+    // (and wheel-zoom) here as well makes the two fight over the camera each
+    // frame, which reads as stutter. Skip them while walking.
+    if(!appState.walkActive){
+      // Apply any pending smooth wheel-zoom BEFORE controls.update() so that
+      // damping picks up the small camera movement each frame — gives Revit-
+      // like glide instead of a series of instant steps.
+      applyZoomVelocity();
+      appState.controls.update();
+    }
+    // NOTE: previously guarded by `if((window as any).sectionBox)`, but
+    // `sectionBox` (the existence flag) was never actually assigned to
+    // `window` — only the function itself was — so that guard was always
+    // false and the handles never rescaled on zoom. updateSectionHandleSizes()
+    // already no-ops safely when there's no section box, so call it directly.
+    if(typeof (window as any).updateSectionHandleSizes==='function')(window as any).updateSectionHandleSizes();
     if(typeof (window as any).updateViewCube==='function')(window as any).updateViewCube();
-    appState.renderer.render(appState.scene,appState.camera);
+    // Side-by-side compare slider (plan 3): if active it renders the scene
+    // itself (two scissored passes, A|B) and returns true → skip normal render.
+    const split=(window as any).__compareSplitRender;
+    if(!(typeof split==='function' && split()))
+      appState.renderer.render(appState.scene,appState.camera);
   })();
 }
 
