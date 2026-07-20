@@ -15,6 +15,7 @@ import {
   type IssueMap, type ReconcileSummary,
 } from '../../lib/clash-issues.js';
 import { loadRegistry, getActiveProject } from '../../lib/projects-store.js';
+import { escXml } from '../tools/focus-highlight.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
 (window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
@@ -1785,9 +1786,9 @@ window.exportClashBCF = async function(): Promise<void> {
     const tagB = cl.elB.tag || '';
     const makeComponent = (guid: string, tag: string) => {
       if (!guid && !tag) return '';
-      let x = '<Component' + (guid ? ' IfcGuid="' + (window as any).escXml(guid) + '"' : '') + '>';
+      let x = '<Component' + (guid ? ' IfcGuid="' + escXml(guid) + '"' : '') + '>';
       x += '<OriginatingSystem>Autodesk Revit</OriginatingSystem>';
-      if (tag) x += '<AuthoringToolId>' + (window as any).escXml(tag) + '</AuthoringToolId>';
+      if (tag) x += '<AuthoringToolId>' + escXml(tag) + '</AuthoringToolId>';
       x += '</Component>';
       return x;
     };
@@ -1803,18 +1804,18 @@ window.exportClashBCF = async function(): Promise<void> {
     // markup.bcf — Header with file references for BCF Reader to resolve elements
     zip.file(tid + '/markup.bcf', '<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n' +
       '<Header>' +
-      (appState.files[bcfSourceIdx] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[bcfSourceIdx]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
-      (appState.files[bcfTargetIdx] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[bcfTargetIdx]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
+      (appState.files[bcfSourceIdx] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + escXml(appState.files[bcfSourceIdx]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
+      (appState.files[bcfTargetIdx] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + escXml(appState.files[bcfTargetIdx]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
       '</Header>\n' +
       '<Topic Guid="' + tid + '" TopicType="Clash" TopicStatus="Active">' +
-      '<Title>' + (window as any).escXml(title) + '</Title>' +
-      '<Description>' + (window as any).escXml(desc) + '</Description>' +
+      '<Title>' + escXml(title) + '</Title>' +
+      '<Description>' + escXml(desc) + '</Description>' +
       '<CreationDate>' + now + '</CreationDate><CreationAuthor>IFC Delta</CreationAuthor>' +
       '<ModifiedDate>' + now + '</ModifiedDate>' +
       '<Priority>' + (cl.isHard ? 'Critical' : 'Normal') + '</Priority>' +
       '<Labels><Label>Clash Detection</Label><Label>' + (cl.isDuplicate ? 'Duplicate' : (cl.isHard ? 'Hard Clash' : 'Clearance')) + '</Label></Labels>' +
       '</Topic>\n' +
-      '<Comment Guid="' + crypto.randomUUID() + '"><Date>' + now + '</Date><Author>IFC Delta</Author><Comment>' + (window as any).escXml(desc) + '</Comment><Viewpoint Guid="' + vid + '"/></Comment>\n' +
+      '<Comment Guid="' + crypto.randomUUID() + '"><Date>' + now + '</Date><Author>IFC Delta</Author><Comment>' + escXml(desc) + '</Comment><Viewpoint Guid="' + vid + '"/></Comment>\n' +
       '<Viewpoints Guid="' + vid + '"><Viewpoint>viewpoint.bcfv</Viewpoint><Snapshot>snapshot.png</Snapshot></Viewpoints>\n' +
       '</Markup>');
 
