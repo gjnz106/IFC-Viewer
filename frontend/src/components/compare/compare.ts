@@ -247,7 +247,9 @@ window.focusSectionOnChanges = function () {
 
   // Convert world coords to slider percentages (0-100)
   const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
-  const toSlider = (val: number, mn: number, range: number) => Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100)));
+  // Guard range === 0 (model flat on an axis): dividing by it yielded NaN and
+  // wrote "NaN" into the slider inputs. Mirror clash.ts's toSl guard → 50.
+  const toSlider = (val: number, mn: number, range: number) => range > 0 ? Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100))) : 50;
 
   (document.getElementById('slXp') as HTMLInputElement).value = String(toSlider(mxX, b.min.x, sx));
   (document.getElementById('slXn') as HTMLInputElement).value = String(toSlider(mnX, b.min.x, sx));
@@ -720,6 +722,45 @@ export function applyCategoryVisibility3D() {
 export function renderSummary() {
   showResultsUI();
 }
+
+// ── Compare page guided flow ─────────────────────────────────────────────
+// One reconciler decides what the changes area (#eTree) shows while there is
+// NO compare result yet: a guided empty state (load A/B inline, with live
+// status), or a ready-to-run CTA once both versions are loaded. Previously
+// the page showed a blank tree and a 35%-opacity disabled button with no
+// explanation of what to do. Results rendering (renderTree) is untouched —
+// it owns #eTree as soon as appState.compareResult exists.
+export function reconcileComparePage(): void {
+  if (appState.activePage !== 'compare' || appState.compareResult) return;
+  const eTree = document.getElementById('eTree');
+  if (!eTree) return;
+  const a = !!appState.loadedModels[0], b = !!appState.loadedModels[1];
+  const slot = (idx: number, loaded: boolean) => loaded
+    ? `<div class="cmp-guide-slot done">✓ Version ${idx === 0 ? 'A' : 'B'} — ${escapeHtml(appState.files[idx]?.name || 'loaded')}</div>`
+    : `<button class="cmp-guide-slot" onclick="document.getElementById('f${idx}')?.click()">⬆ Load Version ${idx === 0 ? 'A (baseline)' : 'B (revision)'}</button>`;
+  let inner: string;
+  if (a && b) {
+    inner = `${slot(0, true)}${slot(1, true)}
+      <button class="cmp-guide-run" onclick="runCompare()">▶ Run Compare</button>
+      <div class="cmp-guide-hint">Tip: use the Category Filter above to narrow the scan before running.</div>`;
+  } else {
+    inner = `<div class="cmp-guide-title">Compare two versions of a model</div>
+      ${slot(0, a)}${slot(1, b)}
+      <div class="cmp-guide-hint">${a || b
+        ? 'One file to go — load the missing version, then run the comparison.'
+        : 'Load the baseline (A) and the revision (B). Results show added, removed and modified elements.'}</div>`;
+  }
+  eTree.innerHTML = `<div class="cmp-guide">${inner}</div>`;
+}
+window.reconcileComparePage = reconcileComparePage;
+
+// Re-run the guidance whenever its inputs change: entering the compare page,
+// a model slot (re)loading, or a project switch tearing everything down.
+window.addEventListener('ifc:pagechange', (e: Event) => {
+  if ((e as CustomEvent).detail?.page === 'compare') reconcileComparePage();
+});
+window.addEventListener('ifc:modelloaded', () => reconcileComparePage());
+window.addEventListener('ifc:projectchange', () => reconcileComparePage());
 
 // ── Expose on window for cross-module caller ──
 Object.assign(window as any, { showResultsUI });

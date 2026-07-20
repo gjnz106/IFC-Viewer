@@ -6,12 +6,36 @@ import {
   IFCFURNISHINGELEMENT, IFCFLOWSEGMENT, IFCFLOWTERMINAL, IFCFLOWFITTING,
   IFCSITE, IFCBUILDING, IFCBUILDINGSTOREY, IFCPROJECT, IFCSTAIRFLIGHT,
   IFCSPACE, IFCOPENINGELEMENT,
+  // Geometry / topology / resource / relationship families — none of these
+  // are physical products, so they are cheaply skipped (via GetLineType) in the
+  // Method-2 full-file scan BEFORE the expensive getItemProperties() parse.
+  IFCCARTESIANPOINT, IFCCARTESIANPOINTLIST2D, IFCCARTESIANPOINTLIST3D,
+  IFCDIRECTION, IFCVECTOR, IFCVERTEXPOINT, IFCPOLYLOOP, IFCFACE,
+  IFCFACEOUTERBOUND, IFCFACEBOUND, IFCCLOSEDSHELL, IFCOPENSHELL,
+  IFCFACETEDBREP, IFCTRIANGULATEDFACESET, IFCPOLYGONALFACESET,
+  IFCINDEXEDPOLYGONALFACE, IFCINDEXEDPOLYGONALFACEWITHVOIDS,
+  IFCAXIS2PLACEMENT2D, IFCAXIS2PLACEMENT3D, IFCLOCALPLACEMENT,
+  IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCSHAPEREPRESENTATION,
+  IFCPRODUCTDEFINITIONSHAPE, IFCEXTRUDEDAREASOLID, IFCARBITRARYCLOSEDPROFILEDEF,
+  IFCARBITRARYPROFILEDEFWITHVOIDS, IFCRECTANGLEPROFILEDEF, IFCCIRCLEPROFILEDEF,
+  IFCISHAPEPROFILEDEF, IFCPOLYLINE, IFCMAPPEDITEM, IFCREPRESENTATIONMAP,
+  IFCSTYLEDITEM, IFCSURFACESTYLE, IFCCOLOURRGB, IFCPRESENTATIONSTYLEASSIGNMENT,
+  IFCSURFACESTYLERENDERING, IFCPROPERTYSINGLEVALUE, IFCPROPERTYSET,
+  IFCELEMENTQUANTITY, IFCQUANTITYLENGTH, IFCQUANTITYAREA, IFCQUANTITYVOLUME,
+  IFCPROPERTYENUMERATEDVALUE, IFCCOMPLEXPROPERTY, IFCMATERIAL, IFCMATERIALLAYER,
+  IFCMATERIALLAYERSET, IFCMATERIALLAYERSETUSAGE, IFCGEOMETRICREPRESENTATIONCONTEXT,
+  IFCPROPERTYBOUNDEDVALUE, IFCPROPERTYLISTVALUE, IFCOWNERHISTORY, IFCPERSON,
+  IFCORGANIZATION, IFCPERSONANDORGANIZATION, IFCAPPLICATION,
 } from 'web-ifc';
 import { appState } from '../../store/index.js';
 import { FED_COLORS, IFC_NAMES } from '../../lib/constants.js';
+import { escapeHtml } from '../../lib/escape.js';
 import { runCompare as computeDiff } from './compare.js';
 import { log } from '../core/ifc-category.js';
 import { disposeModel } from '../core/viewer-core.js';
+import { syncUploadSlot } from '../ui/projects.js';
+import { syncChipLabel } from '../../lib/cloud-files.js';
+import { saveResult, buildModelSignature, formatCompareCounts, buildResultMetadata } from '../../lib/cloud-results.js';
 
 // ══ Federation file management (slots 2+) ══════════════════════════
 let _fedPendingSlot = -1;
@@ -33,6 +57,7 @@ window.fedHandleFile = function(ev: Event){
     if(!appState.ifcLoader){if(!await (window as any).initIFC()) return}
     await (window as any).loadIFC(idx);
     fedRenderSlots();
+    syncUploadSlot(idx, f).catch((e: unknown)=>console.warn('syncUploadSlot error:', e));
   })().catch((e: unknown)=>console.error('fedHandleFile error:', e));
   // Reset input so same file can be reloaded
   (ev.target as HTMLInputElement).value = '';
@@ -47,6 +72,9 @@ window.fedRemoveSlot = function(idx: number){
   }
   appState.files[idx] = null;
   if(window._colorizeInvalidate) window._colorizeInvalidate(idx);
+  // If the removed slot was the current clash Source/Target, repoint it at a
+  // still-loaded model (otherwise Run silently no-ops on a disposed slot).
+  (window as any).clashHandleModelRemoved?.(idx);
   // Recompute model bounds from remaining models
   fedRecomputeBounds();
   fedRenderSlots();
@@ -95,11 +123,13 @@ export function fedRenderSlots(): void {
     // federation file finishes loading) used to always mark the checkbox
     // checked, silently re-showing a model the user had just hidden.
     const isVisible = loaded && appState.loadedModels[i]!.visible !== false;
+    const syncSt = appState.cloudSyncStatus[i];
+    const syncChip = appState.activeCloudProjectId && syncSt ? syncChipLabel(syncSt.status, syncSt.progress) : '';
     html += `<div class="fed-slot ${loaded?'loaded':''}">
       <div class="fed-slot-color" style="background:${color}"></div>
       <div class="fed-slot-info">
-        <div class="fed-slot-name" title="${(window as any).escapeHtml(fname)}">${(window as any).escapeHtml(fname)}</div>
-        <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}</div>
+        <div class="fed-slot-name" title="${escapeHtml(fname)}">${escapeHtml(fname)}</div>
+        <div class="fed-slot-status"><span style="${statusCls}">${statusText}</span> ${size}${syncChip ? ' · '+syncChip : ''}</div>
       </div>
       <input type="checkbox" class="fed-slot-vis" id="fedVis${i}" ${isVisible?'checked':''} onchange="fedToggleVis(${i})" title="Toggle visibility">
       <button class="fed-slot-rm" onclick="fedRemoveSlot(${i})" title="Remove this file">✕</button>
@@ -154,6 +184,10 @@ export function unloadAllModels(): void {
   appState.modelBounds.max.set(0, 0, 0);
   appState.compareResult = null;
   appState.clashResults = [];
+  // Sweep clash-zone markers too — clearing clashResults alone left the marker
+  // meshes in the scene, so a switched-to project showed the previous one's
+  // red boxes floating over its models.
+  (window as any).clearClashSubsets?.();
   appState.sgState.cachedCtx = null;
   appState.sgState.cachedCtxKey = null;
   appState.aiIndex = null;
@@ -244,9 +278,31 @@ window.runCompare=async function(){
     // ── Color-coded subsets per entity status ──
     await applyDiffColors();
     (window as any).showResultsUI();
+    saveCompareResultToCloud();
   }catch(e: any){log('Compare err:',e.message);lt.textContent='Error: '+e.message}
   lo.classList.remove('on');
 };
+
+// Applies a compare result fetched from cloud storage (Phase 15 restore) —
+// same rendering path as a live runCompare(), minus the property extraction.
+export async function restoreCompareResult(result: any): Promise<void> {
+  appState.compareResult = result;
+  await applyDiffColors();
+  (window as any).showResultsUI();
+}
+
+// Best-effort background persist of the just-computed compare result — no-op
+// for local (non-cloud) projects, never blocks/errors the UI on failure.
+function saveCompareResultToCloud(): void {
+  const projectId = appState.activeCloudProjectId;
+  const result = appState.compareResult;
+  if (!projectId || !result) return;
+  const user = (window as any).getAuthUser?.();
+  const signature = buildModelSignature(appState.files);
+  const counts = formatCompareCounts(result as any);
+  const metadata = buildResultMetadata(user?.email || '', counts, signature);
+  saveResult(projectId, 'compare', result, metadata).catch(e => console.warn('[cloud-results] saveCompareResultToCloud failed:', e));
+}
 
 // createSubset() keys each subset by (modelID, material.uuid, customID) — since
 // applyDiffColors() builds a fresh material every run, re-running Compare never
@@ -468,6 +524,31 @@ async function getAllProps(modelID: number): Promise<Record<string, any>> {
     IFCSPACE,   // IfcSpace — room volumes, not physical
     IFCOPENINGELEMENT, // IfcOpeningElement — void geometry
     IFCSITE,IFCBUILDING,IFCBUILDINGSTOREY,IFCPROJECT, // Spatial structure
+    // ── Geometry / topology / resource / relationship families ──────────
+    // These dominate a real IFC file by line count (a faceted-BREP model is
+    // mostly IfcCartesianPoint / IfcPolyLoop / IfcFace…). None are physical
+    // products, so skipping them via the cheap GetLineType check BELOW avoids
+    // hundreds of thousands of expensive getItemProperties() WASM round-trips —
+    // the single biggest cost of Compare/Validate on a large model. Any type
+    // NOT listed here still gets parsed, so genuinely unknown product types are
+    // never missed (the original safety-net intent of Method 2 is preserved).
+    IFCCARTESIANPOINT, IFCCARTESIANPOINTLIST2D, IFCCARTESIANPOINTLIST3D,
+    IFCDIRECTION, IFCVECTOR, IFCVERTEXPOINT, IFCPOLYLOOP, IFCFACE,
+    IFCFACEOUTERBOUND, IFCFACEBOUND, IFCCLOSEDSHELL, IFCOPENSHELL,
+    IFCFACETEDBREP, IFCTRIANGULATEDFACESET, IFCPOLYGONALFACESET,
+    IFCINDEXEDPOLYGONALFACE, IFCINDEXEDPOLYGONALFACEWITHVOIDS,
+    IFCAXIS2PLACEMENT2D, IFCAXIS2PLACEMENT3D, IFCLOCALPLACEMENT,
+    IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCSHAPEREPRESENTATION,
+    IFCPRODUCTDEFINITIONSHAPE, IFCEXTRUDEDAREASOLID, IFCARBITRARYCLOSEDPROFILEDEF,
+    IFCARBITRARYPROFILEDEFWITHVOIDS, IFCRECTANGLEPROFILEDEF, IFCCIRCLEPROFILEDEF,
+    IFCISHAPEPROFILEDEF, IFCPOLYLINE, IFCMAPPEDITEM, IFCREPRESENTATIONMAP,
+    IFCSTYLEDITEM, IFCSURFACESTYLE, IFCCOLOURRGB, IFCPRESENTATIONSTYLEASSIGNMENT,
+    IFCSURFACESTYLERENDERING, IFCPROPERTYSINGLEVALUE, IFCPROPERTYSET,
+    IFCELEMENTQUANTITY, IFCQUANTITYLENGTH, IFCQUANTITYAREA, IFCQUANTITYVOLUME,
+    IFCPROPERTYENUMERATEDVALUE, IFCCOMPLEXPROPERTY, IFCMATERIAL, IFCMATERIALLAYER,
+    IFCMATERIALLAYERSET, IFCMATERIALLAYERSETUSAGE, IFCGEOMETRICREPRESENTATIONCONTEXT,
+    IFCPROPERTYBOUNDEDVALUE, IFCPROPERTYLISTVALUE, IFCOWNERHISTORY, IFCPERSON,
+    IFCORGANIZATION, IFCPERSONANDORGANIZATION, IFCAPPLICATION,
   ].filter(Boolean));
 
   try{

@@ -52,6 +52,7 @@ interface PlanDragState {
 let planView: PlanView | null = null;
 let planStoreys: PlanStorey[] = [];
 let planDragState: PlanDragState | null = null;
+let planCutHeight = 1.5; // metres above the selected storey's floor — user-adjustable via #planCutHeight
 
 // ── True-north rotation ──────────────────────────────────────────────
 // The whole plan is aligned to True North (not just an indicator arrow):
@@ -147,6 +148,14 @@ function rebuildPlanStoreyList(): void {
     const elevStr = s.elevation >= 0 ? '+' + s.elevation.toFixed(2) + 'm' : s.elevation.toFixed(2) + 'm';
     return `<option value="${i}">${s.name} (${elevStr})</option>`;
   }).join('');
+  // A previously-selected storey index can outlive the storey list it was
+  // chosen from — e.g. switching to a project with fewer storeys (project
+  // switch calls requestPlanRebuild → here) — so re-pick automatically
+  // instead of leaving a stale out-of-range index that only the length
+  // guards elsewhere (planStoreys[idx] undefined checks) keep from crashing.
+  if (planView && planView.storey !== null && planView.storey >= planStoreys.length) {
+    planView.storey = null;
+  }
   if (planView && planView.storey === null) {
     const camY = appState.camera.position.y;
     let bestI = 0, bestD = Infinity;
@@ -210,6 +219,51 @@ window.planSelectStorey = function(idxStr: number | string): void {
     s.name + ' [' + s.elevation.toFixed(2) + ' → ' + s.topElev.toFixed(2) + 'm]';
   planFit();
   requestPlanRender();
+  applyPlanSectionCut();
+};
+
+// Sync the MAIN 3D viewport's own section box to a horizontal slice from the
+// selected storey's floor up to floor+planCutHeight — so opening a storey in
+// the 2D plan also shows a matching cut in 3D (X/Z stay fully open; only the
+// Y range is clipped). Reuses the same slider-driven section pipeline the
+// "Section" toggle already has (section-visibility.ts) instead of writing to
+// appState.clipPlanes directly, so the section UI (panel, sliders, 3D box
+// outline) stays in sync with what the plan just did.
+function applyPlanSectionCut(): void {
+  if (!planView || planView.storey === null) return;
+  const s = planStoreys[planView.storey];
+  if (!s) return;
+  const b = appState.modelBounds;
+  if (!b || !b.min || !b.max) return;
+  const sy = b.max.y - b.min.y;
+  if (sy <= 0) return;
+
+  const floorY = worldElev(s.elevation);
+  const topY = floorY + planCutHeight;
+  const toSl = (val: number, mn: number, range: number) => Math.max(0, Math.min(100, Math.round(((val - mn) / range) * 100)));
+
+  (document.getElementById('slXp') as HTMLInputElement).value = '100';
+  (document.getElementById('slXn') as HTMLInputElement).value = '0';
+  (document.getElementById('slZp') as HTMLInputElement).value = '100';
+  (document.getElementById('slZn') as HTMLInputElement).value = '0';
+  (document.getElementById('slYp') as HTMLInputElement).value = String(toSl(topY, b.min.y, sy));
+  (document.getElementById('slYn') as HTMLInputElement).value = String(toSl(floorY, b.min.y, sy));
+
+  if (!appState.sectionActive) {
+    appState.sectionActive = true;
+    document.getElementById('sectionPanel')?.classList.add('show');
+    document.getElementById('btnSection')?.classList.add('active');
+    (window as any).createSectionBox3D?.();
+  }
+  (window as any).updateSectionFromSliders?.();
+  log('Plan: 3D section cut ' + floorY.toFixed(2) + 'm → ' + topY.toFixed(2) + 'm (storey + ' + planCutHeight + 'm)');
+}
+
+window.planSetCutHeight = function(val: string | number): void {
+  const n = parseFloat(String(val));
+  if (!isFinite(n) || n <= 0) return;
+  planCutHeight = n;
+  applyPlanSectionCut();
 };
 
 window.planFit = function(): void {
@@ -620,15 +674,28 @@ function setupPlanInteraction(): void {
       return;
     }
 
-    const eyeY = appState.camera.position.y;
-    const targetY = appState.controls.target.y;
-    const offX = appState.camera.position.x - appState.controls.target.x;
-    const offZ = appState.camera.position.z - appState.controls.target.z;
-    appState.controls.target.set(wx, targetY, wz);
-    appState.camera.position.set(wx + offX, eyeY, wz + offZ);
+    // Dalux-style plan↔3D sync: clicking the plan drops the 3D camera to
+    // STAND at that point — eye height 1.5m above the selected storey's
+    // floor — instead of the old behavior (orbit target moved to the click
+    // point, camera kept its previous height/offset), which just re-centered
+    // the orbit rather than placing the viewer at that location. Heading is
+    // preserved from the current view so the jump doesn't also spin the
+    // camera around unexpectedly.
+    const s = planStoreys[planView.storey as number];
+    const cy = appState.sharedCenterOffset?.y || 0;
+    const eyeY = (s.elevation - cy) + 1.5;
+
+    const dx = appState.controls.target.x - appState.camera.position.x;
+    const dz = appState.controls.target.z - appState.camera.position.z;
+    const dirLen = Math.hypot(dx, dz) || 1;
+    const dirX = dx / dirLen, dirZ = dz / dirLen;
+    const LOOK_AHEAD = 5; // metres — how far out the orbit target sits so controls.update() has a horizontal look direction to hold
+
+    appState.camera.position.set(wx, eyeY, wz);
+    appState.controls.target.set(wx + dirX * LOOK_AHEAD, eyeY, wz + dirZ * LOOK_AHEAD);
     appState.controls.update();
     if (planView) planView.dirty = true;
-    log('Plan: jumped 3D camera to ' + wx.toFixed(1) + ', ' + wz.toFixed(1));
+    log('Plan: jumped 3D camera (eye-level) to ' + wx.toFixed(1) + ', ' + wz.toFixed(1));
   });
 }
 

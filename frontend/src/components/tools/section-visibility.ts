@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { IFCLoader } from 'web-ifc-three';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 // IFC type code constants from the IFC4 schema (stable numeric values)
 const IFCSPACE = 3856911033;
 const IFCOPENINGELEMENT = 3588315303;
@@ -33,6 +34,7 @@ import { setStatus } from './focus-highlight.js';
 import { fedRenderSlots } from '../compare/federation-load.js';
 import { disposeModel } from '../core/viewer-core.js';
 import { IFC_NAMES } from '../../lib/constants.js';
+import { syncUploadSlot } from '../ui/projects.js';
 
 // ── Section Plan parallel to clicked face (Dalux-style) ──
 // Only creates ONE clipping plane at the face position. All other directions stay fully open.
@@ -134,6 +136,12 @@ async function initIFC(){
   setStatus('loading','Loading WASM...');
   try{
     appState.ifcLoader=new IFCLoader();
+    // BVH-accelerated raycasting (three-mesh-bvh): the parser builds a bounds
+    // tree per model geometry, turning every raycast (zoom-to-cursor pivot,
+    // element pick, context menu, measure) from a full-triangle scan — a visible
+    // hitch on real models — into a log-time BVH query. This was the main
+    // "orbit/zoom not smooth like Dalux/Revit" cost besides preserveDrawingBuffer.
+    appState.ifcLoader.ifcManager.setupThreeMeshBVH(computeBoundsTree, disposeBoundsTree, acceleratedRaycast);
     // Self-host the web-ifc WASM (in frontend/public/vendor/web-ifc/, version-matched
     // to the bundled web-ifc) instead of a CDN — the CDN can be blocked and then the
     // loader falls back to a same-origin path that the SPA rewrite answers with HTML,
@@ -265,6 +273,7 @@ async function readSpatialInfo(modelID: number, modelName: string){
     projectName:'', siteName:'', buildingName:'',
     storeys:[],           // [{expressID, name, elevation}] sorted asc by elev
     sites: [],            // [{expressID, name, refLat, refLon, refElev}]
+    buildings: [],        // [{expressID, name}] — consumed by SG rule GEN-005
     modelName: modelName || '',
     trueNorthAngle: 0,    // rotation angle in radians (0 = Y+ is north, positive = CW)
   };
@@ -316,9 +325,16 @@ async function readSpatialInfo(modelID: number, modelName: string){
       });
     }
     const bldgIDs=await api.GetLineIDsWithType(modelID, IFCBUILDING);
-    if(bldgIDs.size()){
-      const b=await mgr.getItemProperties(modelID, bldgIDs.get(0), false);
-      info.buildingName = b?.Name?.value || b?.LongName?.value || '';
+    for(let bi=0; bi<bldgIDs.size(); bi++){
+      const bid=bldgIDs.get(bi);
+      const b=await mgr.getItemProperties(modelID, bid, false);
+      const bname = b?.Name?.value || b?.LongName?.value || '';
+      if(bi===0) info.buildingName = bname;
+      // Populate the `buildings` array SG rule GEN-005 reads. Previously only
+      // `buildingName` (a string) was set, so `spatial.buildings` was always
+      // undefined and "IfcBuilding present" reported "No IfcBuilding found"
+      // even when the model clearly had one.
+      info.buildings.push({ expressID: bid, name: bname });
     }
     const storeyIDs=await api.GetLineIDsWithType(modelID, IFCBUILDINGSTOREY);
     for(let i=0;i<storeyIDs.size();i++){
@@ -450,6 +466,10 @@ async function loadIFC(idx: number){
 
     // Invalidate SG validation cache so next run includes new model
     appState.sgState.cachedCtx = null;
+
+    // Announce the load — compare's guided flow and clash auto-tracking both
+    // react to "a model slot just (re)loaded" without polling.
+    window.dispatchEvent(new CustomEvent('ifc:modelloaded', { detail: { idx } }));
   }catch(e: any){
     log('Load err:',e.message);
     if(st){st.className='uc-status err';st.textContent='✕ '+e.message}
@@ -709,6 +729,10 @@ window.exitCompare=function(){
     appState.clipPlanes.forEach(p=>p.constant=99999);
   }
 
+  // If the user exited via the "Exit Compare" button (still on the compare
+  // page), bring the guided empty-state back instead of leaving a blank tree.
+  (window as any).reconcileComparePage?.();
+
   log('Exited compare mode');
 };
 
@@ -733,8 +757,28 @@ window.toggleSectionBox=function(){
   }
 };
 
+// Make sure every mesh currently in the scene has appState.clipPlanes
+// wired up as its material's clippingPlanes. Model-load already does this
+// for every mesh at load time (loadIFC), and most subset-creation sites
+// (Compare diffs, Clash markers, Colorize, …) pass clippingPlanes in their
+// material constructor — but not all of them do, so this is a one-time
+// catch-all for whatever's missing it. Runs ONCE when section mode is
+// entered (createSectionBox3D, called from every "turn section on" site),
+// NOT on every slider/drag update — see updateSectionFromSliders() below,
+// which used to run this exact traverse on every single pointermove during
+// a handle drag (a full scene walk + material reassignment per mousemove,
+// often 100+ times/second) and was the actual cause of "dragging the
+// section box lags" reports. Mutating each THREE.Plane's normal/constant in
+// place (as updateSectionFromSliders does) is picked up by already-wired
+// materials automatically at render time — no re-traverse, no
+// material.needsUpdate, needed for that.
+function ensureSceneClippingAssigned(){
+  appState.scene.traverse(c=>{if((c as any).isMesh&&!(c as any).userData?.isHandle&&c.parent?.name!=='sectionBox'){const ms=Array.isArray((c as any).material)?(c as any).material:[(c as any).material];ms.forEach((m: any)=>{m.clippingPlanes=appState.clipPlanes;m.clipShadows=true;m.needsUpdate=true})}});
+}
+
 function createSectionBox3D(){
   if(sectionBox)removeSectionBox3D();
+  ensureSceneClippingAssigned();
   const b=appState.modelBounds;
   const group=new THREE.Group();
   group.name='sectionBox';
@@ -1000,14 +1044,19 @@ function updateSectionFromSliders(){
   document.getElementById('vZp')!.textContent=Math.round(zp*100)+'%';
   document.getElementById('vZn')!.textContent=Math.round(zn*100)+'%';
 
+  // Mutating each plane's normal/constant IN PLACE (not replacing the
+  // appState.clipPlanes array) — every material was already pointed at this
+  // same array object by ensureSceneClippingAssigned() when section mode
+  // was entered, so the renderer picks up these new values automatically
+  // next frame. No scene traverse needed here (see the comment on
+  // ensureSceneClippingAssigned for why that used to be here and made
+  // dragging a section-box handle lag badly).
   appState.clipPlanes[0].set(new THREE.Vector3(-1,0,0), mn.x+sx*xp);
   appState.clipPlanes[1].set(new THREE.Vector3(1,0,0),  -(mn.x+sx*xn));
   appState.clipPlanes[2].set(new THREE.Vector3(0,-1,0), mn.y+sy*yp);
   appState.clipPlanes[3].set(new THREE.Vector3(0,1,0),  -(mn.y+sy*yn));
   appState.clipPlanes[4].set(new THREE.Vector3(0,0,-1), mn.z+sz*zp);
   appState.clipPlanes[5].set(new THREE.Vector3(0,0,1),  -(mn.z+sz*zn));
-
-  appState.scene.traverse(c=>{if((c as any).isMesh&&!(c as any).userData?.isHandle&&c.parent?.name!=='sectionBox'){const ms=Array.isArray((c as any).material)?(c as any).material:[(c as any).material];ms.forEach((m: any)=>{m.clippingPlanes=appState.clipPlanes;m.clipShadows=true;m.needsUpdate=true})}});
 
   updateSectionBox3DPositions();
   if(window.requestPlanRender)window.requestPlanRender();
@@ -1021,6 +1070,7 @@ window.handleFile=async function(idx: number){
   document.getElementById('fs'+idx)!.textContent=(f.size/1048576).toFixed(2)+' MB';
   if(!appState.ifcLoader){if(!await initIFC())return}
   await loadIFC(idx);
+  syncUploadSlot(idx,f).catch((e: unknown)=>console.warn('syncUploadSlot error:',e));
 };
 [0,1].forEach(idx=>{
   const el=document.getElementById('uc'+idx)!;
@@ -1029,7 +1079,7 @@ window.handleFile=async function(idx: number){
   el.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();(el as HTMLElement).style.borderColor='';
     const f=(e as DragEvent).dataTransfer!.files[0];if(f&&f.name.toLowerCase().endsWith('.ifc')){appState.files[idx]=f;el.classList.add('loaded');
     document.getElementById('fn'+idx)!.textContent=f.name;document.getElementById('fs'+idx)!.textContent=(f.size/1048576).toFixed(2)+' MB';
-    (async()=>{if(!appState.ifcLoader){if(!await initIFC())return}await loadIFC(idx)})()}});
+    (async()=>{if(!appState.ifcLoader){if(!await initIFC())return}await loadIFC(idx);syncUploadSlot(idx,f).catch((e: unknown)=>console.warn('syncUploadSlot error:',e))})()}});
 });
 
 // ── Expose cross-module callers on window ──

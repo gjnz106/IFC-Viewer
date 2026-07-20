@@ -240,6 +240,7 @@ declare global {
   interface Window {
     // Router (hash-based page navigation)
     navigateTo?: (page: Page) => void;
+    navToggle?: (page: Page) => void;
 
     // Viewer core
     zoomFit?: () => void;
@@ -360,12 +361,34 @@ declare global {
 
     // Projects (local-first project registry)
     toggleProjectsPanel?: () => void;
+    renderTeamPanel?: () => void;
+
+    // Overview tab (per-file spatial tree)
+    ovRefresh?: () => void;
+    ovSearchInput?: () => void;
+
+    // Compare guided flow
+    reconcileComparePage?: () => void;
     projCreate?: () => void;
     projRename?: (id: string) => void;
     projDelete?: (id: string) => void;
     projSwitch?: (id: string) => void;
     projFillSettings?: () => void;
     projSaveSettings?: () => void;
+
+    // Cloud projects (Phase 12 — Firestore registry layered on the above)
+    getAuthUser?: () => { uid: string; email: string; emailVerified: boolean } | null;
+    projMigrateToCloud?: (id: string) => void;
+    projCreateCloud?: () => void;
+    projSwitchCloud?: (id: string) => void;
+    projRenameCloud?: (id: string) => void;
+    projDeleteCloud?: (id: string) => void;
+
+    // Member sharing (Phase 14 — Invite button repurposed for cloud projects)
+    renderMembersPanel?: () => void;
+    projAddMember?: () => Promise<void>;
+    projRemoveMember?: (email: string) => Promise<void>;
+    ifcCacheClear?: () => Promise<void>;
 
     // Clash
     addClashRow?: (side: 'A' | 'B') => void;
@@ -379,6 +402,13 @@ declare global {
     runClashDetection?: () => Promise<void>;
     updateClashRunButtonState?: () => void;
     clashSyncDuplicateUI?: () => void;
+    clashEffectiveTargetIdx?: () => number;
+    clearClashSubsets?: () => void;
+    clashHandleModelRemoved?: (removedIdx: number) => void;
+    clashToggleResolved?: (i: number) => void;
+    clashAutoRunChanged?: () => void;
+    setClashSourceModel?: (v: string) => void;
+    setClashTargetModel?: (v: string) => void;
     regroupClashes?: () => void;
     toggleClashGroup?: (gid: string) => void;
     focusClash?: (idx: number) => void;
@@ -399,6 +429,7 @@ declare global {
     planToggleFollow?: () => void;
     requestPlanRender?: () => void;
     requestPlanRebuild?: () => void;
+    planSetCutHeight?: (val: string | number) => void;
 
     // Validator
     toggleSGCheckPanel?: () => void;

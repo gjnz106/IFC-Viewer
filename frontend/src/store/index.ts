@@ -95,6 +95,27 @@ export const appState = {
   // ── Clash ────────────────────────────────────────────────────────────
   clashMode: false,
   clashResults: [] as any[],
+  // Which loaded model slot (index into files/loadedModels — 0/1 = A/B,
+  // 2+ = federation) feeds Source Set / Target Set. Default 0/1 preserves
+  // the pre-Phase-16 A vs B behaviour when only two models are loaded.
+  clashSourceIdx: 0,
+  clashTargetIdx: 1,
+
+  // ── Cloud projects (Phase 12) ───────────────────────────────────────
+  // Set when the active project switcher selection is a cloud project
+  // instead of a local one; null means "local" (the pre-Phase-12 default).
+  // File auto-load against this id is Phase 13's job.
+  activeCloudProjectId: null as string | null,
+
+  // ── Cloud files (Phase 13) ────────────────────────────────────────────
+  // Known `files/{fileId}` records for the active cloud project, keyed by
+  // slot index (0/1 = A/B, 2+ = federation) — populated on auto-load and
+  // kept in sync after each upload. Empty/unused when activeCloudProjectId
+  // is null (local project).
+  cloudFileRecords: {} as Record<number, import('../lib/cloud-projects.js').CloudProjectFile>,
+  // Per-slot sync/upload status driving the "☁ synced / ⬆ uploading n% /
+  // ⚠ local-only" chip. Also unused for local projects.
+  cloudSyncStatus: {} as Record<number, { status: 'local-only' | 'uploading' | 'synced' | 'error'; progress?: number }>,
 };
 
 export type AppState = typeof appState;

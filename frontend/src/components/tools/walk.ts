@@ -165,8 +165,17 @@ function renderWalkLevelPills(): void {
   if (walkClipEnabled && walkLevelIdx >= 0) {
     (window as any).walkGoToStorey(walkLevelIdx); // re-apply clip for the current level
   } else if (!walkClipEnabled && appState.clipPlanes.length >= 6) {
-    appState.clipPlanes[2].constant = 99999;
-    appState.clipPlanes[3].constant = 99999;
+    // Same choice walkRestoreClip() makes on walk-exit: if the user has their
+    // own section box active, hand the Y planes back to it instead of
+    // blowing it open to 99999 — this toggle used to always force fully
+    // open, silently discarding the user's section whenever they turned
+    // storey-clip off mid-walk.
+    if (appState.sectionActive) {
+      (window as any).updateSectionFromSliders?.();
+    } else {
+      appState.clipPlanes[2].constant = 99999;
+      appState.clipPlanes[3].constant = 99999;
+    }
   }
   const clipChk = document.getElementById('walkClipChk') as HTMLInputElement | null;
   if (clipChk) clipChk.checked = walkClipEnabled;
@@ -277,6 +286,19 @@ document.addEventListener('pointerlockchange', () => {
   }
 });
 
+// Reused every frame instead of `new THREE.Vector3()`/`.clone()` per key —
+// walkLoop used to allocate up to ~9 throwaway vectors every single frame
+// (forward/right/up + a clone per active key + lookDir + a position clone
+// just to call lookAt), which is enough sustained GC pressure at 60fps to
+// read as stutter, especially with the mouse-look pointer-lock loop where
+// any hitch is far more noticeable than in static orbit view.
+const _wForward = new THREE.Vector3();
+const _wRight = new THREE.Vector3();
+const _wUp = new THREE.Vector3(0, 1, 0);
+const _wMove = new THREE.Vector3();
+const _wLookDir = new THREE.Vector3();
+const _wLookAt = new THREE.Vector3();
+
 function walkLoop(): void {
   if (!appState.walkActive) return;
 
@@ -291,25 +313,24 @@ function walkLoop(): void {
   const spd = WALK_BASE_SPEED * walkSpeedMult * (walkKeys.shift ? 2.5 : 1) * dt;
 
   // Direction vectors
-  const forward = new THREE.Vector3(-Math.sin(walkYaw), 0, -Math.cos(walkYaw));
-  const right = new THREE.Vector3(Math.cos(walkYaw), 0, -Math.sin(walkYaw));
-  const up = new THREE.Vector3(0, 1, 0);
+  _wForward.set(-Math.sin(walkYaw), 0, -Math.cos(walkYaw));
+  _wRight.set(Math.cos(walkYaw), 0, -Math.sin(walkYaw));
 
   // Movement from keyboard (WASD)
-  const move = new THREE.Vector3(0, 0, 0);
-  if (walkKeys.w) move.add(forward.clone().multiplyScalar(spd));
-  if (walkKeys.s) move.add(forward.clone().multiplyScalar(-spd));
-  if (walkKeys.a) move.add(right.clone().multiplyScalar(-spd));
-  if (walkKeys.d) move.add(right.clone().multiplyScalar(spd));
-  if (walkKeys.e) move.add(up.clone().multiplyScalar(spd));
-  if (walkKeys.q) move.add(up.clone().multiplyScalar(-spd));
+  _wMove.set(0, 0, 0);
+  if (walkKeys.w) _wMove.addScaledVector(_wForward, spd);
+  if (walkKeys.s) _wMove.addScaledVector(_wForward, -spd);
+  if (walkKeys.a) _wMove.addScaledVector(_wRight, -spd);
+  if (walkKeys.d) _wMove.addScaledVector(_wRight, spd);
+  if (walkKeys.e) _wMove.addScaledVector(_wUp, spd);
+  if (walkKeys.q) _wMove.addScaledVector(_wUp, -spd);
 
   // Movement from touch joystick (Field Mode)
   const _walkJoyVec: any = (window as any)._walkJoyVec;
   if (_walkJoyVec && (Math.abs(_walkJoyVec.x) > 0.05 || Math.abs(_walkJoyVec.y) > 0.05)) {
     // Joystick Y axis (up = forward), X axis (right = strafe right)
-    move.add(forward.clone().multiplyScalar(-_walkJoyVec.y * spd));
-    move.add(right.clone().multiplyScalar(_walkJoyVec.x * spd));
+    _wMove.addScaledVector(_wForward, -_walkJoyVec.y * spd);
+    _wMove.addScaledVector(_wRight, _walkJoyVec.x * spd);
   }
 
   // Look rotation from touch look joystick (Field Mode)
@@ -324,15 +345,16 @@ function walkLoop(): void {
     walkPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, walkPitch));
   }
 
-  appState.camera.position.add(move);
+  appState.camera.position.add(_wMove);
 
   // Look direction from yaw/pitch
-  const lookDir = new THREE.Vector3(
+  _wLookDir.set(
     -Math.sin(walkYaw) * Math.cos(walkPitch),
     Math.sin(walkPitch),
     -Math.cos(walkYaw) * Math.cos(walkPitch)
   );
-  appState.camera.lookAt(appState.camera.position.clone().add(lookDir));
+  _wLookAt.copy(appState.camera.position).add(_wLookDir);
+  appState.camera.lookAt(_wLookAt);
 
   // NOTE: no renderer.render() here — the single main render loop in
   // viewer-core draws every frame. Rendering here too caused two rAF loops to

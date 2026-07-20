@@ -25,6 +25,19 @@
 | 8 | Measure area/angle + unit setting | ✅ Done |
 | 9 | Saved viewpoints (per-project) | ✅ Done |
 | 10 | Bật clash options (box filter, duplicate, self-clash) | ✅ Done |
+| 11 | Sửa bug rà soát sau Phase 6–10 (crash duplicate clash, filter chéo type, viewpoint) | ✅ Done — PR #57 |
+| 12 | ☁ Cloud projects: Firestore registry + Security Rules + rules CI | ✅ Done — PR #60 |
+| 13 | ☁ File IFC trên Storage + auto-load khi vào dự án (lõi Dalux) | ✅ Done — PR #61 |
+| 14 | ☁ Share team theo email + cache IndexedDB + polish | ✅ Done — PR #62 |
+| 15 | ☁ Lưu kết quả Compare/Clash lên cloud project | ✅ Done — PR #66 |
+| 16 | Clash: chọn model cho Source/Target set | ✅ Done — PR #68 |
+| 17 | 🔒 Audit fix: toàn vẹn dữ liệu cloud + quyền (race switch, orphan blob, delete) | ✅ Done — PR #71 |
+| 18 | 🩺 Audit fix: SG Validate engine (rules skip toàn bộ, THREE, SCDF/NPARKS ẩn) | ✅ Done — PR #72 |
+| 19 | 🧰 Audit fix: Clash UX/correctness (restore markers, checkbox, model selection) | ⬜ Not started |
+| 20 | ⚡ Perf getAllProps + audit nốt core viewer/tools + UI shell | 🟡 getAllProps xong |
+| 21 | 🩺 SG Validate còn lỗi (buildings/spaces) + xoay view mượt (adaptive res) | 🟡 In progress |
+| 22 | 📱 Field Mode parity: More menu (Search/Colorize/Validate/Viewpoints) | ✅ Done — PR #31 |
+| 23 | 📱 Field Mode polish: Coordinates (touch tap-to-read) + More-menu dismiss | 🟡 In progress |
 
 Ký hiệu Status: `⬜ Not started` · `🟡 In progress` · `✅ Done — PR #<n>`.
 
@@ -413,3 +426,385 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
 - **Done khi:** 3 option mới chạy đúng trên fixture Phase 5 (duplicate flag đúng cặp wall
   không đổi; box filter suppress clash nhỏ khi nâng ngưỡng; self-clash phát hiện
   self-overlap); typecheck + test + build pass, 0 pageerror.
+
+## Phase 11 — Sửa bug rà soát sau Phase 6–10 ✅ Done
+**Status:** ✅ Done — PR #57 (2026-07-10)
+
+> Nguồn: rà soát toàn app 2026-07-09 (2 agent song song: đọc sâu code mới Phase 6–10 +
+> quét xung đột tích hợp với các fix Phase 0–5). Typecheck/test/build hiện pass, 0 duplicate
+> ID, không leak mới, XSS sạch (mọi chuỗi user-controlled đã qua escapeHtml) — các bug dưới
+> đây là phần còn sót.
+
+### 🔴 Cao — crash chắc chắn khi dùng tính năng mới
+- [x] **Duplicate clash crash khi render kết quả:** sửa bằng cách build `bbox` thật từ
+      `center`/`size` sẵn có trong `GeometryHashEntry` (thay vì `null`) khi tạo kết quả
+      duplicate — `showClashResults()`/`focusClash()` không cần sửa, chỉ cần dữ liệu hợp lệ.
+- [x] **Duplicate clash crash khi click card:** tự hết sau fix trên (cùng gốc `bbox: null`).
+
+### 🟡 Trung bình — sai kết quả / sai hành vi
+- [x] **Clash property filter áp nhầm chéo element type:** `runClashDetection` đổi sang dùng
+      `resolveClashFilters()` (per-type map) thay vì `getClashFilters()` (đã xoá, không còn
+      nơi gọi); `buildFilteredSet` tra filter riêng cho category đang lặp thay vì 1 mảng
+      phẳng dùng chung cho mọi type.
+- [x] **Self-clash focus highlight sai model:** `focusClash()` dùng `cl.elA.modelIdx` /
+      `cl.elB.modelIdx` (đã có sẵn trong result) thay vì hard-code `mi: 0`/`mi: 1`.
+- [x] **`walkToggleStoreyClip` tắt clip làm mất section Y của user:** thêm check
+      `appState.sectionActive` giống `walkRestoreClip()` — tắt toggle khi có section active
+      thì trả Y-plane về `updateSectionFromSliders()` thay vì set cứng `99999`.
+- [x] **Viewpoint mất âm thầm khi vượt quota localStorage:** `saveViewpoints` giờ trả về
+      `boolean`; lỗi quota tự động retry 1 lần bỏ thumbnail (phần lớn dung lượng) để giữ lại
+      camera/section/visibility; nếu vẫn thất bại, `vpSave` alert rõ ràng cho user thay vì
+      báo "đã lưu" rồi âm thầm mất sau reload.
+- [ ] **Viewpoint lưu trong walk/field storey-clip ghi sai section:** ĐÃ XEM XÉT, quyết định
+      không sửa — walk/field storey-clip không set `sectionActive`/slider, nên
+      `vp.section.active` vẫn đúng là `false` khi lưu (không claim có section), và không có
+      gì bị misrepresent; chỉ đơn giản là hiệu ứng clip tạm thời lúc walk không được ghi vào
+      viewpoint — hợp lý vì viewpoint là bookmark camera, không phải state ephemeral của
+      walk mode. Không coi là bug cần sửa nữa.
+
+### 🟢 Thấp — phòng thủ / edge case
+- [x] **`loadViewpoints` không validate mảng:** thêm `Array.isArray` guard (cùng pattern
+      `projects-store.ts`), trả `[]` nếu key bị ghi đè bằng JSON không phải mảng.
+- [x] **`planView.storey` stale khi đổi project:** `rebuildPlanStoreyList()` giờ reset
+      `planView.storey = null` khi index cũ vượt quá độ dài danh sách storey mới, để rơi
+      đúng vào nhánh auto-pick storey gần camera nhất thay vì giữ index rác.
+- [ ] **Walk storey-clip đè plan-cut Y (transient):** giữ nguyên, chỉ là hiệu ứng tạm thời
+      (outline lệch trong lúc Walk active, tự đúng lại khi thoát Walk vì `sectionActive` →
+      `updateSectionFromSliders()`) — rủi ro sửa (thêm 1 cơ chế "chủ sở hữu" cho cặp plane Y)
+      lớn hơn giá trị cho 1 edge case hiếm khi cả Plan cut và Walk cùng active.
+- [ ] **Đơn vị clash giả định world=mét:** giữ nguyên — không phải regression (pipeline cũ đã
+      vậy), chưa có fixture model đơn vị khác mét để test an toàn.
+- Thêm 5 test mới (`viewpoints-store.test.ts`): round-trip save/load, validate mảng khi
+  corrupt, fallback bỏ thumbnail khi quota, báo fail đúng khi retry cũng vượt quota.
+- **Done khi:** Duplicate/self-clash dùng được không crash, filter per-type đúng, viewpoint
+  không mất dữ liệu âm thầm + restore đúng section, typecheck + test + build pass, 0 pageerror. ✅
+  (Verify: typecheck sạch, 183/183 test (+5 mới), build OK, E2E headless Duplicate clash +
+  self-clash không crash, không hồi quy Compare/Clash/Walk/Plan.)
+
+---
+
+# HƯỚNG A — Cloud Projects kiểu Dalux (Firestore + Firebase Storage)
+
+> Người dùng chốt 2026-07-10: **Hướng A** — dự án lưu trên cloud theo tài khoản, file IFC
+> upload lên Firebase Storage, vào dự án (từ bất kỳ máy nào / thành viên được share) thì
+> **tự động tải + load file IFC có sẵn** — giống Dalux. Hướng B (IndexedDB cache local)
+> giữ lại làm bước tăng tốc ở Phase 14, KHÔNG thay thế cloud.
+>
+> **Hạ tầng dùng lại:** Firebase project `ifc-delta` (đã chạy Auth + Hosting), bucket
+> `ifc-delta.firebasestorage.app` (đã khai trong `firebaseConfig`), SDK `firebase@^10`
+> (đã có sẵn module firestore/storage — không thêm dependency), secret
+> `FIREBASE_SERVICE_ACCOUNT` (đã có trong GitHub Actions cho hosting deploy).
+> **Nguyên tắc:** local-first hiện tại (Phase 6) GIỮ NGUYÊN làm fallback — dự án local
+> vẫn hoạt động offline; cloud là lớp thêm vào, gated theo đăng nhập.
+
+## Phase 12 — Nền cloud: Firestore registry + Security Rules + rules deploy CI
+**Status:** ✅ Done — PR #60 (Firestore + Storage đã bật trên Blaze, region `asia-southeast1`)
+
+**Việc người dùng phải làm trước (tôi sẽ nhắc lại từng bước khi chạy phase):**
+1. Firebase Console → Build → **Firestore Database** → Create database → production mode,
+   region `asia-southeast1` (Singapore — gần VN nhất).
+2. Firebase Console → Build → **Storage** → Get started (giữ production mode).
+   (Rules sẽ do CI deploy tự động ở bước dưới — không cần dán tay.)
+
+- [ ] **Data model Firestore** (file mới `frontend/src/lib/cloud-projects.ts`, pure logic +
+      glue mỏng):
+      - `projects/{projectId}`: `{ name, code, ownerUid, ownerEmail, memberEmails: string[]
+        (LUÔN chứa ownerEmail — rules chỉ cần check 1 mảng), settings: { units, driveLink },
+        createdAt, updatedAt }`
+      - `projects/{projectId}/files/{fileId}`: `{ name, size, slot: 'A'|'B'|number (fed),
+        storagePath, contentType: 'application/x-step', uploadedBy, uploadedAt }`
+      - ID dùng `crypto.randomUUID()` (cùng convention projects-store.ts hiện tại).
+- [ ] **Security Rules** — 2 file mới trong repo `firestore.rules` + `storage.rules`:
+      - Firestore: đọc/ghi `projects/{id}` + subcollection `files` chỉ khi
+        `request.auth.token.email in resource.data.memberEmails` (create: check
+        `request.resource.data`); bắt buộc `request.auth.token.email_verified == true`
+        (app đã enforce verify email ở Auth).
+      - Storage: path `projects/{projectId}/{fileName}` — dùng **cross-service rules**
+        (`firestore.get(/databases/(default)/documents/projects/$(projectId))`) để check
+        membership từ chính doc Firestore → 1 nguồn chân lý duy nhất, không nhân đôi ACL.
+      - Giới hạn upload: `request.resource.size < 500 * 1024 * 1024` (500MB/file) +
+        contentType whitelist.
+- [ ] **CI deploy rules:** sửa `firebase.json` thêm khối `firestore.rules` + `storage.rules`;
+      thêm step vào `.github/workflows/firebase-deploy.yml`: dựng `GOOGLE_APPLICATION_CREDENTIALS`
+      từ secret `FIREBASE_SERVICE_ACCOUNT` có sẵn → `npx firebase-tools deploy
+      --only firestore:rules,storage --project ifc-delta` (service account cần role
+      Firebase Admin — nhắc user check IAM nếu step fail).
+- [ ] **Cloud registry sync** (glue trong `cloud-projects.ts`, lazy `import('firebase/firestore')`
+      kiểu ai.ts để không phình chunk chính ~300KB):
+      - Sau đăng nhập: `getDocs(query(projects, where('memberEmails', 'array-contains', email)))`
+        → merge vào project switcher UI (Phase 6), phân biệt badge `☁ Cloud` vs `💻 Local`.
+      - Tạo/đổi tên/xoá project cloud → ghi Firestore (optimistic UI + rollback khi lỗi).
+      - Nút **"Đưa dự án local lên cloud"** trên mỗi project local (migrate: copy name/code/
+        settings; file IFC upload ở Phase 13).
+      - Offline/lỗi mạng → toast + rơi về registry local, KHÔNG chặn app.
+- [ ] Test Vitest: pure helpers (build doc payload, validate memberEmails luôn chứa owner,
+      merge cloud+local registry không trùng id, quyền theo email case-insensitive).
+- **Done khi:** đăng nhập trên 2 trình duyệt khác nhau thấy cùng danh sách dự án cloud;
+  tạo/xoá đồng bộ; user ngoài memberEmails bị Firestore từ chối (test bằng tài khoản thứ 2);
+  rules deploy tự động qua CI; typecheck + test + build pass.
+
+## Phase 13 — File IFC trên Storage + auto-load khi vào dự án (lõi "giống Dalux")
+**Status:** ✅ Done — PR #61
+
+- [ ] **Upload:** trong dự án cloud, khi user load file IFC vào slot (A/B/federation —
+      `handleFile`/`fedHandleFile`) → sau khi load local xong, upload nền lên
+      `projects/{projectId}/{fileId}.ifc` bằng `uploadBytesResumable` (lazy
+      `import('firebase/storage')`): progress % trên chip file, retry 1 lần, toast khi xong/lỗi.
+      Ghi doc `files/{fileId}` kèm `slot`. Thay file cùng slot → ghi đè doc + xoá blob cũ.
+      Gỡ file/xoá project → xoá cả doc + blob (best-effort, log lỗi mồ côi).
+- [ ] **Auto-load khi mở dự án:** switch sang dự án cloud → đọc `files` →
+      `getDownloadURL` → `fetch` → `File` → đi qua đúng pipeline `loadIFC(idx)` hiện có
+      (giữ nguyên dispose/bounds/spatial). Loading overlay theo % tải; lỗi 1 file không chặn
+      file khác. Slot mapping: A/B trước, federation sau.
+- [ ] **Trạng thái đồng bộ:** chip mỗi slot hiện `☁ synced` / `⬆ uploading n%` / `⚠ local-only`
+      (dự án local hoặc upload fail). Confirm trước khi ghi đè file cloud do người khác up.
+- [ ] Test: helpers thuần (slot mapping, quyết định ghi đè/giữ, format progress); E2E headless
+      mock fetch cho luồng auto-load (không gọi mạng thật trong sandbox).
+- **Done khi:** máy 1 up 2 file vào dự án cloud → máy 2 (cùng account hoặc account được share)
+  mở dự án → 2 file tự tải + tự load vào đúng slot, không thao tác tay — flow Dalux hoàn chỉnh.
+
+## Phase 14 — Share team + cache IndexedDB + polish
+**Status:** ✅ Done — PR #62 (kèm fix bảo mật: chỉ owner được sửa `memberEmails`)
+
+- [ ] **Share theo email:** UI "Members" trong project settings (nhập email → thêm vào
+      `memberEmails`; chỉ owner được thêm/xoá; xoá owner bị chặn). Nút Invite hiện có (giữ từ
+      redraw UI) nối vào flow này thay vì demo tĩnh.
+- [ ] **Cache IndexedDB (Hướng B làm tầng tăng tốc):** blob IFC cache theo
+      `storagePath + updatedAt` — mở lại dự án trên cùng máy: đọc cache, bỏ qua download nếu
+      chưa đổi; LRU ~2GB; nút "Clear cache" trong Settings.
+- [ ] **Polish:** viewpoints/units per-project (localStorage hiện tại) sync thêm lên doc
+      Firestore của project cloud (best-effort, local vẫn là nguồn khi offline); quota guard
+      (file > 500MB → báo trước khi upload); hiển thị dung lượng đã dùng của project.
+- **Done khi:** share email cho đồng nghiệp → họ đăng nhập thấy dự án + auto-load; mở lần 2
+  cùng máy không tải lại từ mạng; không hồi quy dự án local/offline.
+
+## Phase 15 — Lưu kết quả Compare/Clash lên cloud project (chốt 2026-07-13, theo yêu cầu user)
+**Status:** ✅ Done — PR #66
+
+> User báo: chạy Compare/Clash xong, chuyển project hoặc reload trang thì mất kết quả (đúng —
+> `appState.compareResult`/`clashResults` chỉ tồn tại trong bộ nhớ tạm, chưa từng persist).
+> User muốn: lưu lại trên cloud project, mở lại là thấy ngay, giống Dalux.
+
+- [ ] **Lưu kết quả (Storage, không phải Firestore):** sau khi Compare (`compare.ts`,
+      `appState.compareResult`) hoặc Clash (`clash.ts`, `appState.clashResults`) chạy xong trong
+      1 cloud project, background-upload JSON kết quả lên
+      `projects/{projectId}/results/{kind}.json` (`kind` = `compare` | `clash`) qua
+      `uploadBytesResumable`, lazy `import('firebase/storage')`. Không lưu Firestore vì kết quả
+      có thể hàng nghìn phần tử, vượt giới hạn 1MB/doc.
+- [ ] **Metadata nhẹ (Firestore):** doc `projects/{projectId}/results/{kind}` (Firestore, tách
+      biệt path với Storage) chứa `{ ranAt, ranBy, counts: {...}, modelSignature }` —
+      `modelSignature` là hash/id đơn giản của cặp file A/B (hoặc set clash) tại thời điểm chạy,
+      để khi mở lại biết kết quả cũ có còn khớp với file hiện tại hay không.
+- [ ] **storage.rules:** thêm `application/json` vào allow-list contentType (path
+      `projects/{projectId}/{allPaths=**}` đã match sẵn, không cần thêm match block).
+- [ ] **Khôi phục khi mở project:** sau `autoLoadCloudProjectFiles` (Phase 13) load xong file,
+      kiểm tra có kết quả đã lưu không — nếu `modelSignature` khớp file hiện tại, tự động tải
+      JSON + gán vào `appState.compareResult`/`clashResults` + render lại UI Compare/Clash y hệt
+      như vừa chạy xong. Nếu không khớp (file đã đổi), hiện badge "Outdated — re-run" thay vì tự
+      áp kết quả cũ.
+- [ ] Test Vitest: modelSignature builder (thuần, không cần model thật), so khớp
+      signature cũ/mới, format counts hiển thị badge. Không test SDK thật.
+- **Done khi:** chạy Compare/Clash trong cloud project → tải lại trang hoặc mở từ máy khác →
+  thấy lại đúng kết quả không cần chạy lại (miễn file chưa đổi); dự án local không đổi hành vi;
+  typecheck + test + build pass.
+
+## Phase 16 — Clash: chọn model cho Source/Target set (chốt 2026-07-14, theo yêu cầu user)
+**Status:** ✅ Done — PR #68
+
+> User báo: Clash Detection hiện cố định Source = Version A (slot 0), Target = Version B
+> (slot 1) hoặc self-clash (A vs A) — không thể chọn model federation (slot ≥2, nạp qua
+> "+ Add more files") làm Source/Target. User muốn thêm filter/dropdown chọn model.
+
+- [ ] **UI:** 2 dropdown chọn model bên cạnh tiêu đề "Source Set" / "Target Set" trong
+      `clashPanel` (`frontend/index.html`), liệt kê mọi slot đang có model load
+      (`appState.loadedModels[i]` không null, tên lấy từ `appState.files[i].name`), thay cho
+      tag tĩnh `#clashFileA`/`#clashFileB` hiện tại (dòng 381-382 `clash.ts`, `enterClashMode`).
+- [ ] **State:** thêm `appState.clashSourceIdx`/`clashTargetIdx` (mặc định 0/1 nếu có ≥2 model,
+      giữ hành vi cũ khi chỉ có A/B). Đổi mọi chỗ hardcode `appState.loadedModels[0]` (Source) và
+      `targetModelIdx` (Target, hiện tính từ checkbox self-clash) trong `clash.ts` sang đọc từ 2
+      field này — bao gồm `runClashDetection`, `buildFilteredSet`, `buildElementBBoxes`,
+      `buildEidVertexMap`, `computeGeometryHashes`, property lookup cho export BCF
+      (dòng ~1379/1383), `updateClashRunButtonState`.
+- [ ] **Self-clash tương thích:** checkbox "single model" hiện set `targetModelIdx = 0`; sau khi
+      đổi, set `targetModelIdx = clashSourceIdx` (self-clash theo đúng model đang chọn làm
+      Source, không cứng slot 0).
+- [ ] Test Vitest nếu tách được logic thuần (map slot→tên hiển thị); phần còn lại review kỹ vì
+      clash.ts không có test integration.
+- **Done khi:** load ≥3 model (A, B, + 1 federation) → chọn Source = model federation, Target =
+  Version B (hoặc bất kỳ cặp nào) → Run Clash chạy đúng cặp đã chọn, không còn cố định A vs B;
+  hành vi cũ (chỉ có A/B) không đổi; typecheck + build pass.
+
+---
+
+# AUDIT TOÀN APP (2026-07-15) — Phase 17-20
+
+> Rà soát bằng 2 audit agent hoàn chỉnh (cloud stack; compare/clash/validate) + sweep wiring
+> handler (132/132 handler HTML đều có định nghĩa — sạch). 2 mảng chưa audit xong do giới hạn
+> phiên: core viewer/tools và UI shell chi tiết → gộp vào Phase 20.
+> Finding then chốt: **SG Validate hiện gần như không hoạt động** (mọi rule theo class silently
+> skip) và **cloud có 3 lỗi toàn vẹn dữ liệu** (orphan blob không thể xoá, race khi switch nhanh,
+> delete project để lại rác vĩnh viễn).
+
+## Phase 17 — 🔒 Cloud data-integrity + quyền (từ audit)
+**Status:** ✅ Done — PR #71 (2026-07-16)
+
+- [x] **storage.rules — delete bị chặn vĩnh viễn:** `allow write` gồm cả delete, nhưng khi delete
+      `request.resource == null` → check size/contentType lỗi → mọi `deleteObject()` bị từ chối,
+      blob thay thế/xoá tích tụ tính phí mãi. Tách `allow create, update` (giữ check) khỏi
+      `allow delete: if isVerified() && isProjectMember(projectId)`. Test bằng emulator.
+- [x] **Xoá project mồ côi toàn bộ file:** `projDeleteCloud` chỉ xoá doc `projects/{id}` — subcollection
+      `files`/`results` + blob Storage bị bỏ lại, và vì cả 2 rules đều authorize qua `get()` doc
+      cha (đã xoá) nên KHÔNG AI dọn được nữa. Sửa: trước khi xoá doc, duyệt `fetchProjectFiles` +
+      `results` → xoá blob + doc con (best-effort). `deleteProjectFileRecord` hiện là dead code —
+      dùng nó.
+- [x] **Race switch project nhanh:** `autoLoadCloudProjectFiles` không có generation guard —
+      switch A rồi switch B ngay khi A còn fetch → 2 luồng chạy song song, file A đổ vào workspace
+      B, kết quả A restore lên model B. Thêm generation counter/so `projectId` với
+      `appState.activeCloudProjectId` sau mỗi await, bail nếu lệch. Tương tự `syncUploadSlot`
+      (ghi record vào slot sau await mà không kiểm tra còn đúng project không).
+- [x] **Chỉ owner được xoá project:** firestore.rules `allow delete` hiện cho mọi member; UI cũng
+      hiện nút ✕ cho mọi member. Siết `email() == resource.data.ownerEmail` + ẩn nút với non-owner.
+- [x] **Sign-out không dọn cloud state:** user đăng xuất (hoặc user khác đăng nhập tiếp) vẫn thấy
+      model + chip project cũ; upload tiếp sẽ đổ vào project của user trước. `onAuthStateChanged`
+      nhánh `!user`: null `activeCloudProjectId`, clear records/cloudList, `unloadAllModels()`.
+- [x] **Token verify cũ:** sau khi verify email, ID token cache vẫn `email_verified:false` tới ~1h
+      → cloud bị deny im lặng. Sau reload() verified: `getIdToken(true)`.
+- [x] **saveOutgoingState mis-target:** rời cloud project vẫn stamp camera/driveLink vào local
+      project active — skip khi `activeCloudProjectId` đang set.
+- [x] Nhỏ: `refreshCloudList` lỗi mạng hiện y hệt "không có project" (thêm dòng báo lỗi riêng);
+      guard `google?.accounts` trong drive.ts trước khi gọi GIS.
+- **Done khi:** emulator tests cho rules delete/owner-only pass; switch nhanh 2 project không lẫn
+  file; xoá project dọn hết file con + blob; sign-out sạch state; typecheck + test + build pass.
+
+## Phase 18 — 🩺 SG Validate engine (từ audit — hiện gần như chết)
+**Status:** ✅ Done — PR #72 (2026-07-16)
+
+- [x] **Bug nghiêm trọng nhất app: mọi rule theo class silently skip.** `sgBuildContext`
+      (validator-json-loader.ts:558) đưa `p.type` (STRING như 'IfcWall' từ getAllProps) qua
+      `sgIfcCodeToClass` (map theo MÃ SỐ) → mọi entity rơi vào bucket sai → `ctx.byClass.get('IfcWall')`
+      rỗng → rules trả "No X elements found". Sửa: nếu `typeof p.type === 'string'` dùng thẳng.
+      Thêm test với context giả để không tái phát.
+- [x] **FED-006 luôn fail:** validator-rules.ts dùng `declare const THREE` nhưng không ai gán
+      `window.THREE` → ReferenceError bị nuốt thành "Rule execution failed". Sửa: import three.
+- [x] **SCDF/NPARKS chạy nhưng không bao giờ hiển thị:** `AGENCY_ORDER` cố định 6 agency, render
+      loop chỉ duyệt list đó → rules SCDF/NPARKS đếm vào stats nhưng không có row nào trong UI.
+      Append các agency còn lại từ `byAgency`.
+- [x] **FED-002 crash khi storey elevation null:** filter/flag trước khi so + `.toFixed`.
+- **Done khi:** chạy SG Check trên model thật cho kết quả từng class đúng (không còn "No elements
+  found" hàng loạt), FED-006 chạy thật, SCDF/NPARKS hiện trong list; test mới pass.
+
+## Phase 19 — 🧰 Clash UX/correctness (từ audit) ✅ Done
+**Status:** ✅ Done — branch `claude/du-an-review-uzn9v0` (từ đợt review dự án)
+
+- [x] **Restore clash để lại marker mồ côi khi switch project:** export `clearClashSubsets()`
+      (clash.ts), `unloadAllModels` gọi để dọn marker khi đổi project; `restoreClashResult`
+      dispose subsets cũ trước khi vẽ (mỗi `showClashResults` push group mới nên restore lặp
+      chồng marker).
+- [x] **Restore render sai model khi Phase 16 chọn non-default:** `showClashResults(opts)` nhận
+      `{ fadeIndices, recordSnap }`. Live run fade Source/Target hiện tại; restore derive fade set
+      từ `modelIdx` trong kết quả đã lưu (dropdown về 0/1 sau reload) + `recordSnap:false` để
+      không ghi snapshot giả.
+- [x] **Checkbox loại clash bị engine ghi đè:** derive mode thuần từ checkbox Clash/Distance;
+      minDist không tự bật clearance; bỏ cả hai → `'none'` (bỏ mesh test) thay vì rơi về hard.
+      Tolerance = 0 khi Distance off để near-miss không lấp cap.
+- [x] **fedRemoveSlot bỏ quên clash selection:** `clashHandleModelRemoved(idx)` repoint
+      Source/Target sang slot còn load + re-render selects + update Run button.
+- [x] **enterClashMode reset lựa chọn mỗi lần vào trang:** chỉ áp default 0/1 khi index hiện tại
+      trỏ slot chưa load — giữ lựa chọn federation qua điều hướng.
+- [x] **Cap 2000 candidate loại hết clearance:** `clashCandidateSeverity(pen,gap)=pen−gap`, sort
+      desc trước cap để giữ cả overlap lẫn near-miss (gap nhỏ ưu tiên). Có unit test mới.
+- [x] Nhỏ: NaN slider khi model phẳng ở `focusSectionOnChanges` — guard `range>0` (→50) như clash.ts.
+- **Done khi:** restore clash sau reload với model selection non-default hiển thị đúng model,
+  switch project không còn marker mồ côi; checkbox hoạt động độc lập; test + build pass. ✅
+  (Verify: typecheck sạch, 264/264 test, build OK.)
+
+## Phase 20 — ⚡ Perf getAllProps + audit nốt phần còn thiếu
+**Status:** 🟡 In progress (getAllProps xong; audit core/UI + settings sync còn lại)
+
+- [x] **getAllProps Method 2 quét toàn file:** `getItemProperties` cho MỌI line IFC (hàng trăm
+      nghìn WASM round-trip tuần tự) — chi phí lớn nhất của Compare/Validate model thật. Đã sửa:
+      thêm cả họ geometry/topology/resource/relationship (IfcCartesianPoint, IfcPolyLoop, IfcFace,
+      IfcShapeRepresentation, IfcPropertySingleValue, IfcMaterial…) vào `SKIP_TYPES`, lọc bằng
+      `GetLineType` (rẻ) TRƯỚC khi gọi `getItemProperties`. Type lạ vẫn được parse nên không bỏ sót
+      product type chưa biết (giữ đúng ý đồ "safety net" của Method 2).
+- [ ] **Audit nốt 2 mảng chưa xong** (agent bị cắt do session limit): core viewer/tools
+      (viewer-core, section-visibility, measure, walk, plan-overlay, colorize, viewcube) và UI
+      shell chi tiết (router/state-persist/fieldmode/properties + demo content còn sót như
+      notification giả "Jane Smith", team panel tĩnh) → fix các finding cao/medium tìm được.
+- [ ] Cân nhắc (từ audit, chưa bắt buộc): settings cloud sync hiện write-only — áp `settings.units`
+      khi mở cloud project; bundle JSZip/jsPDF thay vì CDN lúc click; báo lỗi thân thiện khi export
+      offline.
+- **Done khi:** Compare/Validate trên model ~60MB nhanh hơn đo được (log thời gian); các finding
+  mới mức cao đã fix; typecheck + test + build pass.
+
+## Phase 21 — 🩺 SG Validate còn lỗi + xoay view mượt (feedback user 2026-07-18)
+**Status:** 🟡 In progress
+
+> Phản hồi trực tiếp: "IFC SG checking chưa ổn đang bị lỗi"; "load model cloud chạy chậm từng
+> mode"; "xoay view chưa mượt như Dalux/Revit". (Cache local đã có từ Phase 14 — cache-first mặc
+> định trong `autoLoadCloudProjectFiles`, không cần đổi.)
+
+- [x] **SG: `spatial.buildings` chưa bao giờ được tạo:** `readSpatialInfo` chỉ set `buildingName`
+      (string) nên rule GEN-005 đọc `spatial.buildings` (mảng) luôn rỗng → luôn báo "No IfcBuilding
+      found" dù model có building. Populate `info.buildings=[{expressID,name}]` song song với `sites`.
+- [x] **SG: IfcSpace không có trong context:** `getAllProps` cố tình bỏ IfcSpace (không có geometry
+      solid) nên `ctx.byClass.get('IfcSpace')` luôn rỗng → 5 rule (BCA-SP01/02, NEA-001, LTA-001,
+      PUB-001) im lặng pass/skip. Thêm quét IfcSpace riêng trong `sgBuildContext` (đọc Name+LongName,
+      psets tự resolve qua batch loop sẵn có). Test regression pin data-contract (buildings/spaces).
+- [x] **Xoay view mượt hơn (adaptive resolution):** giảm `pixelRatio` khi camera đang di chuyển
+      (orbit/pan/zoom), trả về full res ngay khi dừng — kỹ thuật viewer native hay dùng. Chỉ đổi
+      pixelRatio ở cạnh start/stop (không mỗi frame). Hi-DPI hưởng lợi nhiều nhất; màn thường
+      giảm nhẹ khi kéo. Không bật trong walk mode.
+- **Done khi:** SG check trên model thật cho kết quả IfcSpace/IfcBuilding đúng; xoay mượt hơn trên
+  model nặng; typecheck + test + build pass. ✅ (266 test pass, build ok)
+
+## Phase 22 — 📱 Field Mode parity: More menu (Search/Colorize/Validate/Viewpoints)
+**Status:** 🟡 In progress
+
+> Feedback user: "tối ưu giao diện cho Field Mode, bổ sung đầy đủ chức năng như Desktop nhưng
+> chỉnh chu, tối ưu hơn." Cách làm: nút **More** trên field-bar → menu lưới → mỗi tính năng mở
+> **bottom-sheet** touch-optimized, **tái sử dụng logic desktop** (không nhân đôi).
+
+- [x] **Search sheet:** ô tìm + list kết quả (tap → zoom/highlight). Thêm `window.fieldSearch(text)`
+      trong search.ts (dùng lại `_searchCache` + `searchSelect`, không đụng DOM desktop).
+- [x] **Colorize sheet:** bật/tắt "Color by Category" (Auto mode) + legend swatch + Reset — gọi
+      `toggleColorize`/`colorizeSetMode` sẵn có.
+- [x] **SG Validate sheet:** gateway pills → Run (`sgRunValidation`) → summary pass/fail/warn +
+      danh sách rule fail (details) → tap element `sgFocusElement(eid)`.
+- [x] **Viewpoints sheet:** gallery thumbnail (tap → `vpRestore`) + "Save current view" (`vpSave`);
+      thêm `window.vpFieldData()` + event `ifc:vpchange` để field gallery tự refresh.
+- [x] Sheet công cụ dùng `#fieldToolSheet` riêng (tách khỏi `#fieldSheet` properties để không đè
+      nhau). Desktop panels bị ẩn trong field-mode nên tái sử dụng hàm desktop không lộ UI.
+- **Còn lại (polish, cần test trên thiết bị thật):** tap ngoài để đóng More menu; field-native
+  properties render (hiện dùng lại propArea). typecheck + 266 test + build pass. ✅
+
+## Phase 23 — 📱 Field Mode polish: Coordinates + More-menu dismiss
+**Status:** 🟡 In progress
+
+> Follow-up sau khi PR #31 (Phase 22) merge. Thêm tính năng desktop còn thiếu ở Field Mode
+> (Coordinates) làm lại cho touch, + polish UX menu.
+
+- [x] **Coordinates (touch-native):** desktop dùng hover (`pointermove`) — vô dụng trên tablet.
+      Viết lại kiểu **tap-to-read**: bật mode từ More → mỗi lần chạm model raycast điểm hit, đổi ra
+      đơn vị hiện tại (`worldToMm`/`formatLengthMm`/`getUnitPref`) và in X/Y/Z vào readout ghim trên
+      field-bar. Không stopPropagation (để OrbitControls dọn pointerup + field pivot vẫn chạy).
+      Tự tắt khi thoát Field Mode.
+- [x] **More-menu tap-outside để đóng:** trước đây chỉ đóng khi bấm lại nút More → thấy "dính".
+      Thêm listener pointerdown (capture) đóng menu khi chạm ra ngoài; không preventDefault nên
+      tap dưới vẫn xuyên qua.
+- **Done khi:** typecheck + test + build pass. ✅ (269 test pass, build ok). Touch UX cần test thiết bị thật.
+
+## Phase 24 — 📱 Field Mode: switch project (cloud + local)
+**Status:** 🟡 In progress
+
+> Feedback user: "bổ sung thêm chức năng switch project trong field mode."
+
+- [x] **Projects tool trong More menu:** sheet liệt kê project Cloud (nếu đăng nhập + verified) và
+      Local, đánh dấu cái đang active, tap để chuyển. Không cần model đang mở.
+- [x] **Tái sử dụng switch logic:** thêm option `{ fromField:true }` cho `projSwitch`/`projSwitchCloud`
+      để BỎ `navigateTo('viewer')` + `toggleProjectsPanel()` (hai thứ này sẽ đá user ra khỏi Field
+      Mode / bật panel desktop). Vẫn chạy unload + autoLoadCloudProjectFiles để nạp model dự án mới.
+- [x] **Getter thuần `projFieldData()`** (không tự refresh — tránh vòng lặp render↔refresh) +
+      `projFieldRefresh()` one-shot gọi khi mở sheet; sheet re-render qua event `ifc:cloudprojects`
+      và `ifc:projectchange`.
+- **Done khi:** typecheck + test + build pass. ✅ (293 test pass, build ok). Cần test thiết bị thật.

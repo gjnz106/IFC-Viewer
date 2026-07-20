@@ -1,5 +1,6 @@
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { escapeHtml } from '../../lib/escape.js';
 
 // ══════════════════════════════════════════════════════════════════════
 // ── GOOGLE DRIVE INTEGRATION ────────────────────────────────────────
@@ -42,6 +43,14 @@ function odUpdateBadge(state: 'on' | 'offline'): void {
 window.gdLogin = function (): void {
   if (GD_CONFIG.CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
     alert('Google Drive not configured.\n\n1. Go to console.cloud.google.com\n2. Create project → Enable Google Drive API\n3. Credentials → Create OAuth 2.0 Client ID\n4. Authorized JS origins: https://ifc.t3lab.space\n5. Open drive.ts → search GD_CONFIG\n6. Replace YOUR_GOOGLE_CLIENT_ID_HERE');
+    _pendingLoad = null;
+    _pendingLoadViewer = false;
+    return;
+  }
+  // GIS script loads async from index.html — a click before it lands (slow
+  // network, blocker) would otherwise throw on `google.accounts`.
+  if (!(window as any).google?.accounts) {
+    alert('Google sign-in script not loaded yet. Check connection and try again.');
     _pendingLoad = null;
     _pendingLoadViewer = false;
     return;
@@ -353,10 +362,5 @@ window.gdLogout = function (): void {
     if (btn) { btn.disabled = false; btn.textContent = origBtnText; }
   }
 };
-
-function escapeHtml(s: any): string {
-  if (s == null) return '';
-  return String(s).replace(/[&<>"']/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c]);
-}
 
 export { escapeHtml };

@@ -157,16 +157,25 @@
     </button>
     <span class="tb-brand-sep"></span>
 
-    <!-- Mode switcher (Field / Compare / Clash) — v5 segmented pills -->
+    <!-- Workspace switcher (3D / Compare / Clash / Validate) — v5 segmented
+         pills. Every pill toggles: clicking the active workspace returns to
+         3D, so there is always a visible way back to the base viewer. Field
+         (full-screen on-site mode) is a separate pill after the divider. -->
     <div style="display:inline-flex;gap:2px;padding:3px;background:#E8E6E1;border-radius:12px;flex:none">
-      <button id="fieldModeBtn" data-page="field" onclick="navigateTo('field')" class="hdr-seg" title="Field Mode — on-site BIM review">
-        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg> Field
+      <button data-page="viewer" onclick="navToggle('viewer')" class="hdr-seg" title="3D Viewer — base model view">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/><path d="M12 2v18M4 6.5l8 4.5 8-4.5"/></svg> 3D
       </button>
-      <button data-page="compare" onclick="navigateTo('compare')" class="hdr-seg" title="Compare two IFC versions">
+      <button data-page="compare" onclick="navToggle('compare')" class="hdr-seg" title="Compare two IFC versions">
         <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;vertical-align:-1px"><path d="M8 5.5l11 6.5-11 6.5z"/></svg> Compare
       </button>
-      <button id="btnClash" data-page="clash" onclick="toggleClashMode()" class="hdr-seg" title="Clash detection">
+      <span id="compareOutdatedBadge" style="display:none;font-size:9px;font-family:'JetBrains Mono';color:#b45309;margin-left:2px;align-self:center" title="Saved compare result no longer matches the loaded files">⚠ Outdated</span>
+      <button id="btnClash" data-page="clash" onclick="navToggle('clash')" class="hdr-seg" title="Clash detection">
         <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;vertical-align:-1px"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg> Clash
+      </button>
+      <span id="clashOutdatedBadge" style="display:none;font-size:9px;font-family:'JetBrains Mono';color:#b45309;margin-left:2px;align-self:center" title="Saved clash result no longer matches the loaded files">⚠ Outdated</span>
+      <span class="hdr-seg-div"></span>
+      <button id="fieldModeBtn" data-page="field" onclick="navToggle('field')" class="hdr-seg" title="Field Mode — on-site BIM review">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg> Field
       </button>
     </div>
     <span class="tb-brand-sep"></span>
@@ -238,7 +247,7 @@
       <div style="position:relative">
         <button class="tb-icon-btn" id="btnNotif" onclick="toggleNotifMenu()" title="Notifications">
           <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span id="notifBadge" style="position:absolute;top:3px;right:3px;width:6px;height:6px;background:#ef4444;border-radius:50%"></span>
+          <span id="notifBadge" style="display:none;position:absolute;top:3px;right:3px;width:6px;height:6px;background:#ef4444;border-radius:50%"></span>
         </button>
         <div id="notifMenuDrop" style="display:none;position:absolute;top:40px;right:-50px;width:320px;background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--sh-lg);padding:10px;z-index:1000">
           <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text);display:flex;justify-content:space-between">
@@ -246,14 +255,7 @@
             <a href="#" onclick="clearNotifs();event.preventDefault()" style="font-size:11px;color:var(--blue);text-decoration:none">Clear all</a>
           </div>
           <div id="notifList" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
-            <div class="notif-item" style="font-size:11.5px;padding:6px;border-radius:6px;background:var(--bg-hover,#e8eaef)">
-              <div style="font-weight:600">Jane Smith invited you to City Tower project</div>
-              <div style="font-size:10px;color:var(--text-muted,#8590a6);margin-top:2px">2 hours ago</div>
-            </div>
-            <div class="notif-item" style="font-size:11.5px;padding:6px;border-radius:6px;background:var(--bg-hover,#e8eaef)">
-              <div style="font-weight:600">Federated model CT-P1-MEP.ifc compiled successfully</div>
-              <div style="font-size:10px;color:var(--text-muted,#8590a6);margin-top:2px">Yesterday</div>
-            </div>
+            <div style="padding:20px;text-align:center;color:#8590a6;font-size:11px">No new notifications</div>
           </div>
         </div>
         <div id="notifMenuBg" onclick="toggleNotifMenu()" style="display:none;position:fixed;inset:0;z-index:999"></div>
@@ -340,6 +342,9 @@
     <button class="rail-btn" id="rail-search" onclick="railSelect('search')" title="Search">
       <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
     </button>
+    <button class="rail-btn" id="rail-overview" onclick="railSelect('overview')" title="Overview — spatial structure per file">
+      <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v7M14 17.5h7"/></svg>
+    </button>
     <div class="rail-spacer"></div>
   </nav>
 
@@ -373,6 +378,7 @@
             </div>
             <div class="uc-fname" id="fn0"></div>
             <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text-muted);margin-top:4px" id="fs0"></div>
+            <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);margin-top:2px" id="syncChip0"></div>
           </div>
         </label>
 
@@ -403,6 +409,7 @@
             </div>
             <div class="uc-fname" id="fn1"></div>
             <div style="font-family:'JetBrains Mono';font-size:11px;color:var(--text-muted);margin-top:4px" id="fs1"></div>
+            <div style="font-family:'JetBrains Mono';font-size:10px;color:var(--text-muted);margin-top:2px" id="syncChip1"></div>
           </div>
         </label>
 
@@ -567,6 +574,18 @@
       </div>
 
       </div><!-- /lpModel -->
+
+      <!-- === OVERVIEW section — per-file spatial tree (rail: Overview) === -->
+      <div class="lp-overview hide" id="lpOverview">
+        <div id="ovClash"></div>
+        <div class="ov-summary" id="ovSummary"></div>
+        <div style="padding:6px 14px 4px">
+          <input class="search-input" id="ovSearch" placeholder="Filter by name, type, #id…" oninput="ovSearchInput()" style="width:100%">
+        </div>
+        <div class="ov-tree" id="ovTree">
+          <div class="ov-empty">No models loaded.<br>Load an IFC file to see its structure here.</div>
+        </div>
+      </div><!-- /lpOverview -->
     </aside>
 
     <div id="lresize"></div>
@@ -664,7 +683,11 @@
             <svg class="plan-marker-svg" id="planMarkerSvg" viewBox="0 0 340 240" preserveAspectRatio="none"></svg>
             <div class="plan-empty" id="planEmpty" style="display:none">Load a model with IfcBuildingStorey to use the plan overlay.</div>
           </div>
-          <div class="plan-info-bar"><span id="planInfoStorey">—</span><span id="planInfoCam">cam: —</span></div>
+          <div class="plan-info-bar">
+            <span id="planInfoStorey">—</span>
+            <span class="plan-cut-ctrl" title="3D section cut height above the selected storey's floor">Cut&nbsp;<input type="number" id="planCutHeight" class="clash-input-tiny" value="1.5" min="0.1" max="20" step="0.1" onchange="planSetCutHeight(this.value)">&nbsp;m</span>
+            <span id="planInfoCam">cam: —</span>
+          </div>
           <div class="plan-resize" id="planResize" title="Drag to resize"></div>
         </div>
 
@@ -792,12 +815,12 @@
           </div>
           <div class="clash-bottom-grid">
             <div class="clash-set-section">
-              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set <span class="clash-file-tag" id="clashFileA">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('A')">+</button><button class="clash-row-act" onclick="removeLastClashRow('A')">−</button></div></div>
+              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#ef4444"></span> Source Set <select class="clash-file-tag clash-model-sel" id="clashFileA" onchange="setClashSourceModel(this.value)"></select></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('A')">+</button><button class="clash-row-act" onclick="removeLastClashRow('A')">−</button></div></div>
               <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesA"></tbody></table>
               <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsA" disabled title="Not supported — element assemblies (IfcRelAggregates/Nests)" checked> Include parts</label>
             </div>
             <div class="clash-set-section">
-              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set <span class="clash-file-tag" id="clashFileB">—</span></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('B')">+</button><button class="clash-row-act" onclick="removeLastClashRow('B')">−</button></div></div>
+              <div class="clash-set-title-row"><span class="clash-set-title-text"><span class="cs-dot" style="background:#f97316"></span> Target Set <select class="clash-file-tag clash-model-sel" id="clashFileB" onchange="setClashTargetModel(this.value)"></select></span><div class="clash-set-actions"><button class="clash-row-act" onclick="addClashRow('B')">+</button><button class="clash-row-act" onclick="removeLastClashRow('B')">−</button></div></div>
               <table class="clash-rule-table"><thead><tr><th style="width:25%">Element Type</th><th style="width:22%">Property</th><th style="width:16%">Operator</th><th style="width:22%">Value</th><th style="width:15%">Action</th></tr></thead><tbody id="clashRulesB"></tbody></table>
               <label class="clash-include-parts"><input type="checkbox" id="clashIncludePartsB" disabled title="Not supported — element assemblies (IfcRelAggregates/Nests)" checked> Include parts</label>
             </div>
@@ -820,6 +843,11 @@
           <select id="clashGroupBy" class="clash-select" onchange="regroupClashes()">
             <option value="none">No grouping</option><option value="categoryA">Source Category</option><option value="categoryB">Target Category</option><option value="level">Story Level</option>
           </select>
+          <label style="margin-left:8px">Status</label>
+          <select id="clashStatusFilter" class="clash-select" onchange="regroupClashes()">
+            <option value="all">All</option><option value="unresolved">Unresolved</option><option value="new">New</option><option value="resolved">Resolved</option>
+          </select>
+          <label class="clash-auto-lbl" title="Re-run clash detection automatically when a model is updated (projects with clash history)"><input type="checkbox" id="clashAutoRun" checked onchange="clashAutoRunChanged()"> Auto re-run</label>
         </div>
         <div class="clash-list" id="clashList"><div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div></div>
       </div>
@@ -889,19 +917,28 @@
 
 </div><!-- /app -->
 
-<!-- == FIELD MODE == -->
+<!-- == FIELD MODE ==
+     One toolbar, grouped by on-site workflow:
+       Open · [navigate: Walk/Storeys/Plan 2D] · [inspect: Section/Measure/Photo]
+       · [view: Fit/Show All] · [system: Account/Desktop]
+     The desktop float-tools toolbar is hidden in field mode (it duplicated
+     6 of these buttons), and the bar reserves its right corner so the AI
+     assistant FAB never covers the Desktop button. -->
 <div class="field-bar" id="fieldBar">
   <button class="field-btn" onclick="fieldOpenLoader()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><span class="field-btn-label">Open</span></button>
+  <div class="field-sep"></div>
+  <button class="field-btn" id="fieldBtnWalk" onclick="fieldToggleWalk()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg></span><span class="field-btn-label">Walk</span></button>
+  <button class="field-btn" id="fieldBtnStoreys" onclick="fieldToggleStoreys()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span><span class="field-btn-label">Storeys</span></button>
+  <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span><span class="field-btn-label">Plan 2D</span></button>
   <div class="field-sep"></div>
   <button class="field-btn" id="fieldBtnSection" onclick="fieldToggleSection()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></span><span class="field-btn-label">Section</span></button>
   <button class="field-btn" id="fieldBtnMeasure" onclick="fieldToggleMeasure()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M2 20L20 4"/><path d="M6 16l2-2m2-2l2-2"/></svg></span><span class="field-btn-label">Measure</span></button>
   <button class="field-btn" onclick="fieldScreenshot()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></span><span class="field-btn-label">Photo</span></button>
-  <button class="field-btn" id="fieldBtnWalk" onclick="fieldToggleWalk()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="5" r="2"/><path d="M12 8l-2 4h4l-2 4"/><path d="M10 12l-2 6M14 12l2 6"/></svg></span><span class="field-btn-label">Walk</span></button>
   <div class="field-sep"></div>
-  <button class="field-btn" id="fieldBtnStoreys" onclick="fieldToggleStoreys()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span><span class="field-btn-label">Storeys</span></button>
-  <button class="field-btn" id="fieldBtnPlan2D" onclick="fieldTogglePlan2D()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg></span><span class="field-btn-label">Plan 2D</span></button>
   <button class="field-btn" onclick="zoomFit()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></span><span class="field-btn-label">Fit</span></button>
   <button class="field-btn" onclick="fieldShowAll()"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="field-btn-label">Show All</span></button>
+  <div class="field-sep"></div>
+  <button class="field-btn" id="fieldBtnMore" onclick="fieldToggleMore()" title="More tools — Search, Colorize, Validate, Viewpoints"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span><span class="field-btn-label">More</span></button>
   <div class="field-sep"></div>
   <button class="field-btn" onclick="toggleProfilePanel()" title="Account"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="field-btn-label">Account</span></button>
   <button class="field-btn" onclick="navigateTo('viewer')"><span class="field-btn-icon"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span><span class="field-btn-label">Desktop</span></button>
@@ -911,6 +948,46 @@
   <div class="field-sheet-handle"></div>
   <div class="field-sheet-hdr"><div class="field-sheet-title" id="fieldSheetTitle">Properties</div><button class="field-sheet-close" onclick="fieldCloseSheet()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
   <div class="field-sheet-body" id="fieldSheetBody"><div class="prop-empty">Tap an element to inspect</div></div>
+</div>
+
+<!-- Field Mode "More" menu — grid of desktop-parity tools -->
+<div class="field-more" id="fieldMore">
+  <div class="field-more-grid">
+    <button class="field-more-item" onclick="fieldMenuSearch()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuColorize()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a10 10 0 010-20 8 8 0 018 8c0 2-2 3-4 3h-2a2 2 0 00-1 4 2 2 0 01-1 5z"/></svg>
+      <span>Colorize</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuValidate()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span>Validate</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuViewpoints()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Viewpoints</span>
+    </button>
+    <button class="field-more-item" id="fieldMoreCoords" onclick="fieldMenuCoords()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="3.2"/></svg>
+      <span>Coords</span>
+    </button>
+    <button class="field-more-item" onclick="fieldMenuProjects()">
+      <svg viewBox="0 0 24 24" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M8 12h8M12 8v8"/></svg>
+      <span>Projects</span>
+    </button>
+  </div>
+</div>
+
+<!-- Field Mode coordinate read-out (pinned above the bar; shown only in Coords mode) -->
+<div class="field-coord-readout" id="fieldCoordReadout"></div>
+
+<!-- Field Mode tool sheet (separate from #fieldSheet so properties don't clobber it) -->
+<div class="field-tool-sheet" id="fieldToolSheet">
+  <div class="field-sheet-handle"></div>
+  <div class="field-sheet-hdr"><div class="field-sheet-title" id="fieldToolTitle">Tools</div><button class="field-sheet-close" onclick="fieldCloseTool()"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="field-sheet-body" id="fieldToolBody"></div>
 </div>
 
 <div class="field-loader" id="fieldLoader">
@@ -1011,6 +1088,14 @@
           <option value="ftin">Feet &amp; inches (ft-in)</option>
         </select>
       </div>
+      <div id="projStorageUsageRow" style="display:none;font-size:11.5px;color:#8590a6">
+        Cloud storage used: <span id="projStorageUsage" style="font-weight:600;color:#2C2421">—</span>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Local File Cache</label>
+        <button class="btn btn-sm" onclick="ifcCacheClear()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer" title="Wipes the local IndexedDB blob cache for cloud project files">Clear cache</button>
+        <span id="ifcCacheClearStatus" style="font-size:11px;color:#8590a6;margin-left:8px"></span>
+      </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn btn-sm" onclick="toggleSettingsPanel()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:none;cursor:pointer">Cancel</button>
@@ -1054,55 +1139,13 @@
 <div class="modal-overlay" id="teamOverlay" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);padding:16px" onclick="toggleTeamPanel()">
   <div class="modal-content" style="width:100%;max-width:540px;padding:24px 26px;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.15);color:#000" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3 style="margin:0;font-size:16px;font-weight:700">Team Workload</h3>
+      <h3 style="margin:0;font-size:16px;font-weight:700">Team</h3>
       <button class="tb-icon-btn" onclick="toggleTeamPanel()" style="font-size:18px;border:none;background:transparent;cursor:pointer">×</button>
     </div>
     <div style="max-height:360px;overflow-y:auto">
-      <table class="table" style="width:100%;border-collapse:collapse;font-size:12.5px;text-align:left">
-        <thead>
-          <tr style="border-bottom:1px solid #eee">
-            <th style="padding:8px 4px">Name</th>
-            <th style="padding:8px 4px">Role</th>
-            <th style="padding:8px 4px">Trade</th>
-            <th style="padding:8px 4px">Workload</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom:1px solid rgba(0,0,0,0.04)">
-            <td style="padding:8px 4px;font-weight:600">John Doe</td>
-            <td style="padding:8px 4px">Manager</td>
-            <td style="padding:8px 4px"><span class="badge" style="background:#18181B;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">ARC</span></td>
-            <td style="padding:8px 4px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <div style="width:60px;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden"><div style="width:45%;height:100%;background:#009668"></div></div>
-                <span>45%</span>
-              </div>
-            </td>
-          </tr>
-          <tr style="border-bottom:1px solid rgba(0,0,0,0.04)">
-            <td style="padding:8px 4px;font-weight:600">Alice Smith</td>
-            <td style="padding:8px 4px">Architect</td>
-            <td style="padding:8px 4px"><span class="badge" style="background:#B5791A;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">STR</span></td>
-            <td style="padding:8px 4px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <div style="width:60px;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden"><div style="width:75%;height:100%;background:#b75a00"></div></div>
-                <span>75%</span>
-              </div>
-            </td>
-          </tr>
-          <tr style="border-bottom:1px solid rgba(0,0,0,0.04)">
-            <td style="padding:8px 4px;font-weight:600">Bob Johnson</td>
-            <td style="padding:8px 4px">Engineer</td>
-            <td style="padding:8px 4px"><span class="badge" style="background:#157038;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">MEP</span></td>
-            <td style="padding:8px 4px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <div style="width:60px;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden"><div style="width:90%;height:100%;background:#ba1a1a"></div></div>
-                <span style="color:#ba1a1a;font-weight:600">90%</span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div id="teamPanelBody">
+        <div style="padding:28px 8px;text-align:center;color:#8590a6;font-size:12px">Open a cloud project to see its team.</div>
+      </div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px">
       <button class="btn btn-primary btn-sm" onclick="toggleTeamPanel()" style="padding:6px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Done</button>
@@ -1125,62 +1168,39 @@
         <input type="text" id="projNewCode" placeholder="Code" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
       </div>
       <input type="text" id="projNewDrive" placeholder="Google Drive link (optional)" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px;margin-bottom:8px">
-      <button class="btn btn-primary btn-sm" onclick="projCreate()" style="width:100%;justify-content:center;padding:8px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">+ Create &amp; switch</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <button class="btn btn-primary btn-sm" onclick="projCreate()" style="justify-content:center;padding:8px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">+ Create &amp; switch</button>
+        <button class="btn btn-sm" onclick="projCreateCloud()" title="Requires sign-in with a verified email" style="justify-content:center;padding:8px 12px;border:1px solid #0058be;border-radius:6px;background:#fff;color:#0058be;cursor:pointer">+ ☁ Create in cloud</button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Invite Members Dialog -->
+<!-- Invite / Members Dialog (Phase 14: real member sharing for cloud projects) -->
 <div class="modal-overlay" id="inviteOverlay" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);padding:16px" onclick="toggleInvitePanel()">
   <div class="modal-content" style="width:100%;max-width:460px;padding:24px 26px;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.15);color:#000" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3 style="margin:0;font-size:16px;font-weight:700">Invite Team Member</h3>
+      <h3 style="margin:0;font-size:16px;font-weight:700">Project Members</h3>
       <button class="tb-icon-btn" onclick="toggleInvitePanel()" style="font-size:18px;border:none;background:transparent;cursor:pointer">×</button>
     </div>
-    
-    <div style="display:flex;gap:4px;padding:3px;border-radius:9px;background:rgba(0,0,0,0.045);margin-bottom:14px">
-      <button id="btnTierMember" class="btn btn-sm" style="flex:1;justify-content:center;font-size:11.5px;border:none;background:#fff;font-weight:700;color:#009668;cursor:pointer;padding:6px 0;border-radius:6px" onclick="setInviteTier('member')">👤 Member</button>
-      <button id="btnTierGuest" class="btn btn-sm" style="flex:1;justify-content:center;font-size:11.5px;border:none;background:transparent;font-weight:500;color:#8590a6;cursor:pointer;padding:6px 0;border-radius:6px" onclick="setInviteTier('guest')">🔍 Guest</button>
+
+    <div id="inviteNotCloud" style="display:none;padding:10px 12px;border-radius:8px;background:rgba(0,0,0,0.03);font-size:12.5px;color:#556">
+      Member sharing is only available for <strong>☁ cloud projects</strong>. Switch to (or create) a cloud project first.
     </div>
 
-    <div id="guestWarning" style="display:none;padding:8px 12px;border-radius:6px;background:rgba(183,90,0,0.07);font-size:11.5px;color:#7a3b00;margin-bottom:14px">
-      <strong>Guest:</strong> Limited read-only access. You can configure module overrides after inviting.
-    </div>
-
-    <div style="display:grid;gap:12px;font-size:13px">
-      <div>
-        <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Full Name</label>
-        <input type="text" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" placeholder="Jane Smith">
+    <div id="inviteCloudBody" style="display:none">
+      <div id="inviteReadOnlyNote" style="display:none;padding:8px 12px;border-radius:6px;background:rgba(0,88,190,0.06);font-size:11.5px;color:#0058be;margin-bottom:12px">
+        Only the project owner can add or remove members.
       </div>
-      <div>
-        <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Email</label>
-        <input type="email" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" placeholder="jane@example.com">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Role</label>
-          <select style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px">
-            <option>Manager</option>
-            <option selected>Architect</option>
-            <option>Engineer</option>
-            <option>Consultant</option>
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Trade</label>
-          <select style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px">
-            <option selected>ARC</option>
-            <option>STR</option>
-            <option>MEP</option>
-            <option>PC</option>
-          </select>
-        </div>
+      <div id="projMemberList" style="display:grid;gap:6px;max-height:260px;overflow-y:auto"></div>
+      <div id="inviteAddRow" style="display:flex;gap:8px;margin-top:14px">
+        <input type="email" id="projMemberEmail" placeholder="teammate@example.com" style="flex:1;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" onkeydown="if(event.key==='Enter')projAddMember()">
+        <button class="btn btn-primary btn-sm" onclick="projAddMember()" style="padding:8px 14px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Add</button>
       </div>
     </div>
 
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
-      <button class="btn btn-sm" onclick="toggleInvitePanel()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:none;cursor:pointer">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="alert('Mock invite sent!');toggleInvitePanel()" style="padding:6px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Invite Member</button>
+      <button class="btn btn-sm" onclick="toggleInvitePanel()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:none;cursor:pointer">Close</button>
     </div>
   </div>
 </div>

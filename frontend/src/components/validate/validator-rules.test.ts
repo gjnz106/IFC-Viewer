@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { compoundToDeg, sgReadParam, sgHasParam, sgReadNumeric } from './validator-rules.js';
+import { compoundToDeg, sgReadParam, sgHasParam, sgReadNumeric, SG_RULES } from './validator-rules.js';
+
+const rule = (id: string) => {
+  const r = SG_RULES.find((x: any) => x.id === id);
+  if (!r) throw new Error('rule not found: ' + id);
+  return r;
+};
+// Minimal ctx matching what sgBuildContext() produces.
+const makeCtx = (opts: { buildings?: any[]; spaces?: any[] } = {}) => {
+  const byClass = new Map<string, any[]>();
+  if (opts.spaces) byClass.set('IfcSpace', opts.spaces);
+  return {
+    modelIDs: [{ modelID: 1, modelIdx: 0, spatial: { buildings: opts.buildings || [], sites: [], storeys: [] } }],
+    byClass,
+    entities: [...(opts.spaces || [])],
+  };
+};
 
 describe('compoundToDeg', () => {
   it('passes through plain numbers', () => {
@@ -114,5 +130,58 @@ describe('sgReadNumeric', () => {
 
   it('returns null for a missing property', () => {
     expect(sgReadNumeric(entity, 'Missing')).toBeNull();
+  });
+});
+
+// ── Regression: SG context data contract ──────────────────────────────
+// These rules were silently broken because sgBuildContext() never supplied the
+// data they read: `spatial.buildings` (an array) was never populated — only the
+// `buildingName` string — so GEN-005 always reported "No IfcBuilding found"; and
+// getAllProps() excludes IfcSpace, so byClass.get('IfcSpace') was always empty,
+// making every space rule pass/skip vacuously. These tests pin the contract the
+// context builder must satisfy.
+describe('GEN-005 IfcBuilding present (reads spatial.buildings)', () => {
+  it('passes when spatial.buildings has an entry', () => {
+    const res = rule('GEN-005').check(makeCtx({ buildings: [{ expressID: 42, name: 'Block A' }] }));
+    expect(res.failed).toHaveLength(0);
+    expect(res.passed).toEqual([{ eid: 42, name: 'Block A' }]);
+  });
+
+  it('fails when no buildings are present', () => {
+    const res = rule('GEN-005').check(makeCtx({ buildings: [] }));
+    expect(res.passed).toHaveLength(0);
+    expect(res.failed[0].reason).toMatch(/No IfcBuilding/);
+  });
+});
+
+describe('BCA-SP01 spaces have a name (reads byClass.IfcSpace)', () => {
+  it('separates named from unnamed spaces', () => {
+    const res = rule('BCA-SP01').check(makeCtx({
+      spaces: [
+        { eid: 1, name: 'Office 1' },
+        { eid: 2, name: '' },
+      ],
+    }));
+    expect(res.passed).toEqual([{ eid: 1, name: 'Office 1' }]);
+    expect(res.failed).toHaveLength(1);
+    expect(res.failed[0].eid).toBe(2);
+  });
+
+  it('finds nothing to check when spaces are absent (the old always-empty state)', () => {
+    const res = rule('BCA-SP01').check(makeCtx({ spaces: [] }));
+    expect(res.passed).toHaveLength(0);
+    expect(res.failed).toHaveLength(0);
+  });
+});
+
+describe('LTA-001 carpark spaces (reads byClass.IfcSpace LongName)', () => {
+  it('detects carpark spaces by LongName', () => {
+    const res = rule('LTA-001').check(makeCtx({
+      spaces: [
+        { eid: 1, name: 'B1-01', LongName: { value: 'CARPARK' } },
+        { eid: 2, name: 'Office', LongName: { value: 'OFFICE' } },
+      ],
+    }));
+    expect(res.passed).toEqual([{ eid: 1, name: 'B1-01' }]);
   });
 });

@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// IFC Delta — Cloud Projects (Phase 12).
+// Single source of truth for membership: `projects/{projectId}.memberEmails`
+// (always includes ownerEmail — see frontend/src/lib/cloud-projects.ts's
+// normalizeMemberEmails). Storage rules cross-reference this same doc so
+// there is exactly one ACL to keep correct.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isVerified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    // Lowercased to match how the client normalizes/stores memberEmails
+    // (cloud-projects.ts's normEmail) — a raw-case mismatch here would
+    // make Firestore reject the whole query, not just deny matching docs.
+    function email() {
+      return request.auth.token.email.lower();
+    }
+
+    // No `data.memberEmails is list` type-guard here on purpose: Firestore
+    // can't statically prove an `array-contains` LIST query satisfies a rule
+    // that type-checks the field first, and rejects the whole query with
+    // permission-denied (confirmed via the Firestore emulator) — memberEmails
+    // is always written as an array by the client, so the guard is
+    // redundant for reads. Writes keep the stricter check (see
+    // memberEmailsIncludeOwner) since single-document writes aren't subject
+    // to this list-query limitation.
+    function isMember(data) {
+      return email() in data.memberEmails;
+    }
+
+    function memberEmailsIncludeOwner(data) {
+      return data.ownerEmail is string
+        && data.memberEmails is list
+        && data.ownerEmail in data.memberEmails;
+    }
+
+    match /projects/{projectId} {
+      allow read: if isVerified() && isMember(resource.data);
+
+      allow create: if isVerified()
+        && request.resource.data.ownerEmail == email()
+        && memberEmailsIncludeOwner(request.resource.data)
+        && isMember(request.resource.data);
+
+      allow update: if isVerified()
+        && isMember(resource.data)
+        && memberEmailsIncludeOwner(request.resource.data)
+        // Ownership can't be handed off by a plain update (no UI for it yet).
+        && request.resource.data.ownerEmail == resource.data.ownerEmail
+        // Phase 14: only the owner may change the member list itself — any
+        // member could otherwise add/remove others via the same field.
+        && (request.resource.data.memberEmails == resource.data.memberEmails
+            || email() == resource.data.ownerEmail);
+
+      // Owner-only: any member deleting the shared project (plus every
+      // teammate's files) is too destructive to leave open.
+      allow delete: if isVerified() && email() == resource.data.ownerEmail;
+
+      match /files/{fileId} {
+        allow read, write: if isVerified()
+          && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
+      }
+
+      // Phase 15: saved Compare/Clash result metadata. Firestore rules don't
+      // cascade into subcollections, so this needs its own block — without it
+      // the default deny made saveResult()'s metadata write and
+      // fetchResultMetadata()'s read both fail, so restore never fired.
+      match /results/{resultId} {
+        allow read, write: if isVerified()
+          && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
+      }
+    }
+  }
+}

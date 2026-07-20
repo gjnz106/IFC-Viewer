@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bboxGap, passesBoxFilter, findDuplicatePairs, type BoxFilterConfig, type HashedElement } from './clash.js';
+import { bboxGap, clashCandidateSeverity, passesBoxFilter, findDuplicatePairs, buildClashModelOptions, type BoxFilterConfig, type HashedElement } from './clash.js';
 
 const box = (mnX: number, mnY: number, mnZ: number, mxX: number, mxY: number, mxZ: number) => ({ mnX, mnY, mnZ, mxX, mxY, mxZ });
 
@@ -40,6 +40,33 @@ describe('bboxGap (clash clearance)', () => {
     expect(gap).toBeCloseTo(0.008, 6);
     const toleranceM = 0.01; // 10mm minimum distance
     expect(gap <= toleranceM).toBe(true); // should register as a clearance hit
+  });
+});
+
+describe('clashCandidateSeverity (candidate ranking before the cap)', () => {
+  it('ranks any real overlap above any near-miss gap', () => {
+    const overlap = clashCandidateSeverity(0.001, 0); // 1mm penetration
+    const gap = clashCandidateSeverity(0, 0.001);      // 1mm gap
+    expect(overlap).toBeGreaterThan(gap);
+  });
+
+  it('ranks a smaller gap above a larger gap (both near-misses, penetration 0)', () => {
+    const tightGap = clashCandidateSeverity(0, 0.002); // 2mm
+    const looseGap = clashCandidateSeverity(0, 0.04);  // 40mm
+    expect(tightGap).toBeGreaterThan(looseGap);
+  });
+
+  it('keeps near-misses in contention when sorting descending (cap regression)', () => {
+    // Before the fix the cap sorted by raw penetration, so every clearance
+    // (penetration = 0) sank below every overlap and got cut. Severity ordering
+    // must interleave a tight near-miss ahead of shallow/looser candidates.
+    const candidates = [
+      { name: 'looseGap', s: clashCandidateSeverity(0, 0.05) },
+      { name: 'deepOverlap', s: clashCandidateSeverity(0.02, 0) },
+      { name: 'tightGap', s: clashCandidateSeverity(0, 0.001) },
+    ];
+    candidates.sort((a, b) => b.s - a.s);
+    expect(candidates.map(c => c.name)).toEqual(['deepOverlap', 'tightGap', 'looseGap']);
   });
 });
 
@@ -129,5 +156,45 @@ describe('findDuplicatePairs', () => {
     const set = { 1: he(100, 'IfcWall'), 2: he(100, 'IfcWall'), 3: he(100, 'IfcWall') };
     const pairs = findDuplicatePairs(set, set, true);
     expect(pairs).toHaveLength(3); // (1,2) (1,3) (2,3)
+  });
+});
+
+// Fake File-ish objects (only .name is read by buildClashModelOptions).
+const f = (name: string) => ({ name } as File);
+
+describe('buildClashModelOptions (Phase 16 — Source/Target model dropdowns)', () => {
+  it('lists only slots with a loaded model, labelled by file name', () => {
+    const files = [f('A.ifc'), f('B.ifc')];
+    const loadedModels = [{}, {}];
+    expect(buildClashModelOptions(files, loadedModels)).toEqual([
+      { idx: 0, label: 'A.ifc' },
+      { idx: 1, label: 'B.ifc' },
+    ]);
+  });
+
+  it('skips slots without a loaded model even if a file is present (still loading)', () => {
+    const files = [f('A.ifc'), f('B.ifc')];
+    const loadedModels = [{}, null];
+    expect(buildClashModelOptions(files, loadedModels)).toEqual([{ idx: 0, label: 'A.ifc' }]);
+  });
+
+  it('includes federation slots (index >= 2)', () => {
+    const files = [f('A.ifc'), f('B.ifc'), f('MEP.ifc')];
+    const loadedModels = [{}, {}, {}];
+    expect(buildClashModelOptions(files, loadedModels)).toEqual([
+      { idx: 0, label: 'A.ifc' },
+      { idx: 1, label: 'B.ifc' },
+      { idx: 2, label: 'MEP.ifc' },
+    ]);
+  });
+
+  it('falls back to a generic label when the file name is unknown', () => {
+    const files: (File | null)[] = [null];
+    const loadedModels = [{}];
+    expect(buildClashModelOptions(files, loadedModels)).toEqual([{ idx: 0, label: 'Model 0' }]);
+  });
+
+  it('returns an empty list when nothing is loaded', () => {
+    expect(buildClashModelOptions([], [])).toEqual([]);
   });
 });

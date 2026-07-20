@@ -13,6 +13,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth';
+import { appState } from '../store/index.js';
 
 // ⚠️  REPLACE THIS CONFIG with your Firebase project's config from
 //     Firebase Console → Project settings → General → Your apps.
@@ -136,6 +137,16 @@ if (auth) {
       if (acMenu) acMenu.style.display = 'none';
       const profileOverlay = document.getElementById('profileOverlay');
       if (profileOverlay) profileOverlay.style.display = 'none';
+      // Clear the cloud session — otherwise the next user (or the logged-out
+      // screen behind the overlay) still sees the previous user's models and
+      // any further upload would land in the previous user's project.
+      if (appState.activeCloudProjectId || Object.keys(appState.cloudFileRecords).length) {
+        appState.activeCloudProjectId = null;
+        appState.cloudFileRecords = {};
+        appState.cloudSyncStatus = {};
+        (window as any).unloadAllModels?.();
+      }
+      window.dispatchEvent(new CustomEvent('ifc:signout'));
       return;
     }
     setAuth(user);
@@ -231,6 +242,10 @@ $('verifyCheck').addEventListener('click', async () => {
   try {
     await auth.currentUser.reload();
     if (auth.currentUser.emailVerified) {
+      // Force-refresh the ID token: the cached one still carries
+      // email_verified:false for up to ~1h, silently denying all
+      // Firestore/Storage rules until then.
+      await auth.currentUser.getIdToken(true).catch(() => {});
       overlay.classList.add('hidden');
       showLoggedInUser(auth.currentUser);
     } else {
@@ -254,6 +269,14 @@ window.signOutFromVerify = async function () {
 (window as any).getAuthToken = async function (): Promise<string | null> {
   if (!auth?.currentUser) return null;
   try { return await auth.currentUser.getIdToken(); } catch { return null; }
+};
+
+// Used by cloud-projects.ts / the project switcher (Phase 12) to know who
+// to fetch/create cloud projects as, without importing firebase/auth twice.
+(window as any).getAuthUser = function (): { uid: string; email: string; emailVerified: boolean } | null {
+  const user = auth?.currentUser;
+  if (!user || !user.email) return null;
+  return { uid: user.uid, email: user.email, emailVerified: user.emailVerified };
 };
 
 // ── Minimal role gate ────────────────────────────────────────────────────
@@ -308,9 +331,19 @@ const ADMIN_EMAILS = new Set(['trantienthanh909@gmail.com']);
 window.toggleUserMenu = function (ev?: Event) {
   ev?.stopPropagation();
   const menu = document.querySelector('.account-menu') as HTMLElement;
-  if (!menu) return;
+  const trigger = document.getElementById('userBadge');
+  if (!menu || !trigger) return;
   const isOpen = menu.style.display !== 'none';
-  menu.style.display = isOpen ? 'none' : 'block';
+  if (isOpen) {
+    menu.style.display = 'none';
+    return;
+  }
+  // position:fixed dropdown — compute placement from the trigger button so
+  // it escapes .topbar's clipping (overflow-x:auto implies overflow-y:auto).
+  const rect = trigger.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 8) + 'px';
+  menu.style.right = (window.innerWidth - rect.right) + 'px';
+  menu.style.display = 'block';
 };
 document.addEventListener('click', e => {
   const menu = document.querySelector('.account-menu') as HTMLElement;

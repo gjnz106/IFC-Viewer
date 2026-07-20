@@ -1,7 +1,8 @@
-# Deploy frontend/dist to Firebase Hosting whenever main is updated
-# (e.g. after a PR merge). Requires the FIREBASE_SERVICE_ACCOUNT secret —
-# a Firebase service account JSON key with Hosting Admin permission,
-# added under Settings → Secrets and variables → Actions.
+# Deploy frontend/dist to Firebase Hosting, plus Firestore/Storage security
+# rules (Phase 12 — Cloud Projects), whenever main is updated (e.g. after a
+# PR merge). Requires the FIREBASE_SERVICE_ACCOUNT secret — a Firebase
+# service account JSON key with Hosting Admin + Firebase Rules Admin
+# permission, added under Settings → Secrets and variables → Actions.
 name: firebase-deploy
 
 on:
@@ -27,3 +28,10 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: ifc-delta
           channelId: live
+      - name: Deploy Firestore + Storage rules
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/firebase-sa.json
+          npx firebase-tools deploy --only firestore:rules,storage --project ifc-delta
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json

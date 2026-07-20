@@ -10,14 +10,21 @@
 // to avoid duplicating checks for the same property across components.
 
 import * as THREE from 'three';
+import { IFCSPACE } from 'web-ifc';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
 import { recordSnapshot, loadSnapshots } from './snapshots.js';
 import { SG_RULES } from './validator-rules.js';
 import { IFC_NAMES } from '../../lib/constants.js';
+import { escapeHtml } from '../../lib/escape.js';
 
 // ── Active rule set — starts as the built-in Phase 1 rules ──────────
-let SG_ACTIVE_RULES: any[] = [];
+// (SG_RULES is a const array literal, fully populated when validator-rules.js
+// evaluates — before this module — so spreading it here is safe.)
+// This used to start [] and only got filled when the user clicked "Load
+// Built-in Extended Rules" or uploaded a JSON — so a fresh session's first
+// ▶ Validate ran ZERO rules and reported an empty result.
+let SG_ACTIVE_RULES: any[] = [...SG_RULES];
 let sgJsonLoaded: any = null; // { filename, rowCount, ruleCount, byAgency }
 
 // ── JSON schema for one mapping row ─────────────────────────────────
@@ -459,12 +466,11 @@ function sgApplyJsonRules(jsonRows: any[], sourceName: string): void {
   const statsEl = document.getElementById('sgJsonStats') as HTMLElement;
   const previewEl = document.getElementById('sgJsonPreview') as HTMLElement;
   previewEl.style.display = '';
-  const escapeHtml = (window as any).escapeHtml || ((s: string) => s);
   let html = `<div style="margin-bottom:6px"><span class="k">Source:</span> <span class="v">${escapeHtml(sourceName || 'built-in')}</span></div>`;
   html += `<div><span class="k">Rows parsed:</span> <span class="v">${jsonRows.length}</span> → <span class="k">Rules compiled:</span> <span class="v">${compiled.length}</span></div>`;
   html += `<div style="margin-top:6px">`;
   for (const [ag, cnt] of Object.entries(byAgency).sort((a, b) => (b[1] as number) - (a[1] as number))) {
-    html += `<span style="margin-right:10px">${ag}: <b>${cnt}</b></span>`;
+    html += `<span style="margin-right:10px">${escapeHtml(ag)}: <b>${cnt}</b></span>`;
   }
   html += `</div>`;
   html += `<div style="margin-top:6px;color:var(--text-muted)">Total active rules: <b>${SG_ACTIVE_RULES.length}</b> (${SG_RULES.length} built-in + ${compiled.length} from JSON)</div>`;
@@ -484,7 +490,6 @@ function sgUpdateSourceBadge(): void {
     srcEl.innerHTML = 'Built-in rules';
     return;
   }
-  const escapeHtml = (window as any).escapeHtml || ((s: string) => s);
   const isBuiltin = sgJsonLoaded.filename === 'built-in';
   const cls = isBuiltin ? 'merged' : 'json';
   srcEl.innerHTML = `<span class="sg-src-badge ${cls}">${SG_RULES.length} built-in + ${sgJsonLoaded.ruleCount} ${isBuiltin ? 'extended' : 'JSON'}</span> ${sgJsonLoaded.ruleCount} rules from ${escapeHtml(isBuiltin ? 'built-in library' : sgJsonLoaded.filename)}`;
@@ -580,6 +585,44 @@ async function sgBuildContext(): Promise<any> {
         byClass.get('IfcWall')!.push(e);
       }
     }
+
+    // ── IfcSpace scan (SG rules need spaces) ─────────────────────────
+    // getAllProps() deliberately excludes IfcSpace (room volumes have no solid
+    // geometry and Compare would flag phantom "modified" issues on them), so the
+    // SG rules that read ctx.byClass.get('IfcSpace') — BCA-SP01/02, NEA-001,
+    // LTA-001, PUB-001 — always saw an empty list and silently passed/skipped.
+    // Scan spaces directly here so those rules operate on real data. Space
+    // counts are small (one per room), so per-space getItemProperties is cheap.
+    try {
+      const api: any = appState.ifcLoader?.ifcManager?.state.api;
+      const mgr0 = appState.ifcLoader?.ifcManager;
+      if (api && mgr0) {
+        const spaceIDs = api.GetLineIDsWithType(m.modelID, IFCSPACE);
+        const scnt = spaceIDs.size();
+        for (let si = 0; si < scnt; si++) {
+          const eid = spaceIDs.get(si);
+          const p = await mgr0.getItemProperties(m.modelID, eid, false);
+          if (!p) continue;
+          const e: any = {
+            eid,
+            globalId: p.GlobalId?.value || ('space-' + m.modelID + '-' + eid),
+            type: 'IfcSpace',
+            typeCode: 'IfcSpace',
+            name: (p.Name?.value || '').trim(),
+            tag: p.Tag?.value,
+            psets: [],  // populated by the batch pset resolution below
+            LongName: p.LongName,           // rules read s.LongName?.value || s.LongName
+            PredefinedType: p.PredefinedType,
+            modelIdx: mi,
+            _modelID: m.modelID,
+          };
+          entities.push(e);
+          if (!byClass.has('IfcSpace')) byClass.set('IfcSpace', []);
+          byClass.get('IfcSpace')!.push(e);
+        }
+        if (scnt > 0) log(`SG context: scanned ${scnt} IfcSpace in model ${m.modelID}`);
+      }
+    } catch (spErr: any) { log('SG IfcSpace scan err:', spErr?.message); }
   }
 
   // ── Batch pset resolution via IfcRelDefinesByProperties ────────────
@@ -670,7 +713,14 @@ async function sgBuildContext(): Promise<any> {
 }
 
 // Map IFC type code → class name.
-function sgIfcCodeToClass(code: number): string {
+// getAllProps (federation-load.ts) stores `type` as a class-name STRING already
+// (e.g. 'IfcWall'), so the common path just passes it through; the numeric
+// code→name lookup below only runs for legacy callers that pass a raw type code.
+function sgIfcCodeToClass(code: number | string): string {
+  if (typeof code === 'string') {
+    const s = code.trim();
+    return s || ('Ifc#unknown');
+  }
   // Primary map uses constants from the global scope if available
   const w = window as any;
   const MAP: Record<number, string> = {};
@@ -714,6 +764,13 @@ async function sgRunValidation(): Promise<void> {
     const ctx = await sgBuildContext();
     const ruleResults: any[] = [];
     const enabledRules = SG_ACTIVE_RULES.filter((r: any) => r.gateway.includes(appState.sgState.gateway));
+    // An empty rule set used to fall through and render an all-zero dashboard
+    // that read as "validation is broken" — say what's wrong instead.
+    if (enabledRules.length === 0) {
+      (document.getElementById('sgRulesList') as HTMLElement).innerHTML =
+        `<div class="sg-empty">No rules enabled for gateway "${escapeHtml(appState.sgState.gateway)}" — load rules (⚡ built-in or JSON) or switch gateway.</div>`;
+      return;
+    }
     let totalFindings = 0;
     const elementsWithIssues = new Set<number>();
 
@@ -781,7 +838,6 @@ window.sgRunValidation = sgRunValidation;
 function sgRenderResults(): void {
   if (!appState.sgState.results) { return; }
   const { rules, stats } = appState.sgState.results;
-  const escapeHtml = (window as any).escapeHtml || ((s: string) => s);
 
   // ── Column 1: rules list grouped by agency ──
   const byAgency = new Map<string, any[]>();
@@ -792,12 +848,17 @@ function sgRenderResults(): void {
   }
   let html = '';
   const AGENCY_ORDER = ['GENERAL', 'BCA', 'URA', 'NEA', 'LTA', 'PUB'];
-  for (const ag of AGENCY_ORDER) {
+  // Append any agencies present in the results but not in the fixed order
+  // (e.g. SCDF, NPARKS from the built-in extended rules) so their rows render
+  // instead of being counted in stats yet silently dropped from the list.
+  const agencyOrder = [...AGENCY_ORDER];
+  for (const ag of byAgency.keys()) if (!agencyOrder.includes(ag)) agencyOrder.push(ag);
+  for (const ag of agencyOrder) {
     if (!byAgency.has(ag)) continue;
     const items = byAgency.get(ag)!;
     const passCnt = items.filter(r => r.failed.length === 0 && r.passed.length > 0).length;
     const failCnt = items.filter(r => r.failed.length > 0).length;
-    html += `<div class="sg-rule-group">${ag} — ${passCnt} pass / ${failCnt} fail / ${items.length} total</div>`;
+    html += `<div class="sg-rule-group">${escapeHtml(ag)} — ${passCnt} pass / ${failCnt} fail / ${items.length} total</div>`;
     for (const item of items) {
       const { rule, passed, failed, skipped, idx } = item;
       let icon: string, iconCls: string;
@@ -861,7 +922,6 @@ window.sgSelectRule = function (idx: number) {
   if (matching[0]) matching[0].classList.add('selected');
 
   const { rule, passed, failed, info } = appState.sgState.results.rules[idx];
-  const escapeHtml = (window as any).escapeHtml || ((s: string) => s);
   (document.getElementById('sgFailColTitle') as HTMLElement).textContent = rule.title;
   (document.getElementById('sgFailCount') as HTMLElement).textContent = String(failed.length);
   (document.getElementById('sgFailCount') as HTMLElement).className = 'sg-col-hdr-count ' + (failed.length === 0 ? 'ok' : '');

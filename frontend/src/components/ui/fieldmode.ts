@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { formatLengthMm, getUnitPref, worldToMm } from '../../lib/units.js';
 
 // Cross-module functions
 declare const showProps: (props: any, modelIdx: number) => void;
@@ -72,6 +73,9 @@ export function exitFieldMode(){
   window.fieldActive = false;
   document.body.classList.remove('field-mode');
   (window as any).fieldCloseSheet();
+  (window as any).fieldCloseTool?.();
+  (window as any).fieldCloseMore?.();
+  (window as any).fieldCoordDeactivate?.();
   document.getElementById('fieldStoreys')!.classList.remove('show');
   fieldResizeViewport();
   log('Field mode deactivated');
@@ -268,6 +272,338 @@ window.fieldShowAll = function(){
   fieldToast('All elements visible');
 };
 
+// ══════════════════════════════════════════════════════════════════════
+// FIELD MODE "MORE" MENU + DESKTOP-PARITY TOOL SHEETS
+// ──────────────────────────────────────────────────────────────────────
+// Surfaces the high-value desktop features (Search, Colorize, SG-Validate,
+// Saved Viewpoints) on touch via a grid menu + bottom sheets. The underlying
+// logic is REUSED from the desktop modules (window.fieldSearch/searchSelect,
+// toggleColorize, sgRunValidation/sgFocusElement, vpFieldData/vpRestore/vpSave)
+// — this file only adds the touch presentation. A dedicated #fieldToolSheet is
+// used (not the #fieldSheet properties sheet) so the two never overwrite each
+// other (the properties MutationObserver above owns #fieldSheet).
+// ──────────────────────────────────────────────────────────────────────
+const w = window as any;
+
+function fieldRequireModel(): boolean {
+  if(appState.loadedModels.some(m => !!m)) return true;
+  fieldToast('Open a model first');
+  return false;
+}
+
+w.fieldToggleMore = function(){
+  const menu = document.getElementById('fieldMore')!;
+  const open = menu.classList.toggle('show');
+  document.getElementById('fieldBtnMore')?.classList.toggle('on', open);
+};
+w.fieldCloseMore = function(){
+  document.getElementById('fieldMore')!.classList.remove('show');
+  document.getElementById('fieldBtnMore')?.classList.remove('on');
+};
+// Dismiss the More menu on any tap outside it (canvas, another toolbar button,
+// etc.) — a grid popup that only closed by re-tapping its own button felt
+// sticky on touch. Capture phase so it runs before the target's own handler;
+// it never calls preventDefault, so the underlying tap still goes through.
+document.addEventListener('pointerdown', (e) => {
+  const menu = document.getElementById('fieldMore');
+  if(!menu || !menu.classList.contains('show')) return;
+  const t = e.target as Node;
+  if(menu.contains(t) || document.getElementById('fieldBtnMore')?.contains(t)) return;
+  w.fieldCloseMore();
+}, true);
+
+w.fieldOpenTool = function(html: string, title: string){
+  document.getElementById('fieldToolTitle')!.textContent = title;
+  document.getElementById('fieldToolBody')!.innerHTML = html;
+  document.getElementById('fieldToolSheet')!.classList.add('open');
+};
+w.fieldCloseTool = function(){
+  document.getElementById('fieldToolSheet')!.classList.remove('open');
+};
+
+// ── SEARCH ────────────────────────────────────────────────────────────
+let _fieldSearchTimer: number | null = null;
+w.fieldMenuSearch = function(){
+  w.fieldCloseMore();
+  if(!fieldRequireModel()) return;
+  w.fieldOpenTool(
+    `<div class="field-tool-search">
+       <input id="fieldSearchInput" class="field-tool-input" type="search" inputmode="search"
+              placeholder="Search name, type or property…" oninput="fieldSearchInput()">
+       <div class="field-tool-hint" id="fieldSearchHint">Type to search all elements</div>
+       <div class="field-tool-list" id="fieldSearchResults"></div>
+     </div>`, 'Search');
+  setTimeout(() => document.getElementById('fieldSearchInput')?.focus(), 60);
+};
+w.fieldSearchInput = function(){
+  if(_fieldSearchTimer) clearTimeout(_fieldSearchTimer);
+  _fieldSearchTimer = setTimeout(w.fieldSearchRun, 220) as any;
+};
+w.fieldSearchRun = async function(){
+  const inp = document.getElementById('fieldSearchInput') as HTMLInputElement | null;
+  const hint = document.getElementById('fieldSearchHint');
+  const list = document.getElementById('fieldSearchResults');
+  if(!inp || !list) return;
+  const q = inp.value.trim();
+  if(hint) hint.textContent = q ? 'Searching…' : 'Type to search all elements';
+  const results: any[] = await w.fieldSearch(q);
+  if(hint) hint.textContent = q ? `${results.length} match${results.length===1?'':'es'}${results.length>=300?' (showing first 300)':''}` : 'Type to search all elements';
+  list.innerHTML = results.map(r =>
+    `<button class="field-tool-item" onclick="fieldSearchPick(${r.idx})">
+       <span class="field-tool-item-name">${escapeH(r.name || '(unnamed)')}</span>
+       <span class="field-tool-item-tag">${escapeH(r.type || '')}</span>
+     </button>`).join('') || (q ? '<div class="field-tool-empty">No matches</div>' : '');
+};
+w.fieldSearchPick = function(idx: number){
+  w.searchSelect?.(idx);
+  fieldToast('Zoomed to element');
+};
+
+// ── COLORIZE ──────────────────────────────────────────────────────────
+w.fieldMenuColorize = function(){
+  w.fieldCloseMore();
+  if(!fieldRequireModel()) return;
+  w.fieldOpenTool('<div id="fieldColorizeBody"></div>', 'Colorize');
+  fieldColorizeRender();
+};
+function fieldColorizeRender(){
+  const body = document.getElementById('fieldColorizeBody');
+  if(!body) return;
+  const on = appState.colorize.active;
+  // Legend from the computed value→colour map (Auto/Category mode).
+  const vc: Record<string,string> = appState.colorize.valueColors || {};
+  const legend = Object.keys(vc).slice(0, 60).map(k =>
+    `<div class="field-legend-row"><span class="field-legend-sw" style="background:${vc[k]}"></span>${escapeH(k)}</div>`).join('');
+  body.innerHTML =
+    `<div class="field-tool-actions">
+       <button class="field-tool-cta ${on?'on':''}" onclick="fieldColorizeToggle()">
+         ${on ? '✓ Colored by Category' : 'Color by Category'}
+       </button>
+       <button class="field-tool-btn" onclick="fieldColorizeReset()" ${on?'':'disabled'}>Reset</button>
+     </div>
+     ${on && legend ? `<div class="field-tool-hint">Legend (${Object.keys(vc).length})</div><div class="field-legend">${legend}</div>` : ''}
+     ${on && !legend ? '<div class="field-tool-hint">Applied — colouring by element category.</div>' : ''}`;
+}
+w.fieldColorizeToggle = async function(){
+  appState.colorize.mode = 'auto';
+  if(!appState.colorize.active){ await w.toggleColorize?.(); }
+  else { await w.colorizeSetMode?.('auto'); }
+  fieldColorizeRender();
+};
+w.fieldColorizeReset = async function(){
+  if(appState.colorize.active) await w.toggleColorize?.();  // toggles off → colorizeClear
+  fieldColorizeRender();
+  fieldToast('Colors cleared');
+};
+
+// ── SG VALIDATE ───────────────────────────────────────────────────────
+const FIELD_GATEWAYS = ['design','piling','construction','completion'];
+w.fieldMenuValidate = function(){
+  w.fieldCloseMore();
+  if(!fieldRequireModel()) return;
+  const cur = appState.sgState.gateway || 'design';
+  const pills = FIELD_GATEWAYS.map(g =>
+    `<button class="field-gw-pill ${g===cur?'on':''}" onclick="fieldValidateGateway('${g}')">${g[0].toUpperCase()+g.slice(1)}</button>`).join('');
+  w.fieldOpenTool(
+    `<div class="field-gw-row">${pills}</div>
+     <button class="field-tool-cta" id="fieldValidateRunBtn" onclick="fieldValidateRun()">▶ Run IFC-SG Check</button>
+     <div id="fieldValidateResults"></div>`, 'IFC-SG Validate');
+  if(appState.sgState.results) fieldValidateRenderResults();
+};
+w.fieldValidateGateway = function(g: string){
+  appState.sgState.gateway = g;
+  appState.sgState.cachedCtx = null; // gateway change → re-evaluate
+  document.querySelectorAll('#fieldToolSheet .field-gw-pill').forEach(p =>
+    p.classList.toggle('on', (p as HTMLElement).textContent!.toLowerCase() === g));
+};
+w.fieldValidateRun = async function(){
+  const btn = document.getElementById('fieldValidateRunBtn') as HTMLButtonElement | null;
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Validating…'; }
+  try { await w.sgRunValidation?.(); }
+  catch(e:any){ fieldToast('Validate failed'); }
+  if(btn){ btn.disabled = false; btn.textContent = '▶ Run IFC-SG Check'; }
+  fieldValidateRenderResults();
+};
+function fieldValidateRenderResults(){
+  const host = document.getElementById('fieldValidateResults');
+  if(!host) return;
+  const res = appState.sgState.results;
+  if(!res){ host.innerHTML = ''; return; }
+  const { rules, stats } = res;
+  const failing = rules.filter((r:any) => (r.failed||[]).length > 0);
+  const summary =
+    `<div class="field-val-summary">
+       <span class="field-val-stat pass">${stats.pass} pass</span>
+       <span class="field-val-stat fail">${stats.fail} fail</span>
+       <span class="field-val-stat warn">${stats.warn} warn</span>
+       <span class="field-val-stat skip">${stats.skipped} skip</span>
+     </div>`;
+  const body = failing.length ? failing.map((r:any) => {
+    const sev = r.rule.severity === 'error' ? 'fail' : (r.rule.severity === 'warn' ? 'warn' : 'info');
+    const items = (r.failed||[]).slice(0, 40).map((f:any) =>
+      `<button class="field-tool-item" onclick="fieldValidateFocus(${f.eid||0})">
+         <span class="field-tool-item-name">${escapeH(f.name||'(element)')}</span>
+         <span class="field-tool-item-tag">${escapeH((f.reason||'').slice(0,48))}</span>
+       </button>`).join('');
+    return `<details class="field-val-rule ${sev}"><summary>${escapeH(r.rule.title)} <b>(${r.failed.length})</b></summary>${items}</details>`;
+  }).join('') : '<div class="field-tool-empty">No failures for this gateway 🎉</div>';
+  host.innerHTML = summary + body;
+}
+w.fieldValidateFocus = function(eid: number){
+  if(!eid){ fieldToast('No element to zoom to'); return; }
+  w.sgFocusElement?.(eid);
+  fieldToast('Zoomed to issue');
+};
+
+// ── SAVED VIEWPOINTS ──────────────────────────────────────────────────
+w.fieldMenuViewpoints = function(){
+  w.fieldCloseMore();
+  w.fieldOpenTool(
+    `<div class="field-tool-actions">
+       <button class="field-tool-cta" onclick="fieldVpSave()">＋ Save current view</button>
+     </div>
+     <div id="fieldVpGallery" class="field-vp-gallery"></div>`, 'Viewpoints');
+  fieldVpRender();
+};
+function fieldVpRender(){
+  const host = document.getElementById('fieldVpGallery');
+  if(!host) return;
+  const list: any[] = w.vpFieldData?.() || [];
+  host.innerHTML = list.length ? list.map(vp =>
+    `<div class="field-vp-card" onclick="fieldVpRestore('${vp.id}')">
+       <img src="${vp.thumb||''}" alt="" draggable="false">
+       <div class="field-vp-name">${escapeH(vp.name)}</div>
+     </div>`).join('') : '<div class="field-tool-empty">No saved viewpoints yet.</div>';
+}
+w.fieldVpSave = function(){ w.vpSave?.(); /* re-render happens via ifc:vpchange */ };
+w.fieldVpRestore = function(id: string){ w.vpRestore?.(id); w.fieldCloseTool(); fieldToast('Viewpoint restored'); };
+// Keep the field gallery live when viewpoints change (save/delete/project switch).
+window.addEventListener('ifc:vpchange', () => {
+  if(fieldActive && document.getElementById('fieldToolSheet')?.classList.contains('open')) fieldVpRender();
+});
+
+// ── COORDINATES (touch-native tap-to-read) ────────────────────────────
+// The desktop Coordinates tool is hover-based (pointermove), which does nothing
+// on a touchscreen. This is a touch-native rewrite: toggle a mode, then each tap
+// on the model raycasts the hit point and prints its world X/Y/Z (converted to
+// the active unit) into a readout pinned above the field bar. While active, a
+// capture-phase handler consumes the tap so the normal field pick (pivot) and
+// OrbitControls don't also act on it; drags (orbit) pass through untouched.
+let _fieldCoordActive = false;
+let _coordDownX = 0, _coordDownY = 0;
+const _coordRay = new THREE.Raycaster();
+const _coordNDC = new THREE.Vector2();
+
+function fieldCoordPickables(): THREE.Object3D[] {
+  const ms: THREE.Object3D[] = [];
+  appState.scene.traverse((ch: any) => {
+    if(ch.isMesh && ch.visible && ch.geometry?.attributes?.position
+       && ch.parent?.name !== 'sectionBox' && !ch.userData?.isHandle) ms.push(ch);
+  });
+  return ms;
+}
+function fieldCoordDown(e: PointerEvent){ _coordDownX = e.clientX; _coordDownY = e.clientY; }
+function fieldCoordUp(e: PointerEvent){
+  // Ignore drags (orbit) — only a near-stationary tap is a coordinate read.
+  if(Math.abs(e.clientX - _coordDownX) > 5 || Math.abs(e.clientY - _coordDownY) > 5) return;
+  const canvas = appState.renderer.domElement;
+  const rect = canvas.getBoundingClientRect();
+  _coordNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  _coordNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  _coordRay.setFromCamera(_coordNDC, appState.camera);
+  const hits = _coordRay.intersectObjects(fieldCoordPickables(), false);
+  const readout = document.getElementById('fieldCoordReadout');
+  if(hits.length && readout){
+    const p = hits[0].point;
+    const pref = getUnitPref();
+    const fx = formatLengthMm(worldToMm(p.x, appState.loadedModels), pref);
+    const fy = formatLengthMm(worldToMm(p.y, appState.loadedModels), pref);
+    const fz = formatLengthMm(worldToMm(p.z, appState.loadedModels), pref);
+    readout.innerHTML = `X <b>${fx}</b> &nbsp; Y <b>${fy}</b> &nbsp; Z <b>${fz}</b>`;
+    // Note: we intentionally do NOT stopPropagation here. The field tap handler
+    // only sets the orbit pivot (harmless — nice, even: orbit around the point
+    // you just read), and swallowing the event in capture phase would starve
+    // OrbitControls' document-level pointerup of its cleanup.
+  } else if(readout){
+    readout.innerHTML = 'Tap the model to read a point';
+  }
+}
+function fieldCoordSet(on: boolean){
+  _fieldCoordActive = on;
+  const canvas = appState.renderer?.domElement;
+  const readout = document.getElementById('fieldCoordReadout');
+  document.getElementById('fieldMoreCoords')?.classList.toggle('on', on);
+  if(readout){
+    readout.style.display = on ? 'block' : 'none';
+    if(on) readout.innerHTML = 'Tap the model to read a point';
+  }
+  if(!canvas) return;
+  if(on){
+    canvas.addEventListener('pointerdown', fieldCoordDown, true);
+    canvas.addEventListener('pointerup', fieldCoordUp, true);
+  }else{
+    canvas.removeEventListener('pointerdown', fieldCoordDown, true);
+    canvas.removeEventListener('pointerup', fieldCoordUp, true);
+  }
+}
+w.fieldMenuCoords = function(){
+  w.fieldCloseMore();
+  if(!fieldRequireModel()) return;
+  const next = !_fieldCoordActive;
+  fieldCoordSet(next);
+  fieldToast(next ? 'Coordinates ON — tap the model' : 'Coordinates OFF');
+};
+w.fieldCoordDeactivate = function(){ if(_fieldCoordActive) fieldCoordSet(false); };
+
+// ── PROJECTS (switch cloud/local project without leaving Field Mode) ───
+// Reuses the desktop switch logic (projSwitchCloud / projSwitch) with
+// { fromField:true } so it skips the desktop navigate + panel toggle. A switch
+// unloads the current models and auto-loads the chosen project's files — the
+// viewport (shared with Field Mode) shows them as they arrive.
+w.fieldMenuProjects = function(){
+  w.fieldCloseMore();
+  w.fieldOpenTool('<div id="fieldProjList" class="field-tool-list"></div>', 'Projects');
+  fieldProjectsRender();
+  w.projFieldRefresh?.(); // one-shot cloud refresh; 'ifc:cloudprojects' re-renders when it lands
+};
+function fieldProjectsRender(){
+  const host = document.getElementById('fieldProjList');
+  if(!host) return;
+  const data = w.projFieldData?.() || { canUseCloud:false, cloud:[], local:[] };
+  const row = (p: any, kind: 'cloud'|'local') =>
+    `<button class="field-tool-item${p.active?' active':''}" ${p.active?'disabled':''}
+             onclick="fieldProjSwitch('${p.id}','${kind}')">
+       <span class="field-tool-item-name">${kind==='cloud'?'☁':'💻'} ${escapeH(p.name)}${p.code?' · '+escapeH(p.code):''}</span>
+       <span class="field-tool-item-tag">${p.active?'● Active':'Switch'}</span>
+     </button>`;
+  const cloud = data.cloud.map((p: any) => row(p, 'cloud')).join('');
+  const local = data.local.map((p: any) => row(p, 'local')).join('');
+  const parts: string[] = [];
+  if(data.canUseCloud) parts.push(`<div class="field-tool-hint">Cloud</div>${cloud || '<div class="field-tool-empty">No cloud projects</div>'}`);
+  parts.push(`<div class="field-tool-hint">Local</div>${local || '<div class="field-tool-empty">No local projects</div>'}`);
+  host.innerHTML = parts.join('');
+}
+w.fieldProjSwitch = function(id: string, kind: string){
+  if(kind === 'cloud') w.projSwitchCloud?.(id, { fromField: true });
+  else w.projSwitch?.(id, { fromField: true });
+  w.fieldCloseTool();
+  fieldToast('Switching project…');
+};
+// Re-render the sheet when the async cloud list lands or the active project changes.
+window.addEventListener('ifc:cloudprojects', () => {
+  if(fieldActive && document.getElementById('fieldProjList')) fieldProjectsRender();
+});
+window.addEventListener('ifc:projectchange', () => {
+  if(fieldActive && document.getElementById('fieldProjList')) fieldProjectsRender();
+});
+
+// Small HTML escaper for field-rendered strings (reuses global if present).
+function escapeH(s: any): string {
+  if(w.escapeHtml) return w.escapeHtml(String(s ?? ''));
+  return String(s ?? '').replace(/[&<>"']/g, (c: string) => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c] as string));
+}
+
 // ── Field storey selector ──
 window.fieldToggleStoreys = function(){
   const el = document.getElementById('fieldStoreys')!;
@@ -349,6 +685,7 @@ window.fieldSelectStorey = function(idx: number, elevation: number){
 // so without this guard each re-entry stacked another full set of touch
 // listeners — long-press/double-tap firing N times after N toggles.
 let _longPressReady = false;
+let _lpJustFired = false;
 function fieldSetupLongPress(){
   if(_longPressReady) return;
   const canvas = appState.renderer?.domElement;
@@ -391,6 +728,16 @@ function fieldSetupLongPress(){
         });
         canvas.dispatchEvent(ev);
         e.preventDefault();
+        // The touchend that follows this same gesture still synthesizes a
+        // regular 'click' per the browser's touch→mouse emulation (calling
+        // preventDefault on the original touchstart here, 600ms later, does
+        // NOT suppress it — that only works if called synchronously during
+        // touchstart/touchend itself). That synthetic click then bubbles to
+        // viewer-core's document-level "close menu on outside click"
+        // listener, which saw it as a click outside #ctxMenu and closed the
+        // menu that had just opened — Properties never had a chance to be
+        // tapped. Flag the upcoming touchend to preventDefault it instead.
+        _lpJustFired = true;
       }
     }, 600);
   }, {passive:false});
@@ -406,14 +753,19 @@ function fieldSetupLongPress(){
     }
   });
 
-  canvas.addEventListener('touchend', () => {
+  canvas.addEventListener('touchend', (e) => {
     if(lpTimer) clearTimeout(lpTimer);
     lpTimer = null;
-  });
+    if(_lpJustFired){
+      e.preventDefault();
+      _lpJustFired = false;
+    }
+  }, {passive:false});
 
   canvas.addEventListener('touchcancel', () => {
     if(lpTimer) clearTimeout(lpTimer);
     lpTimer = null;
+    _lpJustFired = false;
   });
 }
 

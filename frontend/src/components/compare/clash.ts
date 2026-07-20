@@ -8,6 +8,13 @@ import { recordSnapshot, loadSnapshots } from '../validate/snapshots.js';
 import { escapeHtml, escapeCsv } from '../../lib/escape.js';
 import { disposeModel } from '../core/viewer-core.js';
 import { computeGeometryHashes } from '../../lib/geometry-hash.js';
+import { saveResult, downloadResult, buildModelSignature, formatClashCounts, buildResultMetadata } from '../../lib/cloud-results.js';
+import { clashStableId, idInputFromResult } from '../../lib/clash-id.js';
+import {
+  loadIssueMap, saveIssueMap, reconcileIssues, setIssueResolved, mergeIssueMaps,
+  type IssueMap, type ReconcileSummary,
+} from '../../lib/clash-issues.js';
+import { loadRegistry, getActiveProject } from '../../lib/projects-store.js';
 
 // Lịch sử snapshot clash theo thời gian (plan 2.4) — xem trong console: clashListSnapshots()
 (window as any).clashListSnapshots = () => loadSnapshots().filter(s => s.kind === 'clash');
@@ -17,6 +24,81 @@ let clashSubsets: THREE.Group[] = [];
 let currentClashIdx = -1;
 // Warning banner text when the candidate cap was hit (some pairs not checked).
 let _clashCapNote = '';
+
+// ── Clash issue tracking (Resolved/Unresolved across runs — lib/clash-issues) ──
+let clashIssueMap: IssueMap = {};
+let clashResultIds: string[] = [];            // stable id per appState.clashResults index
+let clashIssueSummary: ReconcileSummary | null = null;
+let _issueMapKey = '';                        // project key the map was loaded for
+let _autoClashPending = false;                // model updated while off the clash page
+let _autoClashTimer: number | null = null;
+
+// Exported: the Overview dashboard reads the same per-project issue map.
+export function clashProjectKey(): string {
+  if (appState.activeCloudProjectId) return 'c:' + appState.activeCloudProjectId;
+  try { return 'l:' + (getActiveProject(loadRegistry())?.id || 'default'); }
+  catch { return 'l:default'; }
+}
+
+// Load the project's issue map (and, for cloud projects, merge the team's
+// shared copy in the background — latest event per issue wins).
+function ensureIssueMapLoaded(): void {
+  const key = clashProjectKey();
+  if (key === _issueMapKey) return;
+  _issueMapKey = key;
+  clashIssueMap = loadIssueMap(key);
+  clashIssueSummary = null;
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  downloadResult<IssueMap>(projectId, 'clash-issues').then(remote => {
+    if (!remote || clashProjectKey() !== key) return;
+    clashIssueMap = mergeIssueMaps(clashIssueMap, remote);
+    saveIssueMap(key, clashIssueMap);
+    if (appState.clashResults.length) renderClashList();
+  }).catch(() => { /* offline / no shared copy yet */ });
+}
+
+function persistIssueMap(): void {
+  saveIssueMap(_issueMapKey, clashIssueMap);
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  const user = (window as any).getAuthUser?.();
+  const open = Object.values(clashIssueMap).filter(i => i.status === 'new' || i.status === 'active');
+  const counts = { total: open.length, hard: open.filter(i => i.isHard).length, near: open.filter(i => !i.isHard).length };
+  const metadata = buildResultMetadata(user?.email || '', counts, buildModelSignature(appState.files));
+  saveResult(projectId, 'clash-issues', clashIssueMap, metadata)
+    .catch(e => console.warn('[clash-issues] cloud mirror failed:', e));
+}
+
+// Full reconcile after a LIVE run (statuses advance; restore never calls this
+// — replaying a saved result must not rewrite history).
+function reconcileClashTracking(): void {
+  ensureIssueMapLoaded();
+  const { next, resultIds, summary } = reconcileIssues(clashIssueMap, appState.clashResults);
+  clashIssueMap = next;
+  clashResultIds = resultIds;
+  clashIssueSummary = summary;
+  persistIssueMap();
+  log(`Clash tracking: ${summary.newCount} new · ${summary.stillCount} still open · ${summary.autoResolved} auto-resolved` + (summary.reappeared ? ` · ${summary.reappeared} re-appeared` : ''));
+}
+
+export function issueStatusFor(i: number): { id: string; status: string; reappeared: boolean } | null {
+  const id = clashResultIds[i];
+  if (!id) return null;
+  const issue = clashIssueMap[id];
+  if (!issue) return null;
+  return { id, status: issue.status, reappeared: !!issue.reappeared };
+}
+
+window.clashToggleResolved = function (i: number): void {
+  const info = issueStatusFor(i);
+  if (!info) return;
+  ensureIssueMapLoaded();
+  const user = (window as any).getAuthUser?.();
+  clashIssueMap = setIssueResolved(clashIssueMap, info.id, info.status !== 'resolved', user?.email || undefined);
+  persistIssueMap();
+  renderClashList();
+};
 let clashFilterCounterA = 0, clashFilterCounterB = 0;
 let clashPropertyCacheA: Record<number, any> = {}, clashPropertyCacheB: Record<number, any> = {}; // eid→{propName:value}
 
@@ -88,9 +170,25 @@ const CLASH_PROPERTIES = [
 // + IfcCurtainWall separately. The reverse map (category → ifc classes)
 // is built alongside so resolveClashElementTypes can expand a category
 // pick back to the full IFC class set when running clash.
+// Resolves the "side" label ('A'=Source / 'B'=Target) used throughout the
+// rule-row UI to the actual loaded-model slot index the user picked via the
+// Source/Target dropdowns (appState.clashSourceIdx/clashTargetIdx) — self-clash
+// collapses Target onto Source so both sides read the same model.
+function clashSideModelIdx(side: string): number {
+  return side === 'A' ? appState.clashSourceIdx : clashEffectiveTargetIdx();
+}
+
+// Effective Target model index: mirrors Source when "single model" (self-clash)
+// is checked, otherwise the user's own Target Set selection.
+export function clashEffectiveTargetIdx(): number {
+  const single = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  return single ? appState.clashSourceIdx : appState.clashTargetIdx;
+}
+window.clashEffectiveTargetIdx = clashEffectiveTargetIdx;
+
 function getClashElementTypes(side: string): string[] {
   const catIDs: Record<string, any[]> = (window as any)._catModelIDs || {};
-  const mi = side === 'A' ? 0 : 1;
+  const mi = clashSideModelIdx(side);
   const revitCats = new Set<string>();
   Object.entries(catIDs).forEach(([ifcClass, models]) => {
     if (models[mi] && models[mi].length > 0) {
@@ -105,7 +203,7 @@ function getClashElementTypes(side: string): string[] {
 // category (Walls = IfcWall + IfcWallStandardCase + IfcCurtainWall).
 function revitCategoryToIfcClasses(catLabel: string, side: string): Set<string> {
   const catIDs: Record<string, any[]> = (window as any)._catModelIDs || {};
-  const mi = side === 'A' ? 0 : 1;
+  const mi = clashSideModelIdx(side);
   const out = new Set<string>();
   Object.entries(catIDs).forEach(([ifcClass, models]) => {
     if (!models[mi] || !models[mi].length) return;
@@ -308,9 +406,10 @@ window.swapClashSets = function(): void {
 
 // Compatibility shim — old code referenced these but they're no longer in UI.
 function getSelectedCats(side: string): string[] { return [...resolveClashElementTypes(side)]; }
+// Evaluates one category's own filter clauses against an entity —
+// buildFilteredSet() looks these up per-type via resolveClashFilters() so a
+// rule scoped to one element type never leaks onto another.
 function passesFilters(entity: any, filters: any[]): boolean {
-  // Old function — replaced by passesClashFiltersForType. Kept for any
-  // remaining call sites.
   if (!filters || !filters.length) return true;
   for (const f of filters) {
     const v = String(entity[f.prop] || entity[f.prop?.toLowerCase?.() ] || '').toLowerCase();
@@ -327,16 +426,6 @@ function passesFilters(entity: any, filters: any[]): boolean {
   }
   return true;
 }
-function getClashFilters(side: string): any[] {
-  // Old API: a flat list of filter objects. Build by flattening all
-  // elementType-keyed filters from the new rule rows.
-  const byType = resolveClashFilters(side);
-  const flat: any[] = [];
-  for (const t in byType) {
-    for (const f of byType[t]) flat.push({ ...f, elementType: t });
-  }
-  return flat;
-}
 
 // Enter/exit are the primitives the router reconciles page state against.
 // window.toggleClashMode stays only as a navigation alias for legacy callers
@@ -351,10 +440,58 @@ export function updateClashRunButtonState(): void {
   const btn = document.getElementById('btnRunClash') as HTMLButtonElement | null;
   if (!btn) return;
   const singleModel = (document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
-  const ok = singleModel ? !!appState.loadedModels[0] : !!(appState.loadedModels[0] && appState.loadedModels[1]);
+  const ok = singleModel
+    ? !!appState.loadedModels[appState.clashSourceIdx]
+    : !!(appState.loadedModels[appState.clashSourceIdx] && appState.loadedModels[appState.clashTargetIdx]);
   btn.disabled = !ok;
 }
 window.updateClashRunButtonState = updateClashRunButtonState;
+
+// ── Source/Target model dropdowns ──
+// Pure helper (no DOM) — enumerates every currently-loaded model slot as a
+// {idx, label} option, same "files[i] present or loadedModels[i] present"
+// pattern used by fedRenderSlots() (federation-load.ts) to enumerate slots.
+export interface ClashModelOption { idx: number; label: string; }
+export function buildClashModelOptions(files: (File | null)[], loadedModels: (any | null)[]): ClashModelOption[] {
+  const out: ClashModelOption[] = [];
+  const len = Math.max(files.length, loadedModels.length);
+  for (let i = 0; i < len; i++) {
+    if (!loadedModels[i]) continue;
+    out.push({ idx: i, label: files[i]?.name || `Model ${i}` });
+  }
+  return out;
+}
+
+function renderClashModelSelects(): void {
+  const opts = buildClashModelOptions(appState.files, appState.loadedModels);
+  const single = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  const selA = document.getElementById('clashFileA') as HTMLSelectElement | null;
+  const selB = document.getElementById('clashFileB') as HTMLSelectElement | null;
+  if (selA) {
+    selA.innerHTML = opts.map(o => `<option value="${o.idx}"${o.idx === appState.clashSourceIdx ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') || '<option value="0">—</option>';
+  }
+  if (selB) {
+    const targetIdx = clashEffectiveTargetIdx();
+    selB.innerHTML = opts.map(o => `<option value="${o.idx}"${o.idx === targetIdx ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') || '<option value="0">—</option>';
+    selB.disabled = single;
+  }
+}
+
+window.setClashSourceModel = function(v: string): void {
+  appState.clashSourceIdx = parseInt(v, 10) || 0;
+  const single = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
+  if (single) appState.clashTargetIdx = appState.clashSourceIdx;
+  renderClashModelSelects();
+  renderClashRules('A'); renderClashRules('B');
+  updateClashRunButtonState();
+};
+
+window.setClashTargetModel = function(v: string): void {
+  appState.clashTargetIdx = parseInt(v, 10) || 0;
+  renderClashModelSelects();
+  renderClashRules('B');
+  updateClashRunButtonState();
+};
 
 // Duplicate detection compares Source against Target — meaningless in
 // self-clash mode where every element trivially "duplicates" its own
@@ -362,6 +499,10 @@ window.updateClashRunButtonState = updateClashRunButtonState;
 export function clashSyncDuplicateUI(): void {
   const single = (document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
   const dupChk = document.getElementById('clashTypeDuplicate') as HTMLInputElement | null;
+  // Self-clash mirrors Target onto Source (see clashEffectiveTargetIdx) —
+  // reflect that in the Target dropdown too, disabling it while checked so
+  // the UI doesn't imply an independent Target choice is in effect.
+  renderClashModelSelects();
   if (!dupChk) return;
   dupChk.disabled = !!single;
   if (single) dupChk.checked = false;
@@ -386,8 +527,20 @@ export function enterClashMode(): void {
   document.getElementById('btnRunClash')!.style.display = '';
   document.getElementById('btnCompare')!.style.display = 'none';
 
-  if (appState.files[0]) document.getElementById('clashFileA')!.textContent = appState.files[0]!.name;
-  if (appState.files[1]) document.getElementById('clashFileB')!.textContent = appState.files[1]!.name;
+  // Default Source/Target to slots 0/1 (preserves pre-Phase-16 A vs B
+  // behaviour) — but fall back to whatever single model is loaded if only
+  // one of A/B is present, consistent with self-clash semantics. Only (re)apply
+  // the default when the current selection no longer points at a loaded model,
+  // so a selection the user made earlier (e.g. federation slots) survives
+  // navigating away and back into clash mode.
+  const firstLoadedIdx = appState.loadedModels.findIndex(m => m);
+  if (!appState.loadedModels[appState.clashSourceIdx]) {
+    appState.clashSourceIdx = appState.loadedModels[0] ? 0 : Math.max(firstLoadedIdx, 0);
+  }
+  if (!appState.loadedModels[appState.clashTargetIdx]) {
+    appState.clashTargetIdx = appState.loadedModels[1] ? 1 : appState.clashSourceIdx;
+  }
+  renderClashModelSelects();
   updateClashRunButtonState();
   clashSyncDuplicateUI();
 
@@ -400,6 +553,35 @@ export function enterClashMode(): void {
 window.toggleClashMode = function(): void {
   window.navigateTo?.(appState.clashMode ? 'viewer' : 'clash');
 };
+
+// Dispose + detach every clash-zone marker group and empty the tracking array.
+// Exported so project teardown (unloadAllModels) can sweep markers that would
+// otherwise float over the next project, and so restore can clear stale markers
+// before drawing its own (each showClashResults() pushes a fresh group).
+export function clearClashSubsets(): void {
+  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
+  clashSubsets = [];
+}
+window.clearClashSubsets = clearClashSubsets;
+
+// Reset Source/Target selection when the model they point at is removed
+// (federation slot deleted) — otherwise the dropdown references a disposed slot
+// and Run silently no-ops. Falls back to still-loaded slots.
+export function clashHandleModelRemoved(removedIdx: number): void {
+  const firstLoaded = appState.loadedModels.findIndex(m => m);
+  if (appState.clashSourceIdx === removedIdx) {
+    appState.clashSourceIdx = firstLoaded >= 0 ? firstLoaded : 0;
+  }
+  if (appState.clashTargetIdx === removedIdx) {
+    const secondLoaded = appState.loadedModels.findIndex((m, i) => m && i !== appState.clashSourceIdx);
+    appState.clashTargetIdx = secondLoaded >= 0 ? secondLoaded : appState.clashSourceIdx;
+  }
+  if (appState.clashMode) {
+    renderClashModelSelects();
+    updateClashRunButtonState();
+  }
+}
+window.clashHandleModelRemoved = clashHandleModelRemoved;
 
 export function exitClashMode(): void {
   appState.clashMode = false;
@@ -420,17 +602,21 @@ export function exitClashMode(): void {
   if(panelBtn2){panelBtn2.disabled=!bothLoaded;panelBtn2.style.opacity=bothLoaded?'1':'.35';}
   document.getElementById('clashGroupBar')!.style.display = 'none';
 
-  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
-  clashSubsets = []; appState.clashResults = []; currentClashIdx = -1;
+  clearClashSubsets();
+  appState.clashResults = []; currentClashIdx = -1;
   clashPropertyCacheA = {}; clashPropertyCacheB = {};
   // Remove focus highlights
   const oldFocus: THREE.Object3D[] = [];
   appState.scene.traverse(c => { if ((c as any).userData?.clashFocus) oldFocus.push(c); });
   oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); disposeModel(c); });
 
-  for (let i = 0; i < 2; i++) {
-    if (!appState.loadedModels[i]) continue;
-    const vis = (document.getElementById(i === 0 ? 'visA' : 'visB') as HTMLInputElement).checked;
+  // Restore visibility for whichever slots the last run actually used —
+  // Source/Target can be any loaded slot (federation included), not just 0/1.
+  const exitClashIndices = new Set<number>([0, 1, appState.clashSourceIdx, appState.clashTargetIdx]);
+  exitClashIndices.forEach(i => {
+    if (!appState.loadedModels[i]) return;
+    const visEl = document.getElementById(i === 0 ? 'visA' : i === 1 ? 'visB' : '') as HTMLInputElement | null;
+    const vis = visEl ? visEl.checked : true;
     appState.loadedModels[i]!.visible = vis;
     appState.loadedModels[i]!.traverse(c => {
       if ((c as any).isMesh) {
@@ -438,7 +624,7 @@ export function exitClashMode(): void {
         (c as any).visible = true;
       }
     });
-  }
+  });
 
   document.getElementById('clashStats')!.style.display = 'none';
   document.getElementById('clashList')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div>';
@@ -506,6 +692,16 @@ function bboxPenetration(a: any, b: any): number {
   const oz = Math.min(a.mxZ, b.mxZ) - Math.max(a.mnZ, b.mnZ);
   if (ox <= 0 || oy <= 0 || oz <= 0) return 0;
   return Math.min(ox, oy, oz); // penetration depth = smallest overlap axis
+}
+
+// Severity score used to rank clash candidates before the CAND_CAP cut.
+// penetration (>0 for real overlaps) minus gap (>0 for near-misses): every
+// overlap outranks every gap, and among near-misses a smaller gap ranks higher.
+// Descending sort by this keeps the worst offenders of BOTH kinds — ranking by
+// raw penetration alone left all clearances (penetration = 0) at the bottom,
+// where the cap silently discarded them.
+export function clashCandidateSeverity(penetration: number, gap: number): number {
+  return penetration - gap;
 }
 
 // Euclidean separation between two AABBs (0 when they overlap on every axis).
@@ -654,38 +850,50 @@ window.runClashDetection = async function(): Promise<void> {
   // itself instead of A vs B — the Target Set rules still apply, just
   // evaluated against model 0's elements instead of model 1's.
   const singleModelChk = !!(document.getElementById('clashSingleModel') as HTMLInputElement | null)?.checked;
-  const targetModelIdx = singleModelChk ? 0 : 1;
-  if (!appState.loadedModels[0] || !appState.loadedModels[targetModelIdx]) return;
+  const sourceModelIdx = appState.clashSourceIdx;
+  const targetModelIdx = singleModelChk ? sourceModelIdx : appState.clashTargetIdx;
+  if (!appState.loadedModels[sourceModelIdx] || !appState.loadedModels[targetModelIdx]) return;
   const lo = document.getElementById('loadOv')!, lt = document.getElementById('loadTxt')!, lf = document.getElementById('loadFill')!;
   lo.classList.add('on');
 
   // Re-running without exiting first would otherwise leave the previous run's
   // clash-zone marker meshes orphaned in the scene (never disposed).
-  clashSubsets.forEach(s => { if ((s as any).parent) (s as any).parent.remove(s); disposeModel(s); });
-  clashSubsets = [];
+  clearClashSubsets();
 
   // ── Read configuration from new BIMcollab-style UI ──
   // Tolerances. The "Minimum distance" field controls what previously was the
   // single tolerance slider — clearance threshold in mm.
   const minDistMm = parseFloat((document.getElementById('clashTolMinDist') as HTMLInputElement)?.value) || 0;
-  const tolerance = minDistMm / 1000;  // m
-  // Type checkboxes (Clash / Duplicate / Distance). For now we map:
-  //   Clash → hard clash
-  //   Distance (with minDistMm > 0) → clearance
-  //   Both checked → 'both'
-  const cClash     = (document.getElementById('clashTypeClash') as HTMLInputElement)?.checked;
-  const cDuplicate = (document.getElementById('clashTypeDuplicate') as HTMLInputElement)?.checked;
-  const cDistance  = (document.getElementById('clashTypeDistance') as HTMLInputElement)?.checked || minDistMm > 0;
-  let clashTypeFilter: string = 'hard';
+  // Type checkboxes (Clash / Duplicate / Distance) map to the detection mode:
+  //   Clash → hard clash · Distance → clearance/near-miss · both → 'both'.
+  // Derive the mode purely from the checkboxes: a typed Minimum-distance value
+  // must NOT silently switch clearance on while Distance is unchecked, and
+  // unchecking both must yield nothing ('none') — not a fallback to hard.
+  const cClash     = !!(document.getElementById('clashTypeClash') as HTMLInputElement | null)?.checked;
+  const cDuplicate = !!(document.getElementById('clashTypeDuplicate') as HTMLInputElement | null)?.checked;
+  const cDistance  = !!(document.getElementById('clashTypeDistance') as HTMLInputElement | null)?.checked;
+  let clashTypeFilter: string;
   if (cClash && cDistance) clashTypeFilter = 'both';
   else if (cDistance)      clashTypeFilter = 'clearance';
-  else                     clashTypeFilter = 'hard';
+  else if (cClash)         clashTypeFilter = 'hard';
+  else                     clashTypeFilter = 'none';
+  // Clearance threshold only applies when Distance is part of the mode; keep it
+  // at 0 for hard-only/none so near-miss candidates don't fill (and get cut by)
+  // the candidate cap.
+  const clearanceOn = clashTypeFilter === 'clearance' || clashTypeFilter === 'both';
+  const tolerance = clearanceOn ? minDistMm / 1000 : 0;  // m
 
   // ── Collect filter configuration from rule rows ──
   const catsA = resolveClashElementTypes('A');
   const catsB = resolveClashElementTypes('B');
-  const filtersA = getClashFilters('A');
-  const filtersB = getClashFilters('B');
+  // Per-type filter maps (resolveClashFilters keys each clause by the IFC
+  // class it applies to) — buildFilteredSet below must look a category's
+  // OWN filters up by key, not flatten every rule across every type. The
+  // flat getClashFilters() shape used to be passed straight through and
+  // ANDed against every element regardless of category (a "Walls: Name
+  // contains X" rule silently also filtered Columns).
+  const filtersA = resolveClashFilters('A');
+  const filtersB = resolveClashFilters('B');
 
   if (catsA.size === 0 || catsB.size === 0) {
     lo.classList.remove('on');
@@ -693,7 +901,8 @@ window.runClashDetection = async function(): Promise<void> {
     return;
   }
 
-  log('Clash config: Source types=' + catsA.size + ', Target types=' + catsB.size + ', filtersA=' + filtersA.length + ', filtersB=' + filtersB.length + ', tolerance=' + tolerance + 'm, type=' + clashTypeFilter);
+  const filterCount = (m: Record<string, any[]>) => Object.values(m).reduce((n, arr) => n + arr.length, 0);
+  log('Clash config: Source types=' + catsA.size + ', Target types=' + catsB.size + ', filtersA=' + filterCount(filtersA) + ', filtersB=' + filterCount(filtersB) + ', tolerance=' + tolerance + 'm, type=' + clashTypeFilter);
 
   // ── Phase 1: Build filtered element sets ──
   lt.textContent = 'Building Source Set (Model A)...'; lf.style.width = '5%';
@@ -703,12 +912,16 @@ window.runClashDetection = async function(): Promise<void> {
   const api = appState.ifcLoader?.ifcManager?.state?.api;
 
   // Build element properties for filtering
-  const buildFilteredSet = async (modelIdx: number, selectedCats: Set<string>, propFilters: any[]) => {
+  const buildFilteredSet = async (modelIdx: number, selectedCats: Set<string>, propFiltersByType: Record<string, { prop: string; op: string; val: string }[]>) => {
     const elements: Record<number, any> = {};
     const propCache: Record<number, any> = {};
     for (const cat of selectedCats) {
       const ids = catIDs[cat]?.[modelIdx];
       if (!ids) continue;
+      // Only this category's own filter clauses apply — a rule scoped to
+      // "Walls" must never affect "Columns" just because both were flattened
+      // into one array.
+      const propFilters = propFiltersByType[cat] || [];
       for (const eid of ids) {
         // Get properties for filter matching — skip the (awaited) IFC lookup
         // entirely when this category has no property filters, since
@@ -718,7 +931,7 @@ window.runClashDetection = async function(): Promise<void> {
         let entity: any = { expressID: eid, type: cat, name: '', objectType: '', tag: '', description: '', predefinedType: '' };
         if (propFilters.length) {
           try {
-            const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[modelIdx] as any).modelID, eid, false);
+            const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[modelIdx] as any)!.modelID, eid, false);
             if (p) {
               entity.name = p.Name?.value || '';
               entity.objectType = p.ObjectType?.value || '';
@@ -742,7 +955,7 @@ window.runClashDetection = async function(): Promise<void> {
     return { elements, propCache };
   };
 
-  const setA = await buildFilteredSet(0, catsA, filtersA);
+  const setA = await buildFilteredSet(sourceModelIdx, catsA, filtersA);
   lt.textContent = singleModelChk ? 'Building Target Set...' : 'Building Target Set (Model B)...'; lf.style.width = '15%';
   await new Promise(r => setTimeout(r, 20));
   const setB = await buildFilteredSet(targetModelIdx, catsB, filtersB);
@@ -759,7 +972,7 @@ window.runClashDetection = async function(): Promise<void> {
   lt.textContent = 'Computing bounding boxes...'; lf.style.width = '20%';
   await new Promise(r => setTimeout(r, 20));
 
-  const allBBoxA = buildElementBBoxes(0);
+  const allBBoxA = buildElementBBoxes(sourceModelIdx);
   const allBBoxB = singleModelChk ? allBBoxA : buildElementBBoxes(targetModelIdx);
 
   // Filter to only Source/Target set elements
@@ -771,7 +984,7 @@ window.runClashDetection = async function(): Promise<void> {
   await new Promise(r => setTimeout(r, 20));
 
   // ── Phase 3: BBox overlap ──
-  const candidates: { a: any; b: any; penetration: number }[] = [];
+  const candidates: { a: any; b: any; penetration: number; gap: number }[] = [];
   let checked = 0;
   const total = arrA.length * arrB.length;
   // Self-clash: Source/Target categories can overlap (e.g. "Walls" on both
@@ -790,7 +1003,8 @@ window.runClashDetection = async function(): Promise<void> {
       }
       if (bboxOverlap(a, b, tolerance)) {
         const pen = bboxPenetration(a, b);
-        candidates.push({ a, b, penetration: pen });
+        const gap = clearanceOn ? bboxGap(a, b) : 0;
+        candidates.push({ a, b, penetration: pen, gap });
       }
       checked++;
     }
@@ -808,16 +1022,24 @@ window.runClashDetection = async function(): Promise<void> {
   // ── Phase 4: Mesh intersection + property enrichment ──
   appState.clashResults = [];
   const CAND_CAP = 2000;
-  const capped = candidates.length > CAND_CAP;   // note if we drop candidates
-  const maxCheck = Math.min(candidates.length, CAND_CAP);
-  candidates.sort((a, b) => b.penetration - a.penetration);
+  // Rank by severity so the cap keeps the worst offenders of BOTH kinds:
+  // penetration (>0 for overlaps) minus gap (>0 for near-misses) — a 2mm gap
+  // outranks a 40mm gap, and any real overlap outranks any gap. Sorting by raw
+  // penetration alone parked every clearance (penetration = 0) at the bottom,
+  // so the cap silently dropped all near-misses.
+  candidates.sort((a, b) => clashCandidateSeverity(b.penetration, b.gap) - clashCandidateSeverity(a.penetration, a.gap));
+  // 'none' (neither Clash nor Distance checked) means no overlap-based clashes
+  // were requested — skip mesh testing entirely (duplicates still run below).
+  const noneMode = clashTypeFilter === 'none';
+  const capped = !noneMode && candidates.length > CAND_CAP;
+  const maxCheck = noneMode ? 0 : Math.min(candidates.length, CAND_CAP);
   const skipTypes = new Set(['IfcSpace', 'IfcSite', 'IfcBuilding', 'IfcBuildingStorey', 'IfcProject']);
 
   const checkedEidsA = new Set<number>(), checkedEidsB = new Set<number>();
   for (let i = 0; i < maxCheck; i++) { checkedEidsA.add(candidates[i].a.eid); checkedEidsB.add(candidates[i].b.eid); }
-  const vertsMapA = buildEidVertexMap(appState.loadedModels[0]!, checkedEidsA);
+  const vertsMapA = buildEidVertexMap(appState.loadedModels[sourceModelIdx]!, checkedEidsA);
   const vertsMapB = singleModelChk
-    ? buildEidVertexMap(appState.loadedModels[0]!, checkedEidsB)
+    ? buildEidVertexMap(appState.loadedModels[sourceModelIdx]!, checkedEidsB)
     : buildEidVertexMap(appState.loadedModels[targetModelIdx]!, checkedEidsB);
 
   // Box size/volume filter config — only meaningful for hard clashes.
@@ -863,7 +1085,7 @@ window.runClashDetection = async function(): Promise<void> {
 
       appState.clashResults.push({
         idx: appState.clashResults.length,
-        elA: { eid: a.eid, name: entA.name || '', type: typeA, objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: a },
+        elA: { eid: a.eid, name: entA.name || '', type: typeA, objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: sourceModelIdx, bbox: a },
         elB: { eid: b.eid, name: entB.name || '', type: typeB, objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: b },
         // For clearances the displayed distance is the gap; for hard clashes it's
         // the penetration depth. `gap` kept separately for reporting.
@@ -902,7 +1124,7 @@ window.runClashDetection = async function(): Promise<void> {
   if (cDuplicate && !singleModelChk) {
     lt.textContent = 'Checking for duplicates...'; lf.style.width = '95%';
     await new Promise(r => setTimeout(r, 20));
-    const hashesA = computeGeometryHashes(0);
+    const hashesA = computeGeometryHashes(sourceModelIdx);
     const hashesB = computeGeometryHashes(targetModelIdx);
     const hashedA: Record<number, HashedElement> = {};
     for (const eid of sourceEids) if (hashesA[eid]) hashedA[eid] = { hash: hashesA[eid].hash, type: clashPropertyCacheA[eid]?.type || '' };
@@ -910,14 +1132,23 @@ window.runClashDetection = async function(): Promise<void> {
     for (const eid of targetEids) if (hashesB[eid]) hashedB[eid] = { hash: hashesB[eid].hash, type: clashPropertyCacheB[eid]?.type || '' };
 
     const dupPairs = findDuplicatePairs(hashedA, hashedB, false);
+    // showClashResults()/focusClash() dereference elA.bbox.mnX unconditionally
+    // to draw the clash-zone marker and frame the camera — bbox can't be null
+    // here. Build one from the geometry hash's own center/size (duplicates are
+    // identical-position matches by definition, so A's and B's boxes coincide).
+    const bboxFromHash = (h: { center: { x: number; y: number; z: number }; size: { x: number; y: number; z: number } }) => ({
+      mnX: h.center.x - h.size.x / 2, mxX: h.center.x + h.size.x / 2,
+      mnY: h.center.y - h.size.y / 2, mxY: h.center.y + h.size.y / 2,
+      mnZ: h.center.z - h.size.z / 2, mxZ: h.center.z + h.size.z / 2,
+    });
     for (const { eidA, eidB } of dupPairs) {
       const entA = clashPropertyCacheA[eidA] || {};
       const entB = clashPropertyCacheB[eidB] || {};
       const c = hashesA[eidA].center;
       appState.clashResults.push({
         idx: appState.clashResults.length,
-        elA: { eid: eidA, name: entA.name || '', type: entA.type || '', objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: 0, bbox: null },
-        elB: { eid: eidB, name: entB.name || '', type: entB.type || '', objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: null },
+        elA: { eid: eidA, name: entA.name || '', type: entA.type || '', objectType: entA.objectType || '', tag: entA.tag || '', modelIdx: sourceModelIdx, bbox: bboxFromHash(hashesA[eidA]) },
+        elB: { eid: eidB, name: entB.name || '', type: entB.type || '', objectType: entB.objectType || '', tag: entB.tag || '', modelIdx: targetModelIdx, bbox: bboxFromHash(hashesB[eidB]) },
         penetration: 0, gap: 0, isHard: true, isDuplicate: true,
         verticesAinB: 0, verticesBinA: 0,
         point: { x: c.x, y: c.y, z: c.z },
@@ -933,13 +1164,13 @@ window.runClashDetection = async function(): Promise<void> {
   for (const cl of appState.clashResults) {
     if (!cl.elA.name) {
       try {
-        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[0] as any).modelID, cl.elA.eid, false);
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[cl.elA.modelIdx] as any).modelID, cl.elA.eid, false);
         if (p?.Name?.value) cl.elA.name = p.Name.value;
       } catch (e) {}
     }
     if (!cl.elB.name) {
       try {
-        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[targetModelIdx] as any).modelID, cl.elB.eid, false);
+        const p = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[cl.elB.modelIdx] as any).modelID, cl.elB.eid, false);
         if (p?.Name?.value) cl.elB.name = p.Name.value;
       } catch (e) {}
     }
@@ -950,19 +1181,66 @@ window.runClashDetection = async function(): Promise<void> {
   await new Promise(r => setTimeout(r, 300));
   lo.classList.remove('on');
 
+  // Advance the Resolved/Unresolved tracking against this fresh run (after
+  // the name backfill above — names feed the stable clash ids).
+  reconcileClashTracking();
+
   showClashResults();
+  saveClashResultToCloud();
 };
 
-function showClashResults(): void {
+// Applies a clash result fetched from cloud storage (Phase 15 restore) —
+// same rendering path as a live run, minus the detection pipeline.
+export function restoreClashResult(results: any[]): void {
+  // Dispose any markers still in the scene (from a previous restore or a run in
+  // the outgoing project) before drawing this result's — showClashResults()
+  // pushes a fresh marker group each call, so without this they stack.
+  clearClashSubsets();
+  appState.clashResults = results;
+  // Replaying a saved result must not advance issue statuses — clear the
+  // per-index ids so renderClashList re-derives them (badges still show from
+  // the stored map) and drop the last live-run summary banner.
+  clashResultIds = [];
+  clashIssueSummary = null;
+  // Fade the models this saved result actually used — each clash carries the
+  // Source/Target modelIdx. After a reload the live dropdowns default to 0/1,
+  // so fading by them (as a live run does) would dim the wrong models when the
+  // Phase-16 selection was a non-default slot. Also skip the history snapshot:
+  // restoring an old result is not a new run.
+  const fadeIndices = new Set<number>();
+  for (const cl of results) {
+    if (typeof cl?.elA?.modelIdx === 'number') fadeIndices.add(cl.elA.modelIdx);
+    if (typeof cl?.elB?.modelIdx === 'number') fadeIndices.add(cl.elB.modelIdx);
+  }
+  showClashResults({ fadeIndices: [...fadeIndices], recordSnap: false });
+}
+
+// Best-effort background persist of the just-computed clash result — no-op
+// for local (non-cloud) projects, never blocks/errors the UI on failure.
+function saveClashResultToCloud(): void {
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) return;
+  const user = (window as any).getAuthUser?.();
+  const signature = buildModelSignature(appState.files);
+  const counts = formatClashCounts(appState.clashResults as any);
+  const metadata = buildResultMetadata(user?.email || '', counts, signature);
+  saveResult(projectId, 'clash', appState.clashResults, metadata).catch(e => console.warn('[cloud-results] saveClashResultToCloud failed:', e));
+}
+
+function showClashResults(opts: { fadeIndices?: number[]; recordSnap?: boolean } = {}): void {
   document.getElementById('btnExitClash')!.style.display = '';
   document.getElementById('btnRunClash')!.style.display = 'none';
   document.getElementById('vpClashLegend')!.classList.add('show');
   document.getElementById('clashGroupBar')!.style.display = 'flex';
   if (appState.clashResults.length > 0) { document.getElementById('btnExportClashCSV')!.style.display = ''; document.getElementById('btnExportClashBCF')!.style.display = ''; }
 
-  // Keep models mostly visible — only slightly fade them
-  for (let i = 0; i < 2; i++) {
-    if (!appState.loadedModels[i]) continue;
+  // Keep models mostly visible — only slightly fade the ones actually used
+  // as Source/Target (which may be federation slots, not just A/B). A live run
+  // fades the current selection; restore passes the indices from the saved
+  // result, which can differ from the post-reload dropdown defaults.
+  const shownIndices = new Set<number>(opts.fadeIndices ?? [appState.clashSourceIdx, clashEffectiveTargetIdx()]);
+  shownIndices.forEach(i => {
+    if (!appState.loadedModels[i]) return;
     appState.loadedModels[i]!.traverse(c => {
       if ((c as any).isMesh) {
         if (!(c as any).userData._clashOrigMats) {
@@ -975,7 +1253,7 @@ function showClashResults(): void {
         });
       }
     });
-  }
+  });
 
   // ── Create clash zone markers at each intersection point ──
   // For each clash, create a glowing box at the overlap region (not the full element)
@@ -1045,75 +1323,120 @@ function showClashResults(): void {
   if (dupEl) dupEl.textContent = String(dup);
 
   // Snapshot theo thời gian (plan 2.4, giống Validate): lưu + so với lần chạy trước.
-  try {
-    const stats = { total: appState.clashResults.length, hard, near };
-    const { delta } = recordSnapshot('clash', stats);
-    const d = delta.find(x => x.key === 'total');
-    if (d && d.delta !== 0) log(`Clash snapshot đã lưu — total ${d.prev}→${d.curr} (${d.delta > 0 ? '+' : ''}${d.delta} so với lần trước).`);
-    else log('Clash snapshot đã lưu.');
-  } catch (e: any) { log('Clash snapshot err:', e?.message); }
+  // Chỉ ghi cho lần chạy thật — restore kết quả đã lưu KHÔNG phải một lần chạy mới,
+  // nếu ghi sẽ tạo snapshot giả và bóp méo lịch sử delta.
+  if (opts.recordSnap ?? true) {
+    try {
+      const stats = { total: appState.clashResults.length, hard, near };
+      const { delta } = recordSnapshot('clash', stats);
+      const d = delta.find(x => x.key === 'total');
+      if (d && d.delta !== 0) log(`Clash snapshot đã lưu — total ${d.prev}→${d.curr} (${d.delta > 0 ? '+' : ''}${d.delta} so với lần trước).`);
+      else log('Clash snapshot đã lưu.');
+    } catch (e: any) { log('Clash snapshot err:', e?.message); }
+  }
 
-  // Render clash cards
-  let html = '';
-  appState.clashResults.forEach((cl: any, i: number) => {
-    const penMM = (cl.penetration * 1000).toFixed(0);
-    html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
-      <div class="cc-hdr">
-        <span class="cc-num">#${i + 1} ${clashBadge(cl)}</span>
-        <span class="cc-dist">${penMM}mm</span>
-      </div>
-      <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
-      <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
-      <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
-      <div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>
-    </div>`;
-  });
-  if (!html) html = '<div style="padding:20px;text-align:center;color:var(--green);font-size:14px;font-weight:600">✓ No clashes detected!</div>';
-  if (_clashCapNote) html = `<div style="margin:6px 8px;padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;font-size:11.5px;color:var(--text-dim);line-height:1.4">${escapeHtml(_clashCapNote)}</div>` + html;
-  document.getElementById('clashList')!.innerHTML = html;
+  // Render clash cards (shared renderer — also used by regroup/status filter)
+  renderClashList();
 }
 
-// ── Regroup clash results by chosen criterion ──
-window.regroupClashes = function(): void {
-  const groupBy = (document.getElementById('clashGroupBy') as HTMLSelectElement).value;
-  const list = document.getElementById('clashList')!;
+// ── Consolidated clash-list renderer ─────────────────────────────────────
+// One code path for the flat list, grouped list, status filter, tracking
+// badges (NEW / ✓ / RE-OPEN?) and Resolve buttons. showClashResults,
+// regroupClashes and clashToggleResolved all funnel through here so the
+// three views can never drift apart again.
+function clashStatusChip(i: number): string {
+  const info = issueStatusFor(i);
+  if (!info) return '';
+  if (info.status === 'new') return '<span class="cc-chip cc-chip-new">NEW</span>';
+  if (info.status === 'resolved') {
+    return info.reappeared
+      ? '<span class="cc-chip cc-chip-reopen" title="Marked resolved but detected again">RE-OPEN?</span>'
+      : '<span class="cc-chip cc-chip-res" title="Marked resolved">✓</span>';
+  }
+  return '';
+}
 
-  if (groupBy === 'none' || !appState.clashResults.length) {
-    // Flat list — re-render
-    let html = '';
-    appState.clashResults.forEach((cl: any, i: number) => {
-      const penMM = (cl.penetration * 1000).toFixed(0);
-      html += `<div class="clash-card" id="clash-${i}" onclick="focusClash(${i})">
-        <div class="cc-hdr"><span class="cc-num">#${i + 1} ${clashBadge(cl)}</span><span class="cc-dist">${penMM}mm</span></div>
-        <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
-        <div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>
-        <div class="cc-el" style="margin-top:2px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
-        <div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>
-      </div>`;
-    });
+function clashCardHtml(cl: any, i: number, compact = false): string {
+  const penMM = (cl.penetration * 1000).toFixed(0);
+  const info = issueStatusFor(i);
+  const resolveBtn = info
+    ? `<button class="cc-resolve${info.status === 'resolved' ? ' undo' : ''}" onclick="event.stopPropagation();clashToggleResolved(${i})">${info.status === 'resolved' ? 'Undo' : 'Resolve'}</button>`
+    : '';
+  const resolvedCls = info?.status === 'resolved' && !info.reappeared ? ' resolved' : '';
+  const typeRows = compact ? '' :
+    `<div class="cc-type">${escapeHtml((cl.elA.type || '').replace('Ifc', ''))}</div>`;
+  const typeRowB = compact ? '' :
+    `<div class="cc-type">${escapeHtml((cl.elB.type || '').replace('Ifc', ''))}</div>`;
+  return `<div class="clash-card${resolvedCls}" id="clash-${i}" onclick="focusClash(${i})">
+    <div class="cc-hdr">
+      <span class="cc-num">#${i + 1} ${clashBadge(cl)}${clashStatusChip(i)}</span>
+      <span class="cc-dist">${penMM}mm</span>
+    </div>
+    <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
+    ${typeRows}
+    <div class="cc-el" style="margin-top:${compact ? 1 : 2}px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
+    ${typeRowB}
+    ${resolveBtn}
+  </div>`;
+}
+
+function clashPassesStatusFilter(i: number, filter: string): boolean {
+  if (filter === 'all') return true;
+  const status = issueStatusFor(i)?.status;
+  if (filter === 'new') return status === 'new';
+  if (filter === 'resolved') return status === 'resolved';
+  // 'unresolved': anything not explicitly marked resolved (incl. untracked)
+  return status !== 'resolved';
+}
+
+function renderClashList(): void {
+  const list = document.getElementById('clashList');
+  if (!list) return;
+
+  // Restored results skip reconcile (statuses must not advance on replay) —
+  // derive their stable ids here so badges/filter still work.
+  if (clashResultIds.length !== appState.clashResults.length) {
+    ensureIssueMapLoaded();
+    clashResultIds = appState.clashResults.map((cl: any) => clashStableId(idInputFromResult(cl)));
+  }
+
+  const groupBy = (document.getElementById('clashGroupBy') as HTMLSelectElement | null)?.value || 'none';
+  const statusFilter = (document.getElementById('clashStatusFilter') as HTMLSelectElement | null)?.value || 'all';
+  const indices = appState.clashResults
+    .map((_: any, i: number) => i)
+    .filter((i: number) => clashPassesStatusFilter(i, statusFilter));
+
+  let html = '';
+  if (clashIssueSummary) {
+    const s = clashIssueSummary;
+    html += `<div class="clash-track-banner">🆕 ${s.newCount} new · ${s.stillCount} still open · ✔ ${s.autoResolved} auto-resolved${s.reappeared ? ` · ⚠ ${s.reappeared} re-appeared` : ''}</div>`;
+  }
+  if (_clashCapNote) html += `<div style="margin:6px 8px;padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;font-size:11.5px;color:var(--text-dim);line-height:1.4">${escapeHtml(_clashCapNote)}</div>`;
+
+  if (indices.length === 0) {
+    html += appState.clashResults.length === 0
+      ? '<div style="padding:20px;text-align:center;color:var(--green);font-size:14px;font-weight:600">✓ No clashes detected!</div>'
+      : '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No clashes match this status filter</div>';
     list.innerHTML = html;
     return;
   }
 
-  // Group clashes
-  const groups: Record<string, { cl: any; origIdx: number }[]> = {};
-  appState.clashResults.forEach((cl: any, i: number) => {
+  if (groupBy === 'none') {
+    for (const i of indices) html += clashCardHtml(appState.clashResults[i], i);
+    list.innerHTML = html;
+    return;
+  }
+
+  const groups: Record<string, number[]> = {};
+  for (const i of indices) {
+    const cl = appState.clashResults[i];
     let key = 'Other';
     if (groupBy === 'categoryA') key = cl.elA.type || 'Unknown';
     else if (groupBy === 'categoryB') key = cl.elB.type || 'Unknown';
-    else if (groupBy === 'level') {
-      // Group by Y-level (approximate storey)
-      const y = cl.point.y;
-      const level = Math.round(y / 3) * 3; // bucket to ~3m floors
-      key = 'Level ≈ ' + level.toFixed(0) + 'm';
-    }
-    if (!groups[key]) groups[key] = [];
-    groups[key].push({ cl, origIdx: i });
-  });
-
-  let html = '';
-  const sortedKeys = Object.keys(groups).sort();
-  sortedKeys.forEach(key => {
+    else if (groupBy === 'level') key = 'Level ≈ ' + (Math.round(cl.point.y / 3) * 3).toFixed(0) + 'm';
+    (groups[key] = groups[key] || []).push(i);
+  }
+  for (const key of Object.keys(groups).sort()) {
     const items = groups[key];
     const gid = 'cg_' + key.replace(/\W/g, '_');
     html += `<div class="clash-group-hdr" onclick="toggleClashGroup('${gid}')">
@@ -1122,18 +1445,16 @@ window.regroupClashes = function(): void {
       <span class="cg-count">${items.length}</span>
     </div>
     <div class="clash-group-body" id="body_${gid}">`;
-    items.forEach(({ cl, origIdx }) => {
-      const penMM = (cl.penetration * 1000).toFixed(0);
-      html += `<div class="clash-card" id="clash-${origIdx}" onclick="focusClash(${origIdx})">
-        <div class="cc-hdr"><span class="cc-num">#${origIdx + 1} ${clashBadge(cl)}</span><span class="cc-dist">${penMM}mm</span></div>
-        <div class="cc-el">A: ${escapeHtml(cl.elA.name || '#' + cl.elA.eid)}</div>
-        <div class="cc-el" style="margin-top:1px">B: ${escapeHtml(cl.elB.name || '#' + cl.elB.eid)}</div>
-      </div>`;
-    });
+    for (const i of items) html += clashCardHtml(appState.clashResults[i], i, true);
     html += `</div>`;
-  });
+  }
   list.innerHTML = html;
-};
+}
+
+// ── Regroup clash results by chosen criterion ──
+// (Thin alias — grouping, status filter, badges and cards all render through
+// the consolidated renderClashList above.)
+window.regroupClashes = renderClashList;
 
 window.toggleClashGroup = function(gid: string): void {
   const arr = document.getElementById('arr_' + gid);
@@ -1161,9 +1482,14 @@ window.focusClash = function(idx: number): void {
   const matFocusA = new THREE.MeshPhongMaterial({ color: 0xef4444, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: true, clippingPlanes: appState.clipPlanes });
   const matFocusB = new THREE.MeshPhongMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: true, clippingPlanes: appState.clipPlanes });
 
+  // Use each element's own modelIdx rather than hard-coding 0/1 — in
+  // self-clash mode (single model checked) both A and B live in model 0, so
+  // a hard-coded mi:1 for B either found nothing (slot 1 empty) or
+  // highlighted the wrong element on whatever model happened to be loaded
+  // there.
   [
-    { mi: 0, eid: cl.elA.eid, mat: matFocusA },
-    { mi: 1, eid: cl.elB.eid, mat: matFocusB }
+    { mi: cl.elA.modelIdx, eid: cl.elA.eid, mat: matFocusA },
+    { mi: cl.elB.modelIdx, eid: cl.elB.eid, mat: matFocusB }
   ].forEach(({ mi, eid, mat }) => {
     if (!appState.loadedModels[mi]) return;
     try {
@@ -1287,16 +1613,21 @@ window.exportClashCSV = function(): void {
 // ══ Clash BCF Export ══
 window.exportClashBCF = async function(): Promise<void> {
   if (!appState.clashResults.length) { log('No clashes to export'); return; }
-  if (!(window as any).JSZip) {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    document.head.appendChild(s);
-    await new Promise((res, rej) => { s.onload = res; s.onerror = rej; });
-  }
 
   (window as any).setStatus('loading', 'Exporting Clash BCF...');
   log('Exporting BCF for ' + appState.clashResults.length + ' clashes...');
-  const zip = new (window as any).JSZip();
+  let JSZip: any;
+  try {
+    // Bundled dependency (frontend/package.json) — previously fetched from a
+    // CDN at click time with no error handling, so any network hiccup left
+    // the export silently stuck on "Exporting Clash BCF..." forever.
+    JSZip = (await import('jszip')).default;
+  } catch (e: any) {
+    (window as any).setStatus('', '');
+    alert('Clash BCF export failed to load: ' + (e?.message || e));
+    return;
+  }
+  const zip = new JSZip();
   const now = new Date().toISOString();
   const pid = crypto.randomUUID();
 
@@ -1305,8 +1636,10 @@ window.exportClashBCF = async function(): Promise<void> {
   // the model offset back without doing the axis swap, so all viewpoint
   // coordinates were in Three-space. Result: BCF Reader saw "viewpoint near
   // origin" → no zoom-to-issue and the snapshot framing camera was also wrong.
+  const bcfSourceIdx = appState.clashSourceIdx;
+  const bcfTargetIdx = clashEffectiveTargetIdx();
   const mdlPos = { x: 0, y: 0, z: 0 };
-  for (let i = 0; i < 2; i++) { if (appState.loadedModels[i]) { mdlPos.x = appState.loadedModels[i]!.position.x; mdlPos.y = appState.loadedModels[i]!.position.y; mdlPos.z = appState.loadedModels[i]!.position.z; break; } }
+  for (const i of [bcfSourceIdx, bcfTargetIdx, 0, 1]) { if (appState.loadedModels[i]) { mdlPos.x = appState.loadedModels[i]!.position.x; mdlPos.y = appState.loadedModels[i]!.position.y; mdlPos.z = appState.loadedModels[i]!.position.z; break; } }
   // Three (x,y,z) → IFC (x, z, -y): reverse offset first, then swap Y↔Z, negate Y.
   const threeToIfc = (x: number, y: number, z: number) => {
     const tx = x - mdlPos.x, ty = y - mdlPos.y, tz = z - mdlPos.z;
@@ -1339,11 +1672,11 @@ window.exportClashBCF = async function(): Promise<void> {
     // GlobalIds for both elements
     let guidA = '', guidB = '';
     try {
-      const pA = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[0] as any).modelID, cl.elA.eid, false);
+      const pA = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[cl.elA.modelIdx] as any).modelID, cl.elA.eid, false);
       if (pA?.GlobalId?.value) guidA = pA.GlobalId.value;
     } catch (e) {}
     try {
-      const pB = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[1] as any).modelID, cl.elB.eid, false);
+      const pB = await appState.ifcLoader.ifcManager.getItemProperties((appState.loadedModels[cl.elB.modelIdx] as any).modelID, cl.elB.eid, false);
       if (pB?.GlobalId?.value) guidB = pB.GlobalId.value;
     } catch (e) {}
 
@@ -1470,8 +1803,8 @@ window.exportClashBCF = async function(): Promise<void> {
     // markup.bcf — Header with file references for BCF Reader to resolve elements
     zip.file(tid + '/markup.bcf', '<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n' +
       '<Header>' +
-      (appState.files[0] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[0]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
-      (appState.files[1] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[1]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
+      (appState.files[bcfSourceIdx] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[bcfSourceIdx]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
+      (appState.files[bcfTargetIdx] ? '<File IfcProject="" IfcSpatialStructureElement="" isExternal="true"><Filename>' + (window as any).escXml(appState.files[bcfTargetIdx]!.name) + '</Filename><Date>' + now + '</Date></File>' : '') +
       '</Header>\n' +
       '<Topic Guid="' + tid + '" TopicType="Clash" TopicStatus="Active">' +
       '<Title>' + (window as any).escXml(title) + '</Title>' +
@@ -1556,3 +1889,72 @@ window.exportClashBCF = async function(): Promise<void> {
   (window as any).setStatus('done', 'BCF exported'); setTimeout(() => (window as any).setStatus('', ''), 3000);
   log('Clash BCF exported: ' + appState.clashResults.length + ' issues');
 };
+
+// ── Auto re-run on model update (clash tracking) ─────────────────────────
+// When a model slot reloads (manual replace, cloud auto-load of an updated
+// file) and this project has clash-tracking history, re-run detection so the
+// team immediately sees what's NEW vs auto-resolved:
+//   • on the clash page → re-run right away (debounced — auto-load fires one
+//     ifc:modelloaded per slot);
+//   • elsewhere → queue it; entering the clash page runs it automatically.
+// Toggleable via the "Auto re-run" checkbox (persisted in localStorage).
+const AUTO_CLASH_LS = 'ifc.clashAutoRun';
+export function clashAutoRunEnabled(): boolean {
+  return localStorage.getItem(AUTO_CLASH_LS) !== '0';
+}
+window.clashAutoRunChanged = function (): void {
+  const chk = document.getElementById('clashAutoRun') as HTMLInputElement | null;
+  try { localStorage.setItem(AUTO_CLASH_LS, chk?.checked ? '1' : '0'); } catch { }
+};
+
+function maybeAutoRunClash(): void {
+  if (!clashAutoRunEnabled()) return;
+  ensureIssueMapLoaded();
+  // Only auto-run where the team has clash history — never surprise a
+  // project that has not used clash detection.
+  if (Object.keys(clashIssueMap).length === 0) return;
+  if (_autoClashTimer) clearTimeout(_autoClashTimer);
+  _autoClashTimer = window.setTimeout(() => {
+    _autoClashTimer = null;
+    const src = appState.loadedModels[appState.clashSourceIdx];
+    const tgt = appState.loadedModels[clashEffectiveTargetIdx()];
+    if (!src || !tgt) return;
+    if (appState.clashMode) {
+      log('Auto clash: model updated — re-running detection');
+      void (window as any).runClashDetection?.();
+    } else {
+      _autoClashPending = true;
+      log('Auto clash: model updated — detection queued, opens with the Clash page');
+    }
+  }, 2500); // settle window: cloud auto-load loads slots sequentially
+}
+window.addEventListener('ifc:modelloaded', maybeAutoRunClash);
+
+// Entering the clash page consumes a queued auto-run.
+window.addEventListener('ifc:pagechange', (e: Event) => {
+  if ((e as CustomEvent).detail?.page !== 'clash' || !_autoClashPending) return;
+  _autoClashPending = false;
+  setTimeout(() => {
+    if (appState.clashMode) {
+      log('Auto clash: running queued detection for updated model');
+      void (window as any).runClashDetection?.();
+    }
+  }, 400); // let enterClashMode finish wiring selects/rules first
+});
+
+// Project switch: drop per-project tracking state; the next ensureIssueMapLoaded
+// (badge render / auto-run check) reloads the right map.
+window.addEventListener('ifc:projectchange', () => {
+  _issueMapKey = '';
+  clashIssueMap = {};
+  clashResultIds = [];
+  clashIssueSummary = null;
+  _autoClashPending = false;
+  if (_autoClashTimer) { clearTimeout(_autoClashTimer); _autoClashTimer = null; }
+});
+
+// Restore the Auto re-run checkbox state on startup.
+(() => {
+  const chk = document.getElementById('clashAutoRun') as HTMLInputElement | null;
+  if (chk) chk.checked = clashAutoRunEnabled();
+})();
