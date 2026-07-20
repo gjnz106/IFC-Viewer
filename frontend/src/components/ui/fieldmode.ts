@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { appState } from '../../store/index.js';
 import { log } from '../core/ifc-category.js';
+import { formatLengthMm, getUnitPref, worldToMm } from '../../lib/units.js';
 
 // Cross-module functions
 declare const showProps: (props: any, modelIdx: number) => void;
@@ -74,6 +75,7 @@ export function exitFieldMode(){
   (window as any).fieldCloseSheet();
   (window as any).fieldCloseTool?.();
   (window as any).fieldCloseMore?.();
+  (window as any).fieldCoordDeactivate?.();
   document.getElementById('fieldStoreys')!.classList.remove('show');
   fieldResizeViewport();
   log('Field mode deactivated');
@@ -298,6 +300,17 @@ w.fieldCloseMore = function(){
   document.getElementById('fieldMore')!.classList.remove('show');
   document.getElementById('fieldBtnMore')?.classList.remove('on');
 };
+// Dismiss the More menu on any tap outside it (canvas, another toolbar button,
+// etc.) — a grid popup that only closed by re-tapping its own button felt
+// sticky on touch. Capture phase so it runs before the target's own handler;
+// it never calls preventDefault, so the underlying tap still goes through.
+document.addEventListener('pointerdown', (e) => {
+  const menu = document.getElementById('fieldMore');
+  if(!menu || !menu.classList.contains('show')) return;
+  const t = e.target as Node;
+  if(menu.contains(t) || document.getElementById('fieldBtnMore')?.contains(t)) return;
+  w.fieldCloseMore();
+}, true);
 
 w.fieldOpenTool = function(html: string, title: string){
   document.getElementById('fieldToolTitle')!.textContent = title;
@@ -468,6 +481,79 @@ w.fieldVpRestore = function(id: string){ w.vpRestore?.(id); w.fieldCloseTool(); 
 window.addEventListener('ifc:vpchange', () => {
   if(fieldActive && document.getElementById('fieldToolSheet')?.classList.contains('open')) fieldVpRender();
 });
+
+// ── COORDINATES (touch-native tap-to-read) ────────────────────────────
+// The desktop Coordinates tool is hover-based (pointermove), which does nothing
+// on a touchscreen. This is a touch-native rewrite: toggle a mode, then each tap
+// on the model raycasts the hit point and prints its world X/Y/Z (converted to
+// the active unit) into a readout pinned above the field bar. While active, a
+// capture-phase handler consumes the tap so the normal field pick (pivot) and
+// OrbitControls don't also act on it; drags (orbit) pass through untouched.
+let _fieldCoordActive = false;
+let _coordDownX = 0, _coordDownY = 0;
+const _coordRay = new THREE.Raycaster();
+const _coordNDC = new THREE.Vector2();
+
+function fieldCoordPickables(): THREE.Object3D[] {
+  const ms: THREE.Object3D[] = [];
+  appState.scene.traverse((ch: any) => {
+    if(ch.isMesh && ch.visible && ch.geometry?.attributes?.position
+       && ch.parent?.name !== 'sectionBox' && !ch.userData?.isHandle) ms.push(ch);
+  });
+  return ms;
+}
+function fieldCoordDown(e: PointerEvent){ _coordDownX = e.clientX; _coordDownY = e.clientY; }
+function fieldCoordUp(e: PointerEvent){
+  // Ignore drags (orbit) — only a near-stationary tap is a coordinate read.
+  if(Math.abs(e.clientX - _coordDownX) > 5 || Math.abs(e.clientY - _coordDownY) > 5) return;
+  const canvas = appState.renderer.domElement;
+  const rect = canvas.getBoundingClientRect();
+  _coordNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  _coordNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  _coordRay.setFromCamera(_coordNDC, appState.camera);
+  const hits = _coordRay.intersectObjects(fieldCoordPickables(), false);
+  const readout = document.getElementById('fieldCoordReadout');
+  if(hits.length && readout){
+    const p = hits[0].point;
+    const pref = getUnitPref();
+    const fx = formatLengthMm(worldToMm(p.x, appState.loadedModels), pref);
+    const fy = formatLengthMm(worldToMm(p.y, appState.loadedModels), pref);
+    const fz = formatLengthMm(worldToMm(p.z, appState.loadedModels), pref);
+    readout.innerHTML = `X <b>${fx}</b> &nbsp; Y <b>${fy}</b> &nbsp; Z <b>${fz}</b>`;
+    // Note: we intentionally do NOT stopPropagation here. The field tap handler
+    // only sets the orbit pivot (harmless — nice, even: orbit around the point
+    // you just read), and swallowing the event in capture phase would starve
+    // OrbitControls' document-level pointerup of its cleanup.
+  } else if(readout){
+    readout.innerHTML = 'Tap the model to read a point';
+  }
+}
+function fieldCoordSet(on: boolean){
+  _fieldCoordActive = on;
+  const canvas = appState.renderer?.domElement;
+  const readout = document.getElementById('fieldCoordReadout');
+  document.getElementById('fieldMoreCoords')?.classList.toggle('on', on);
+  if(readout){
+    readout.style.display = on ? 'block' : 'none';
+    if(on) readout.innerHTML = 'Tap the model to read a point';
+  }
+  if(!canvas) return;
+  if(on){
+    canvas.addEventListener('pointerdown', fieldCoordDown, true);
+    canvas.addEventListener('pointerup', fieldCoordUp, true);
+  }else{
+    canvas.removeEventListener('pointerdown', fieldCoordDown, true);
+    canvas.removeEventListener('pointerup', fieldCoordUp, true);
+  }
+}
+w.fieldMenuCoords = function(){
+  w.fieldCloseMore();
+  if(!fieldRequireModel()) return;
+  const next = !_fieldCoordActive;
+  fieldCoordSet(next);
+  fieldToast(next ? 'Coordinates ON — tap the model' : 'Coordinates OFF');
+};
+w.fieldCoordDeactivate = function(){ if(_fieldCoordActive) fieldCoordSet(false); };
 
 // Small HTML escaper for field-rendered strings (reuses global if present).
 function escapeH(s: any): string {
