@@ -145,12 +145,20 @@ function renderNode(idx: number, entry: SlotTree, n: OvNode, depth: number): str
   // A non-empty filter auto-expands the (pruned, small) result tree.
   const isOpen = query.trim() !== '' || expanded.has(n.key);
   const caret = hasKids
-    ? `<span class="ov-caret${isOpen ? ' open' : ''}">▸</span>`
+    ? `<span class="ov-caret${isOpen ? ' open' : ''}"><svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M9 18l6-6-6-6"/></svg></span>`
     : '<span class="ov-caret leaf"></span>';
+  
+  let nodeIco = '';
+  if (n.kind === 'spatial') {
+    nodeIco = `<svg viewBox="0 0 24 24" class="ov-node-ico" style="width:12.5px;height:12.5px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;margin-right:5px;opacity:0.7"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>`;
+  } else if (n.kind === 'group') {
+    nodeIco = `<svg viewBox="0 0 24 24" class="ov-node-ico" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;margin-right:5px;opacity:0.6"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`;
+  }
+
   const cnt = n.kind === 'element' ? '' : `<span class="ov-count">${n.count}</span>`;
   const sub = n.kind === 'element' && entry.names.get(n.eid) ? ` <span class="ov-eid">#${n.eid}</span>` : '';
-  let html = `<div class="ov-row ov-${n.kind}" data-slot="${idx}" data-key="${escapeHtml(n.key)}" data-eid="${n.eid}" data-kind="${n.kind}" style="padding-left:${8 + depth * 14}px" title="${escapeHtml(n.ifcType)} #${n.eid}">
-    ${caret}<span class="ov-label">${escapeHtml(nodeLabel(entry, n))}${sub}</span>${cnt}
+  let html = `<div class="ov-row ov-${n.kind}" data-slot="${idx}" data-key="${escapeHtml(n.key)}" data-eid="${n.eid}" data-kind="${n.kind}" style="padding-left:${10 + depth * 14}px" title="${escapeHtml(n.ifcType)} #${n.eid}">
+    ${caret}${nodeIco}<span class="ov-label">${escapeHtml(nodeLabel(entry, n))}${sub}</span>${cnt}
   </div>`;
   if (hasKids && isOpen) {
     for (const c of n.children) html += renderNode(idx, entry, c, depth + 1);
