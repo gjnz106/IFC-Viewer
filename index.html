@@ -471,7 +471,7 @@
         <!-- Vis toggle A -->
         <div class="vis-row" id="visRow0" style="display:none">
           <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:4px 2px">
-            <input type="checkbox" checked id="visA" onchange="toggleModelVis(0)" style="accent-color:var(--text);width:14px;height:14px">
+            <input type="checkbox" checked id="visA" onchange="toggleModelVis(0, this.checked)" style="accent-color:var(--text);width:14px;height:14px">
             <span style="width:8px;height:8px;border-radius:2px;background:#ef4444;opacity:.8"></span>
             Version A (Baseline)
           </label>
@@ -501,7 +501,7 @@
         <!-- Vis toggle B -->
         <div class="vis-row" id="visRow1" style="display:none">
           <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-dim);cursor:pointer;padding:4px 2px">
-            <input type="checkbox" checked id="visB" onchange="toggleModelVis(1)" style="accent-color:var(--text);width:14px;height:14px">
+            <input type="checkbox" checked id="visB" onchange="toggleModelVis(1, this.checked)" style="accent-color:var(--text);width:14px;height:14px">
             <span style="width:8px;height:8px;border-radius:2px;background:#3b82f6;opacity:.8"></span>
             Version B (Updated)
           </label>

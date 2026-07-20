@@ -97,11 +97,10 @@ function hideExpressID(eid: number, mi: number): void {
 }
 
 function hideByType(typeName: string): void {
-  
   const catIDs=(window as any)._catModelIDs||{};
   const ids=catIDs[typeName];
   if(ids){
-    for(let mi=0;mi<2;mi++){
+    for(let mi=0;mi<appState.loadedModels.length;mi++){
       if(ids[mi]&&ids[mi].length>0){
         ids[mi].forEach((id: number)=>hiddenExpressIDs.add(mi+'_'+id));
         if(appState.compareResult){(window as any).applyCatVis&&(window as any).applyCatVis()}else{rebuildModelSubset(mi)}
@@ -128,14 +127,16 @@ export function rebuildModelSubset(mi: number): void {
   }
 
   const hiddenCount=allIDs.length-showIDs.length;
-  
 
   // Remove old vis subsets for this model
   visSubsets=visSubsets.filter(s=>{
     if((s as any).userData?.srcModelIdx===mi){if(s.parent)s.parent.remove(s);return false}
     return true;
   });
-  (window as any).visSubsets=visSubsets; // mirrored (.filter() makes a NEW array — must re-mirror; later .push() then stays in sync): compare.ts/measure.ts read this to hide/show colorize subsets when toggling model A/B visibility
+  (window as any).visSubsets=visSubsets;
+
+  const chk = document.getElementById(mi === 0 ? 'visA' : mi === 1 ? 'visB' : '') as HTMLInputElement | null;
+  const isModelVis = chk ? chk.checked : ((appState.loadedModels[mi] as any)?.visible !== false);
 
   // Hide base model
   appState.loadedModels[mi]!.visible=false;
@@ -144,7 +145,7 @@ export function rebuildModelSubset(mi: number): void {
 
   // If no filter active, just show original
   if(!isolatedIDs&&hiddenCount===0){
-    appState.loadedModels[mi]!.visible=true;
+    appState.loadedModels[mi]!.visible=isModelVis;
     return;
   }
 
@@ -153,17 +154,16 @@ export function rebuildModelSubset(mi: number): void {
     if(sub){
       sub.position.copy(appState.loadedModels[mi]!.position);sub.updateMatrixWorld(true);
       sub.userData.srcModelIdx=mi;
+      sub.visible = isModelVis;
       sub.traverse((c: any)=>{if(c.isMesh){c.userData.srcModelIdx=mi;const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach((m: any)=>{m.clippingPlanes=appState.clipPlanes;m.side=THREE.DoubleSide})}});
       visSubsets.push(sub);
-      
     }
   }catch(e){console.error('[REBUILD] error:',e)}
 }
 
 function isolateExpressID(eid: number, mi: number): void {
-  
   isolatedIDs=new Set([eid]);
-  for(let i=0;i<2;i++){
+  for(let i=0;i<appState.loadedModels.length;i++){
     if(!appState.loadedModels[i])continue;
     rebuildModelSubset(i);
   }
@@ -171,12 +171,11 @@ function isolateExpressID(eid: number, mi: number): void {
 }
 
 function isolateByType(typeName: string, mi: number): void {
-  
   const catIDs=(window as any)._catModelIDs||{};
   isolatedIDs=new Set<number>();
   const ids=catIDs[typeName];
-  if(ids){for(let i=0;i<2;i++){if(ids[i])ids[i].forEach((id: number)=>isolatedIDs!.add(id))}}
-  for(let i=0;i<2;i++){if(appState.loadedModels[i])rebuildModelSubset(i)}
+  if(ids){for(let i=0;i<appState.loadedModels.length;i++){if(ids[i])ids[i].forEach((id: number)=>isolatedIDs!.add(id))}}
+  for(let i=0;i<appState.loadedModels.length;i++){if(appState.loadedModels[i])rebuildModelSubset(i)}
   document.getElementById('btnShowAll')!.style.display='';
 }
 
@@ -203,7 +202,7 @@ export function getVisibilityState(): { hiddenKeys: string[]; isolated: number[]
 export function applyVisibilityState(state: { hiddenKeys: string[]; isolated: number[] | null }): void {
   hiddenExpressIDs = new Set(state.hiddenKeys || []);
   isolatedIDs = state.isolated ? new Set(state.isolated) : null;
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < appState.loadedModels.length; i++) {
     if (appState.loadedModels[i]) rebuildModelSubset(i);
   }
   const btn = document.getElementById('btnShowAll');
@@ -211,7 +210,6 @@ export function applyVisibilityState(state: { hiddenKeys: string[]; isolated: nu
 }
 
 export function showAllHidden(): void {
-  
   hiddenExpressIDs.clear();
   hiddenTypes.clear();
   isolatedIDs=null;
@@ -220,15 +218,23 @@ export function showAllHidden(): void {
   visSubsets=[];
   (window as any).visSubsets=visSubsets;
 
-  const visA=(document.getElementById('visA') as HTMLInputElement|null)?.checked??true;
-  const visB=(document.getElementById('visB') as HTMLInputElement|null)?.checked??true;
-  if(appState.loadedModels[0])appState.loadedModels[0].visible=visA;
-  if(appState.loadedModels[1])appState.loadedModels[1].visible=visB;
+  for (let i = 0; i < appState.loadedModels.length; i++) {
+    if (!appState.loadedModels[i]) continue;
+    const chk = document.getElementById(i === 0 ? 'visA' : i === 1 ? 'visB' : '') as HTMLInputElement | null;
+    const vis = chk ? chk.checked : ((appState.loadedModels[i] as any)?.visible !== false);
+    appState.loadedModels[i]!.visible = vis;
+    if (vis) {
+      appState.loadedModels[i]!.traverse((c: any) => { if (c.isMesh) c.visible = true; });
+    }
+  }
 
   if(appState.compareResult)(window as any).applyCatVis&&(window as any).applyCatVis();
   else if(typeof (window as any).applyCategoryVisibilityViewMode==='function')(window as any).applyCategoryVisibilityViewMode();
 
-  document.getElementById('btnShowAll')!.style.display='none';
+  const btn = document.getElementById('btnShowAll');
+  if (btn) btn.style.display = 'none';
+
+  (window as any).ovRefresh?.();
 }
 window.showAllHidden=showAllHidden;
 
@@ -328,4 +334,4 @@ export { colorizeFadeBase, colorizeDisposeSubsets };
 // ── Expose cross-module callers on window ──
 // window.getElementBBox (zoom-to/measure), window.isolateExpressID /
 // window.hideExpressID (context menu) are called from other modules.
-Object.assign(window as any, { getElementBBox, hideExpressID, isolateExpressID });
+Object.assign(window as any, { getElementBBox, hideExpressID, isolateExpressID, showAllHidden });

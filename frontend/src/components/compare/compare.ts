@@ -621,26 +621,34 @@ window.removeCatTag = function (cat: string) {
 };
 
 // ══ Model Visibility Toggle ══
-window.toggleModelVis = function (idx: number) {
-  const vis = (document.getElementById(idx === 0 ? 'visA' : 'visB') as HTMLInputElement).checked;
+window.toggleModelVis = function (idx: number, forceVis?: boolean) {
+  const model = appState.loadedModels[idx];
+  if (!model) return;
+
+  const chk = document.getElementById(idx === 0 ? 'visA' : idx === 1 ? 'visB' : '') as HTMLInputElement | null;
+  const curVis = (model as any).visible !== false;
+  const vis = typeof forceVis === 'boolean' ? forceVis : !curVis;
+
+  if (chk) chk.checked = vis;
+  (model as any).visible = vis;
   log('toggleModelVis: model ' + idx + ' → ' + vis);
 
   if (appState.compareResult) {
     applyCatVis();
   } else {
-    if (appState.loadedModels[idx]) (appState.loadedModels[idx] as any).visible = vis;
+    model.traverse((c: any) => { if (c.isMesh) c.visible = vis; });
+
     // Also toggle any subsets belonging to this model
     (window as any).viewSubsets?.forEach((s: any) => { if (s.userData?.srcModelIdx === idx) s.visible = vis; });
     (window as any).visSubsets?.forEach((s: any) => { if (s.userData?.srcModelIdx === idx) s.visible = vis; });
-    // Colorize subsets are created per-value with srcModelIdx tag — toggle
-    // them too so un-checking Version A actually hides the colored model A
-    // elements (fixes the bug where ColorizeA elements stayed visible after
-    // un-checking).
     if (appState.colorize && appState.colorize.subsets) {
       appState.colorize.subsets.forEach((s: any) => { if (s.userData?.srcModelIdx === idx) s.visible = vis; });
     }
     (window as any).applyCategoryVisibilityViewMode?.();
   }
+
+  // Refresh Overview tree so eye icons (👁️ / 🙈) update
+  (window as any).ovRefresh?.();
 };
 
 // ══ 3D Category Visibility — rebuild subsets ══
@@ -682,7 +690,8 @@ export function applyCategoryVisibility3D() {
         sub.updateMatrixWorld(true);
         sub.userData.diffSubset = name;
         sub.userData.srcModelIdx = mi;
-        sub.visible = (document.getElementById(mi === 0 ? 'visA' : 'visB') as HTMLInputElement).checked;
+        const visChk = document.getElementById(mi === 0 ? 'visA' : mi === 1 ? 'visB' : '') as HTMLInputElement | null;
+        sub.visible = visChk ? visChk.checked : ((appState.loadedModels[mi] as any)?.visible !== false);
       }
     } catch (e) { }
   };
@@ -696,8 +705,8 @@ export function applyCategoryVisibility3D() {
   // Base models: in compare mode, model A shows only "removed" subsets.
   // Base mesh is hidden but subsets handle visibility via srcModelIdx check above.
   // Respect user checkbox for base model visibility
-  const visAChecked = (document.getElementById('visA') as HTMLInputElement).checked;
-  const visBChecked = (document.getElementById('visB') as HTMLInputElement).checked;
+  const visAChecked = (document.getElementById('visA') as HTMLInputElement | null)?.checked ?? ((appState.loadedModels[0] as any)?.visible !== false);
+  const visBChecked = (document.getElementById('visB') as HTMLInputElement | null)?.checked ?? ((appState.loadedModels[1] as any)?.visible !== false);
 
   // Model A: if user ticked it, show as faded red overlay so they can see the old version
   if (appState.loadedModels[0]) {

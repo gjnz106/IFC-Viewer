@@ -616,9 +616,10 @@ function applyCategoryVisibilityViewMode(){
   viewSubsets=[];
   (window as any).viewSubsets=viewSubsets; // mirrored (same ref — later .push() stays in sync): compare.ts/measure.ts read this to hide/show category-filter subsets when toggling model A/B visibility
 
-  for(let idx=0;idx<2;idx++){
+  for(let idx=0;idx<appState.loadedModels.length;idx++){
     if(!appState.loadedModels[idx])continue;
-    const vis=(document.getElementById(idx===0?'visA':'visB') as HTMLInputElement).checked;
+    const chk = document.getElementById(idx===0?'visA':idx===1?'visB':'') as HTMLInputElement | null;
+    const vis = chk ? chk.checked : ((appState.loadedModels[idx] as any)?.visible !== false);
 
     if(!vis||showNone){
       appState.loadedModels[idx]!.visible=false;
