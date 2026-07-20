@@ -870,7 +870,15 @@
         <button class="rp-tab" id="rpTabSG" onclick="rpSelect('sg')"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> SG Check</button>
         <div class="rp-tab-spacer"></div>
       </div>
-      <div class="prop-area" id="propArea"><div style="padding:30px 14px;text-align:center;color:var(--text-muted);font-size:13px">Click element in 3D to inspect</div></div>
+      <div class="prop-area" id="propArea">
+        <div class="prop-empty-card">
+          <div class="prop-empty-icon">
+            <svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:none;stroke:#9ca3af;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          </div>
+          <div class="prop-empty-title">Inspect Element Properties</div>
+          <div class="prop-empty-sub">Click any 3D element in the model or search list to inspect its properties, attributes, and materials.</div>
+        </div>
+      </div>
 
       <!-- ─── SG PANEL — embedded as the right-panel "SG Check" tab (v5 shell) ─── -->
       <div class="sg-panel sg-in-panel" id="sgPanel">
