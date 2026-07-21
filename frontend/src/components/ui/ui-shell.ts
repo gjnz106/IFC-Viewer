@@ -37,7 +37,7 @@ window.toggleRightPanel = function (): void {
 // height instead of showing (same root cause fixed for the account-menu
 // dropdown in auth.ts's toggleUserMenu). Switch to position:fixed with
 // placement computed from the trigger button so it escapes that clip box.
-function positionDropdownFixed(el: HTMLElement, trigger: HTMLElement): void {
+export function positionDropdownFixed(el: HTMLElement, trigger: HTMLElement): void {
   const rect = trigger.getBoundingClientRect();
   el.style.position = 'fixed';
   el.style.top = (rect.bottom + 8) + 'px';

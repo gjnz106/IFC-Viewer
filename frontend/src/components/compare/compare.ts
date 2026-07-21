@@ -4,6 +4,7 @@ import { log } from '../core/ifc-category.js';
 import { escapeHtml } from '../../lib/escape.js';
 import { disposeModel } from '../core/viewer-core.js';
 import { computeGeometryHashes } from '../../lib/geometry-hash.js';
+import { positionDropdownFixed } from '../ui/ui-shell.js';
 
 // ── NOTE: This module is the continuation of doCompare() (which starts in
 //    08-federation-load.js / federation-load.ts) PLUS the compare-mode UI
@@ -509,6 +510,14 @@ window.toggleCatDropdown = function () {
   const dd = document.getElementById('catDropdown');
   const btn = document.getElementById('catBtn');
   const isOpen = dd?.classList.contains('open');
+  // #catDropdown sits inside #lpModel, which has overflow-y:auto — a
+  // position:absolute dropdown taller than the visible panel area gets
+  // clipped instead of overlaying the viewport (same class of bug already
+  // fixed for the topbar menus). Compute fixed placement from the trigger.
+  if (!isOpen && dd && btn) {
+    positionDropdownFixed(dd, btn);
+    dd.style.width = btn.getBoundingClientRect().width + 'px';
+  }
   dd?.classList.toggle('open');
   btn?.classList.toggle('open');
   if (!isOpen) (document.getElementById('catSearch') as HTMLInputElement)?.focus();
