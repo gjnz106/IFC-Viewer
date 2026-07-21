@@ -34,6 +34,8 @@ import {
 import { restoreCompareResult } from '../compare/federation-load.js';
 import { restoreClashResult } from '../compare/clash.js';
 import { log } from '../core/ifc-category.js';
+import { getUnitPref, setUnitPref } from '../../lib/units.js';
+import { restoreCamera } from './state-persist.js';
 
 function persist(): void {
   saveRegistry(registry);
@@ -77,13 +79,19 @@ let _localSessionChecked = false;
 async function checkLocalSessionRestore(): Promise<void> {
   if (_localSessionChecked || appState.activeCloudProjectId) return;
   _localSessionChecked = true;
+  // Captured so a cloud project activating (auto-restore or explicit
+  // switch) mid-loop aborts the rest of this restore instead of racing
+  // autoLoadCloudProjectFiles() for the same slot indices — see the
+  // switchGeneration comment above.
+  const gen = switchGeneration;
   const restored = await restoreLocalSession();
-  if (restored.length === 0) return;
+  if (restored.length === 0 || gen !== switchGeneration || appState.activeCloudProjectId) return;
   const lo = document.getElementById('loadOv');
   const lt = document.getElementById('loadTxt');
   const lf = document.getElementById('loadFill') as HTMLElement | null;
   lo?.classList.add('on');
   for (let i = 0; i < restored.length; i++) {
+    if (gen !== switchGeneration || appState.activeCloudProjectId) break;
     const { idx, file } = restored[i];
     if (lt) lt.textContent = `Restoring ${file.name} (${i + 1}/${restored.length})…`;
     if (lf) lf.style.width = Math.round(((i + 0.3) / restored.length) * 100) + '%';
@@ -109,6 +117,7 @@ async function checkLocalSessionRestore(): Promise<void> {
   if (lf) lf.style.width = '100%';
   lo?.classList.remove('on');
   if (fedRenderSlots) fedRenderSlots();
+  if (gen === switchGeneration && !appState.activeCloudProjectId) restoreCamera();
 }
 
 async function refreshCloudList(): Promise<void> {
@@ -132,8 +141,10 @@ async function refreshCloudList(): Promise<void> {
     let savedCloudId = '';
     try { savedCloudId = localStorage.getItem('ifc.lastCloudProjectId') || ''; } catch {}
     if (savedCloudId && fetched.some(p => p.id === savedCloudId)) {
+      switchGeneration++; // invalidates any in-flight local-session restore (same slots)
       appState.activeCloudProjectId = savedCloudId;
       chipLabel();
+      applyCloudProjectUnits(fetched.find(p => p.id === savedCloudId));
       autoLoadCloudProjectFiles(savedCloudId).catch(e => console.warn('[cloud-files] auto-restore failed:', e));
     }
   }
@@ -153,6 +164,18 @@ async function refreshCloudList(): Promise<void> {
 // across reloads (Phase 9's per-project viewpoints key off this id).
 let registry: ProjectRegistry = loadRegistry();
 persist();
+
+// Cloud settings sync was write-only (syncProjectSettings pushes the local
+// unit pref up on change, nothing ever read it back) — a project opened on
+// a second machine kept whatever unit that machine's browser last had
+// instead of the project's saved preference. Best-effort, never blocks
+// activation; units.ts's own localStorage remains the source of truth
+// otherwise (this only overrides it when the cloud doc actually has a
+// saved preference different from the current one).
+function applyCloudProjectUnits(cp: CloudProject | undefined): void {
+  const units = cp?.settings?.units;
+  if (units && units !== getUnitPref()) setUnitPref(units);
+}
 
 function chipLabel(): void {
   const el = document.getElementById('tbProjectName');
@@ -523,6 +546,7 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
   }
   if (lf) lf.style.width = '100%';
   lo?.classList.remove('on');
+  if (!stale()) restoreCamera();
 
   await restoreSavedResults(projectId, gen);
 }
@@ -583,6 +607,7 @@ window.projSwitchCloud = function (id: string, opts?: { fromField?: boolean }): 
   switchGeneration++; // invalidates any in-flight auto-load for the previous project
   appState.activeCloudProjectId = id;
   persist();
+  applyCloudProjectUnits(cloudList.find(c => c.id === id));
   // Field Mode stays on its own page (see finishActivation note); desktop jumps
   // to the viewer so the newly-loading models are visible.
   if (!fromField) navigateTo('viewer');

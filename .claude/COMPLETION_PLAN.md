@@ -719,7 +719,7 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
   (Verify: typecheck sạch, 264/264 test, build OK.)
 
 ## Phase 20 — ⚡ Perf getAllProps + audit nốt phần còn thiếu
-**Status:** 🟡 In progress (getAllProps xong; audit core/UI + settings sync còn lại)
+**Status:** ✅ Done — PR #84 (2026-07-21)
 
 - [x] **getAllProps Method 2 quét toàn file:** `getItemProperties` cho MỌI line IFC (hàng trăm
       nghìn WASM round-trip tuần tự) — chi phí lớn nhất của Compare/Validate model thật. Đã sửa:
@@ -727,15 +727,37 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
       IfcShapeRepresentation, IfcPropertySingleValue, IfcMaterial…) vào `SKIP_TYPES`, lọc bằng
       `GetLineType` (rẻ) TRƯỚC khi gọi `getItemProperties`. Type lạ vẫn được parse nên không bỏ sót
       product type chưa biết (giữ đúng ý đồ "safety net" của Method 2).
-- [ ] **Audit nốt 2 mảng chưa xong** (agent bị cắt do session limit): core viewer/tools
-      (viewer-core, section-visibility, measure, walk, plan-overlay, colorize, viewcube) và UI
-      shell chi tiết (router/state-persist/fieldmode/properties + demo content còn sót như
-      notification giả "Jane Smith", team panel tĩnh) → fix các finding cao/medium tìm được.
-- [ ] Cân nhắc (từ audit, chưa bắt buộc): settings cloud sync hiện write-only — áp `settings.units`
-      khi mở cloud project; bundle JSZip/jsPDF thay vì CDN lúc click; báo lỗi thân thiện khi export
-      offline.
+- [x] **Audit nốt 2 mảng chưa xong** (core viewer/tools + UI shell chi tiết) — 2 agent quét song
+      song, tìm và fix các finding cao/medium xác nhận:
+      - **[high] Race condition F5:** local-session restore (không có cloud project) và cloud
+        auto-restore (`autoLoadCloudProjectFiles`) có thể cùng gọi `window.loadIFC(idx)` cho cùng
+        slot khi `refreshCloudList()` chạy lại lúc auth resolve muộn hơn lần chạy đầu (chưa đăng
+        nhập) — model dựng dở bị mồ côi khi model sau ghi đè `appState.loadedModels[idx]`. Fix:
+        `checkLocalSessionRestore()` chụp `switchGeneration` lúc bắt đầu và bail giữa vòng lặp nếu
+        một cloud project kích hoạt trong lúc đang restore; cloud auto-restore boot-time cũng bump
+        `switchGeneration` để huỷ restore local đang dở — theo đúng pattern đã dùng cho việc
+        chuyển project cloud↔cloud.
+      - **[high] `restoreCamera()` chết:** hàm tồn tại (lưu camera mỗi 30s + trước unload) nhưng
+        KHÔNG BAO GIỜ được gọi ở đâu — camera luôn về vị trí mặc định sau F5 dù có lưu. Đã nối gọi
+        sau khi cả cloud auto-restore và local-session restore load xong file (đúng comment gốc
+        "called after model loads so zoomFit doesn't override"), có kiểm tra stale/switchGeneration
+        để không đè camera khi user đã chuyển project trong lúc đang restore.
+      - **[medium] Category Filter dropdown bị clip:** `#catDropdown` nằm trong `#lpModel` (có
+        `overflow-y:auto`) nên dropdown cao hơn vùng hiển thị panel trái bị cắt thay vì đè lên
+        viewport — cùng lỗi đã sửa cho các dropdown topbar (export/help/notif/account). Export
+        `positionDropdownFixed()` từ `ui-shell.ts`, áp dụng cho `toggleCatDropdown()` trong
+        `compare.ts` (fixed position tính từ nút trigger + width khớp nút).
+      - Các phần khác đã audit sạch: handler wiring (142 handler khớp hết), escaping (XSS) ở mọi
+        `innerHTML` site, router/state-persist ngoài camera, section-box math, units/viewpoints.
+        Ghi nhận thêm (chưa fix, mức thấp — không chặn Done): Notifications drawer hoàn toàn là
+        stub tĩnh; Project Settings "Active Modules" checkbox chỉ trang trí.
+- [x] Cân nhắc (từ audit): settings cloud sync hiện write-only — đã áp `settings.units` khi mở
+      cloud project (boot-time auto-restore + `projSwitchCloud`), qua `applyCloudProjectUnits()`
+      mới trong `projects.ts`. Bundle JSZip/jsPDF thay vì CDN lúc click + báo lỗi thân thiện khi
+      export offline — đã xong từ trước (PR ad-hoc export fix trong phiên này, trước Phase 20).
 - **Done khi:** Compare/Validate trên model ~60MB nhanh hơn đo được (log thời gian); các finding
-  mới mức cao đã fix; typecheck + test + build pass.
+  mới mức cao đã fix; typecheck + test + build pass. ✅ (302/302 test, typecheck sạch, build OK,
+  standalone review 0 pageerror.)
 
 ## Phase 21 — 🩺 SG Validate còn lỗi + xoay view mượt (feedback user 2026-07-18)
 **Status:** 🟡 In progress
