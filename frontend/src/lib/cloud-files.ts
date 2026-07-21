@@ -139,7 +139,7 @@ export async function fetchProjectFiles(projectId: string): Promise<CloudProject
 }
 
 // Downloads a cloud file record's bytes and returns a File ready to feed
-// into the existing loadIFC(idx) pipeline (same shape as drive.ts's gdLoadFile).
+// into the existing loadIFC(idx) pipeline.
 // Checks local IndexedDB cache first — instant load on cache hit (0s download).
 export async function downloadProjectFile(record: CloudProjectFile): Promise<File> {
   try {

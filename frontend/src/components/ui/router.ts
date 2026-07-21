@@ -48,12 +48,6 @@ function applyWorkspace(page: Page) {
     el.classList.toggle('ws-hide', !pages.includes(page));
   });
 
-  // Project drive card has a second condition: a configured drive link.
-  const viewerCard = document.getElementById('projectDriveViewerCard');
-  if (viewerCard) {
-    viewerCard.style.display = localStorage.getItem('projectDriveLink') ? 'block' : 'none';
-  }
-
   // Slot 0 reads as "the model" outside the A/B comparison pages.
   const single = page === 'viewer' || page === 'validate' || page === 'field';
   const verLbl = document.getElementById('ucVerLbl0');

@@ -182,19 +182,6 @@ export interface PlanView {
   currentStoreyIdx: number;
 }
 
-// ── Google Drive types ─────────────────────────────────────────────────
-export interface DriveFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  size?: string;
-}
-
-export interface DriveFolder {
-  id: string;
-  name: string;
-}
-
 // ── AI types ──────────────────────────────────────────────────────────
 export interface AIElement {
   modelId: number;
@@ -445,14 +432,6 @@ declare global {
     sgSelectRule?: (idx: number) => void;
     sgFocusElement?: (eid: number) => void;
     sgChangeGateway?: () => void;
-
-    // Drive
-    odToggle?: () => void;
-    gdLogin?: () => void;
-    gdOpenFolder?: (folderId: string, folderName: string) => void;
-    gdNavigateTo?: (idx: number) => void;
-    gdLoadFile?: (fileId: string, fileName: string) => Promise<void>;
-    gdLogout?: () => void;
 
     // Search
     searchSelect?: (idx: number) => Promise<void>;
