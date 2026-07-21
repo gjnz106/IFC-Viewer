@@ -537,7 +537,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
     border-radius:20px;
     box-shadow:0 16px 48px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.07),inset 0 1px 0 rgba(255,255,255,.8);
     display:none;flex-direction:column;overflow:hidden;
-    font-family:'Hanken Grotesk',Inter,system-ui,sans-serif;
+    font-family:'Space Grotesk',Inter,system-ui,sans-serif;
     color:var(--text,#1a1d26);
     transform-origin:bottom right;
     will-change:transform;
@@ -560,10 +560,13 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
     background:rgba(255,255,255,.28);
     position:relative;overflow:hidden;
     transition:background .3s ease;
+    cursor:grab;user-select:none;-webkit-user-select:none;
   }
+  .aic-head:active{cursor:grabbing}
   .aic-head b{flex:1;font-size:13px}
   /* Icon buttons grouped tightly at the end, close always last/rightmost */
   .aic-head-actions{display:flex;align-items:center;gap:1px;flex-shrink:0}
+  .aic-head-actions button{cursor:pointer}
   @keyframes aic-shimmer{
     0%{transform:translateX(-100%)}
     100%{transform:translateX(260%)}
@@ -631,7 +634,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   .aic-foot textarea{
     flex:1;resize:none;border:1px solid rgba(255,255,255,.7);
     background:rgba(255,255,255,.55);
-    border-radius:10px;padding:9px 11px;font-size:13px;
+    border-radius:10px;padding:9px 11px;font-size:13px;line-height:1.35;
     font-family:inherit;max-height:90px;min-height:38px;box-sizing:border-box;
     transition:border-color .15s ease,box-shadow .15s ease;
     outline:none;
@@ -690,23 +693,81 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   panel.className = 'aic-panel';
   panel.innerHTML = `
     <div class="aic-head">
-      <div class="aic-head-logo"></div><b>Trợ lý AI · IFC Delta</b>
+      <div class="aic-head-logo"></div><b>T3Lab Assistant</b>
       <div class="aic-head-actions">
-        <button class="aic-iconbtn" data-act="clear" title="Xoá hội thoại / Reset">↻</button>
-        <button class="aic-iconbtn" data-act="close" title="Đóng">✕</button>
+        <button class="aic-iconbtn" data-act="clear" title="Reset chat">↻</button>
+        <button class="aic-iconbtn" data-act="close" title="Close">✕</button>
       </div>
     </div>
     <div class="aic-msgs"></div>
     <div class="aic-foot">
-      <textarea class="aic-in" rows="1" placeholder="Hỏi về mô hình… vd: có bao nhiêu cột ở tầng L3?"></textarea>
-      <button class="aic-send" title="Gửi">➤</button>
+      <textarea class="aic-in" rows="1" placeholder="Ask about model… e.g. columns on L3"></textarea>
+      <button class="aic-send" title="Send">➤</button>
     </div>`;
   document.body.appendChild(panel);
 
   const $ = (s: string) => panel.querySelector(s) as HTMLElement;
   const msgs = $('.aic-msgs') as HTMLElement,
     inputEl = $('.aic-in') as HTMLTextAreaElement,
-    sendBtn = $('.aic-send') as HTMLButtonElement;
+    sendBtn = $('.aic-send') as HTMLButtonElement,
+    headEl = $('.aic-head') as HTMLElement;
+
+  // ── Drag panel to move anywhere ──
+  let isDragging = false;
+  let startX = 0, startY = 0, initLeft = 0, initTop = 0;
+
+  const onDragStart = (e: MouseEvent | TouchEvent) => {
+    if ((e.target as HTMLElement).closest('.aic-head-actions')) return;
+
+    const pt = 'touches' in e ? e.touches[0] : e;
+    const rect = panel.getBoundingClientRect();
+    startX = pt.clientX;
+    startY = pt.clientY;
+    initLeft = rect.left;
+    initTop = rect.top;
+
+    isDragging = true;
+    headEl.style.cursor = 'grabbing';
+
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+    panel.style.left = `${initLeft}px`;
+    panel.style.top = `${initTop}px`;
+
+    window.addEventListener('mousemove', onDragMove);
+    window.addEventListener('mouseup', onDragEnd);
+    window.addEventListener('touchmove', onDragMove, { passive: false });
+    window.addEventListener('touchend', onDragEnd);
+  };
+
+  const onDragMove = (e: MouseEvent | TouchEvent) => {
+    if (!isDragging) return;
+    if ('touches' in e && e.cancelable) e.preventDefault();
+
+    const pt = 'touches' in e ? e.touches[0] : e;
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+
+    const rect = panel.getBoundingClientRect();
+    const newLeft = Math.max(0, Math.min(window.innerWidth - rect.width, initLeft + dx));
+    const newTop = Math.max(0, Math.min(window.innerHeight - rect.height, initTop + dy));
+
+    panel.style.left = `${newLeft}px`;
+    panel.style.top = `${newTop}px`;
+  };
+
+  const onDragEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    headEl.style.cursor = 'grab';
+    window.removeEventListener('mousemove', onDragMove);
+    window.removeEventListener('mouseup', onDragEnd);
+    window.removeEventListener('touchmove', onDragMove);
+    window.removeEventListener('touchend', onDragEnd);
+  };
+
+  headEl.addEventListener('mousedown', onDragStart);
+  headEl.addEventListener('touchstart', onDragStart, { passive: true });
 
   // Provider/model do backend Vercel quyết định (env key). Không còn UI chọn
   // provider/model ở client — AI_CONFIG giữ mặc định (deepseek) là đủ.
@@ -805,7 +866,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
       }
     } catch (e) { }
     return [
-      'Bạn là trợ lý của IFC Delta — công cụ xem & truy vấn mô hình IFC trên web cho kỹ sư BIM.',
+      'Bạn là T3Lab Assistant — trợ lý xem & truy vấn mô hình IFC trên web cho kỹ sư BIM.',
       'PHẠM VI: CHỈ hỗ trợ về (các) MÔ HÌNH IFC đang mở và tính năng của IFC Delta (đếm element, tổng khối lượng/diện tích/chiều dài, category, tầng, vật liệu, thuộc tính).',
       'TỪ CHỐI NGOÀI PHẠM VI: nếu câu hỏi KHÔNG liên quan đến mô hình đang mở (kiến thức chung, lập trình, tin tức, toán/đời sống ngoài lề, trò chuyện phiếm…), hãy lịch sự từ chối ngắn gọn và nhắc rằng bạn chỉ trả lời về mô hình IFC đang mở. Tuyệt đối không dùng kiến thức ngoài, không trả lời thông tin ngoài mô hình.',
       'QUY TẮC SỐ LIỆU: với mọi câu hỏi cần con số, PHẢI gọi tool count_elements hoặc sum_quantity để lấy số CHÍNH XÁC. Chỉ dùng dữ liệu từ tool và ngữ cảnh bên dưới. TUYỆT ĐỐI không tự đoán, không bịa số.',

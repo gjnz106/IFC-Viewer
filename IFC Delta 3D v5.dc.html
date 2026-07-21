@@ -10,7 +10,7 @@
 <helmet>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
@@ -25,7 +25,7 @@ html, body { margin: 0; padding: 0; height: 100%; }
 </style>
 </helmet>
 
-<div data-screen-label="IFC Delta 3D v5" style="height:100vh;width:100vw;display:flex;flex-direction:column;overflow:hidden;background:#F8F7F5;font-family:'Hanken Grotesk',-apple-system,system-ui,sans-serif;color:#4A4541;-webkit-font-smoothing:antialiased">
+<div data-screen-label="IFC Delta 3D v5" style="height:100vh;width:100vw;display:flex;flex-direction:column;overflow:hidden;background:#F8F7F5;font-family:'Space Grotesk',-apple-system,system-ui,sans-serif;color:#4A4541;-webkit-font-smoothing:antialiased">
 
   <!-- ===== HEADER 64px ===== -->
   <header style="flex:none;height:64px;display:flex;align-items:center;gap:10px;padding:0 16px;background:#fff;border-bottom:1px solid #E8E6E1;z-index:10">
@@ -56,7 +56,7 @@ html, body { margin: 0; padding: 0; height: 100%; }
 
     <div style="flex:1"></div>
 
-    <button onClick="{{ openSG }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:none;border-radius:10px;background:#5A5755;color:#fff;font-family:'Hanken Grotesk';font-size:12.5px;font-weight:600;cursor:pointer;flex:none;box-shadow:0 2px 8px -2px rgba(44,36,32,.45)" style-hover="background:#000">
+    <button onClick="{{ openSG }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:none;border-radius:10px;background:#5A5755;color:#fff;font-family:'Space Grotesk';font-size:12.5px;font-weight:600;cursor:pointer;flex:none;box-shadow:0 2px 8px -2px rgba(44,36,32,.45)" style-hover="background:#000">
       <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l7 2.5v5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5v-5z"/><path d="M9 12l2 2 4-4.5"/></svg>
       SG Check
     </button>
@@ -156,7 +156,7 @@ html, body { margin: 0; padding: 0; height: 100%; }
             </div>
             <div style="font-size:11px;color:#B0ABA6;margin-top:4px">click or drag .ifc</div>
           </div>
-          <button onClick="{{ fireAddFiles }}" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;margin-top:9px;border:1px solid #D0CCC8;border-radius:10px;background:#fff;color:#4A4541;font-family:'Hanken Grotesk';font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:#F8F7F5;border-color:#8B9CF4;color:#8B9CF4">
+          <button onClick="{{ fireAddFiles }}" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;margin-top:9px;border:1px solid #D0CCC8;border-radius:10px;background:#fff;color:#4A4541;font-family:'Space Grotesk';font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:#F8F7F5;border-color:#8B9CF4;color:#8B9CF4">
             <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><path d="M12 5v14M5 12h14"/></svg>
             Add more files
           </button>
@@ -284,7 +284,7 @@ html, body { margin: 0; padding: 0; height: 100%; }
           <span style="font-size:12px;font-weight:600;color:#fff">{{ toolBarLabel }}</span>
           <span style="font-family:'JetBrains Mono';font-size:11px;color:#5A5755;padding-left:4px">{{ toolBarHint }}</span>
           <sc-for list="{{ toolBarActions }}" as="a" hint-placeholder-count="2">
-            <button onClick="{{ a.fn }}" style="height:26px;padding:0 9px;border:none;border-radius:7px;background:rgba(255,255,255,.12);color:#fff;font-family:'Hanken Grotesk';font-size:11.5px;font-weight:600;cursor:pointer;margin-left:2px" style-hover="background:rgba(255,255,255,.22)">{{ a.label }}</button>
+            <button onClick="{{ a.fn }}" style="height:26px;padding:0 9px;border:none;border-radius:7px;background:rgba(255,255,255,.12);color:#fff;font-family:'Space Grotesk';font-size:11.5px;font-weight:600;cursor:pointer;margin-left:2px" style-hover="background:rgba(255,255,255,.22)">{{ a.label }}</button>
           </sc-for>
         </div>
       </sc-if>
@@ -302,7 +302,7 @@ html, body { margin: 0; padding: 0; height: 100%; }
               <span style="font-family:'JetBrains Mono';font-size:10px;color:#B0ABA6">ID</span>
               <span style="font-family:'JetBrains Mono';font-size:11px;font-weight:600;color:#5A5755;padding:2px 8px;background:#F8F7F5;border-radius:5px">{{ detailId }}</span>
             </div>
-            <button onClick="{{ zoomTo }}" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;margin-top:12px;border:none;border-radius:10px;background:#5A5755;color:#fff;font-family:'Hanken Grotesk';font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:#000">
+            <button onClick="{{ zoomTo }}" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;margin-top:12px;border:none;border-radius:10px;background:#5A5755;color:#fff;font-family:'Space Grotesk';font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:#000">
               <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.6-3.6M11 8.5v5M8.5 11h5"/></svg>
               Zoom to element
             </button>
@@ -405,8 +405,8 @@ html, body { margin: 0; padding: 0; height: 100%; }
             <span style="margin-left:auto;font-family:'JetBrains Mono';font-size:10.5px;font-weight:600;padding:2px 8px;background:#5A5755;color:#fff;border-radius:999px">{{ total }}</span>
           </div>
           <div style="display:flex;gap:6px">
-            <button onClick="{{ expandAll }}" style="display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:1px solid #E8E6E1;border-radius:8px;background:#fff;color:#4A4541;font-family:'Hanken Grotesk';font-size:11.5px;font-weight:600;cursor:pointer" style-hover="background:#F8F7F5;border-color:#C8C4C0"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 5h16M4 12h16M4 19h16"/></svg>Expand all</button>
-            <button onClick="{{ collapseAll }}" style="display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:1px solid #E8E6E1;border-radius:8px;background:#fff;color:#4A4541;font-family:'Hanken Grotesk';font-size:11.5px;font-weight:600;cursor:pointer" style-hover="background:#F8F7F5;border-color:#C8C4C0"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 8h16M4 16h16"/></svg>Collapse</button>
+            <button onClick="{{ expandAll }}" style="display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:1px solid #E8E6E1;border-radius:8px;background:#fff;color:#4A4541;font-family:'Space Grotesk';font-size:11.5px;font-weight:600;cursor:pointer" style-hover="background:#F8F7F5;border-color:#C8C4C0"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 5h16M4 12h16M4 19h16"/></svg>Expand all</button>
+            <button onClick="{{ collapseAll }}" style="display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:1px solid #E8E6E1;border-radius:8px;background:#fff;color:#4A4541;font-family:'Space Grotesk';font-size:11.5px;font-weight:600;cursor:pointer" style-hover="background:#F8F7F5;border-color:#C8C4C0"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 8h16M4 16h16"/></svg>Collapse</button>
           </div>
         </div>
         <div style="flex:1;min-height:0;overflow-y:auto;padding:0 3px">
@@ -441,7 +441,7 @@ html, body { margin: 0; padding: 0; height: 100%; }
               <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#5A5755;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M6 9l6 6 6-6"/></svg>
             </div>
             <div style="flex:1"></div>
-            <button onClick="{{ runValidate }}" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px;border:none;border-radius:7px;background:#5A5755;color:#fff;font-family:'Hanken Grotesk';font-size:11.5px;font-weight:600;cursor:pointer" style-hover="background:#000">
+            <button onClick="{{ runValidate }}" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px;border:none;border-radius:7px;background:#5A5755;color:#fff;font-family:'Space Grotesk';font-size:11.5px;font-weight:600;cursor:pointer" style-hover="background:#000">
               <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:currentColor"><path d="M7 5l11 7-11 7z"/></svg>Validate
             </button>
             <button onClick="{{ loadJson }}" title="Load JSON" style="{{ sgGhostBtn }}"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4"/></svg></button>
@@ -609,7 +609,7 @@ class Component extends DCLogic {
     // ──────────────────────────────────────────────────────────────
 
     // mode pills
-    const modeBtn = (a) => ({ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', border: 'none', borderRadius: 999, background: a ? '#fff' : 'transparent', color: a ? INK : SLATE5, fontFamily: "'Hanken Grotesk'", fontSize: 12.5, fontWeight: a ? 600 : 500, cursor: 'pointer', boxShadow: a ? '0 1px 2px rgba(44,36,32,.12)' : 'none', whiteSpace: 'nowrap', transition: 'all .15s' });
+    const modeBtn = (a) => ({ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', border: 'none', borderRadius: 999, background: a ? '#fff' : 'transparent', color: a ? INK : SLATE5, fontFamily: "'Space Grotesk'", fontSize: 12.5, fontWeight: a ? 600 : 500, cursor: 'pointer', boxShadow: a ? '0 1px 2px rgba(44,36,32,.12)' : 'none', whiteSpace: 'nowrap', transition: 'all .15s' });
     const mStyle = { field: modeBtn(s.mode === 'field'), compare: modeBtn(s.mode === 'compare'), clash: modeBtn(s.mode === 'clash') };
     const pickMode = { field: () => this.setMode('field'), compare: () => this.setMode('compare'), clash: () => this.setMode('clash') };
 
@@ -632,7 +632,7 @@ class Component extends DCLogic {
     const rightPanelTitle = s.rightOpen ? 'Hide right panel' : 'Show right panel';
 
     // right panel tabs — periwinkle underline
-    const rtBtn = (t) => { const a = s.rightTab === t; return { display: 'inline-flex', alignItems: 'center', gap: 5, height: 44, padding: '0 15px', border: 'none', borderBottom: '2px solid ' + (a ? BRAND : 'transparent'), background: 'transparent', color: a ? INK : SLATE5, fontFamily: "'Hanken Grotesk'", fontSize: 12.5, fontWeight: a ? 700 : 500, cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }; };
+    const rtBtn = (t) => { const a = s.rightTab === t; return { display: 'inline-flex', alignItems: 'center', gap: 5, height: 44, padding: '0 15px', border: 'none', borderBottom: '2px solid ' + (a ? BRAND : 'transparent'), background: 'transparent', color: a ? INK : SLATE5, fontFamily: "'Space Grotesk'", fontSize: 12.5, fontWeight: a ? 700 : 500, cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }; };
     const rtStyle = { props: rtBtn('props'), sg: rtBtn('sg') };
     const pickRight = { props: () => this.setState({ rightTab: 'props', rightOpen: true }), sg: () => this.setState({ rightTab: 'sg', rightOpen: true }) };
     const rightIsProps = s.rightTab === 'props', rightIsSG = s.rightTab === 'sg';
@@ -646,7 +646,7 @@ class Component extends DCLogic {
 
     // colorize
     const showColorize = s.tool === 'colorize';
-    const cbBtn = (a) => ({ flex: 1, padding: '5px 0', border: 'none', borderRadius: 999, background: a ? '#fff' : 'transparent', color: a ? INK : SLATE5, fontFamily: "'Hanken Grotesk'", fontSize: 11, fontWeight: a ? 600 : 500, cursor: 'pointer', boxShadow: a ? '0 1px 2px rgba(44,36,32,.12)' : 'none', transition: 'all .15s' });
+    const cbBtn = (a) => ({ flex: 1, padding: '5px 0', border: 'none', borderRadius: 999, background: a ? '#fff' : 'transparent', color: a ? INK : SLATE5, fontFamily: "'Space Grotesk'", fontSize: 11, fontWeight: a ? 600 : 500, cursor: 'pointer', boxShadow: a ? '0 1px 2px rgba(44,36,32,.12)' : 'none', transition: 'all .15s' });
     const cbStyle = { category: cbBtn(s.colorBy === 'category'), level: cbBtn(s.colorBy === 'level'), system: cbBtn(s.colorBy === 'system') };
     const pickColorBy = { category: () => this.setState({ colorBy: 'category' }), level: () => this.setState({ colorBy: 'level' }), system: () => this.setState({ colorBy: 'system' }) };
     const legendSets = {
@@ -724,7 +724,7 @@ class Component extends DCLogic {
 
     // export
     const exportOpen = s.exportOpen;
-    const exportBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, height: 36, padding: '0 13px', border: '1px solid ' + (exportOpen ? BORDER : LINE), borderRadius: 10, background: exportOpen ? SUNKEN : '#fff', color: SLATE8, fontFamily: "'Hanken Grotesk'", fontSize: 12.5, fontWeight: 600, cursor: 'pointer' };
+    const exportBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, height: 36, padding: '0 13px', border: '1px solid ' + (exportOpen ? BORDER : LINE), borderRadius: 10, background: exportOpen ? SUNKEN : '#fff', color: SLATE8, fontFamily: "'Space Grotesk'", fontSize: 12.5, fontWeight: 600, cursor: 'pointer' };
     const exportChev = { width: 12, height: 12, fill: 'none', stroke: SLATE5, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', transition: 'transform .15s', transform: exportOpen ? 'rotate(180deg)' : 'rotate(0deg)' };
     const exportItems = [
       { title: 'Snapshot image',  sub: 'Current viewport',          ext: 'PNG', icon: 'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 16l5-5 4 4 3-3 6 6' },
