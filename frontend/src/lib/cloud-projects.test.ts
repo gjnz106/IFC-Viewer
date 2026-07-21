@@ -11,13 +11,13 @@ function emptyReg(): ProjectRegistry {
 
 describe('cloud-projects — buildCloudProjectDoc', () => {
   it('produces the exact spec shape', () => {
-    const doc = buildCloudProjectDoc('City Tower', 'CT-P1', 'uid-1', 'Owner@Example.com', { units: 'mm', driveLink: 'https://drive/x' });
+    const doc = buildCloudProjectDoc('City Tower', 'CT-P1', 'uid-1', 'Owner@Example.com', { units: 'mm' });
     expect(doc.name).toBe('City Tower');
     expect(doc.code).toBe('CT-P1');
     expect(doc.ownerUid).toBe('uid-1');
     expect(doc.ownerEmail).toBe('owner@example.com');
     expect(doc.memberEmails).toEqual(['owner@example.com']);
-    expect(doc.settings).toEqual({ units: 'mm', driveLink: 'https://drive/x' });
+    expect(doc.settings).toEqual({ units: 'mm' });
     expect(typeof doc.createdAt).toBe('number');
     expect(doc.createdAt).toBe(doc.updatedAt);
   });
@@ -30,13 +30,12 @@ describe('cloud-projects — buildCloudProjectDoc', () => {
 
 describe('cloud-projects — buildMigrationDoc', () => {
   it('copies name/code/settings from a local project, not files', () => {
-    const reg = createProject(emptyReg(), 'Bridge B', 'BR-2', 'https://drive/y');
+    const reg = createProject(emptyReg(), 'Bridge B', 'BR-2');
     const local = reg.list[0];
     local.state.units = 'm';
     const doc = buildMigrationDoc(local, 'uid-9', 'me@co.com');
     expect(doc.name).toBe('Bridge B');
     expect(doc.code).toBe('BR-2');
-    expect(doc.settings.driveLink).toBe('https://drive/y');
     expect(doc.settings.units).toBe('m');
     expect(doc.ownerEmail).toBe('me@co.com');
     expect(doc.memberEmails).toContain('me@co.com');

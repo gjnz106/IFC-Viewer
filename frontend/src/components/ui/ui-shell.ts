@@ -103,34 +103,15 @@ window.colorizeSetProp = function (v: string): void {
   if (el) {
     const open = el.style.display !== 'none';
     if (!open) {
-      const savedLink = localStorage.getItem('projectDriveLink') || '';
-      const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
-      if (input) {
-        input.value = savedLink;
-        if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
-      }
       (window as any).projFillSettings?.();
       (window as any).projFillSettingsUnits?.();
       el.style.display = 'flex';
     } else {
-      const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
-      if (input) {
-        localStorage.setItem('projectDriveLink', input.value.trim());
-      }
       (window as any).projSaveSettings?.();
       el.style.display = 'none';
     }
   }
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-  const savedLink = localStorage.getItem('projectDriveLink') || '';
-  const input = document.getElementById('projectDriveLink') as HTMLInputElement | null;
-  if (input) {
-    input.value = savedLink;
-    if ((window as any).updateDriveActionButtons) (window as any).updateDriveActionButtons();
-  }
-});
 
 (window as any).toggleTeamPanel = function (): void {
   const el = document.getElementById('teamOverlay');

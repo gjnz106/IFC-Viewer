@@ -24,7 +24,6 @@ import './components/tools/plan-overlay.js';
 import './components/validate/validator-rules.js';
 import './components/validate/validator-json-loader.js';
 import './components/validate/validator-export.js';
-import './components/integrations/drive.js';
 import './components/inspect/search.js';
 import './components/inspect/overview-tree.js';
 import './components/ui/fieldmode.js';

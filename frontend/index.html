@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js"></script>
 <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -331,14 +330,6 @@
 
       <div style="padding:16px 16px 8px">
 
-        <!-- Project Drive Viewer Load Card -->
-        <div id="projectDriveViewerCard" data-pages="viewer" style="display:none;margin-bottom:14px;padding:14px;background:rgba(0,88,190,0.06);border:1px dashed var(--blue,#0058be);border-radius:12px;text-align:center">
-          <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;color:#2C2421">☁️ Project Drive Link Configured</div>
-          <button class="btn" onclick="loadProjectDriveModelsViewer()" style="width:100%;height:32px;font-size:11.5px;border-radius:8px;background:#0058be;color:#fff;border:none;cursor:pointer;font-weight:600">
-            Load Perspective Models
-          </button>
-        </div>
-
         <!-- Upload card A -->
         <label class="uc-card" id="uc0" for="f0">
           <input type="file" id="f0" accept=".ifc,*/*" onchange="handleFile(0)" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
@@ -411,26 +402,6 @@
           <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>
           Run Compare
         </button>
-      </div>
-
-      <div id="odPanelSep" data-pages="viewer compare" style="height:1px;background:var(--border);margin:0 16px"></div>
-
-      <!-- Google Drive -->
-      <div class="od-panel" id="odPanel" data-pages="viewer compare">
-        <button class="od-toggle" onclick="odToggle()">
-          <span class="od-toggle-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg></span>
-          Google Drive
-          <span class="od-toggle-badge" id="odBadge">offline</span>
-        </button>
-        <div class="od-body" id="odBody">
-          <div id="odContent">
-            <button class="od-login-btn" onclick="gdLogin()">
-              <svg viewBox="0 0 24 24" width="15" height="15"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-              Sign in with Google
-            </button>
-            <div class="od-status" id="odStatus">Connect Google Drive to browse IFC files</div>
-          </div>
-        </div>
       </div>
 
       <div id="vpPanelSep" data-pages="viewer compare clash validate" style="height:1px;background:var(--border);margin:0 16px"></div>
@@ -1058,19 +1029,6 @@
         </div>
       </div>
       <div>
-        <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Project Google Drive Link (File / Folder)</label>
-        <input type="text" id="projectDriveLink" placeholder="https://drive.google.com/file/d/.../view" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" oninput="updateDriveActionButtons()">
-      </div>
-      <!-- Actions for GDrive streaming -->
-      <div id="driveStreamActions" style="display:none;margin-top:4px;padding:10px;background:rgba(0,0,0,0.02);border-radius:8px;border:1px solid #eee">
-        <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#2C2421">Direct Actions for Project Drive Link:</div>
-        <div style="display:flex;gap:6px">
-          <button id="btnStreamA" class="btn btn-sm" style="flex:1;font-size:11px;padding:6px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:6px" onclick="streamProjectDrive(0)">Stream to Slot A</button>
-          <button id="btnStreamB" class="btn btn-sm" style="flex:1;font-size:11px;padding:6px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:6px" onclick="streamProjectDrive(1)">Stream to Slot B</button>
-          <button id="btnBrowseFolder" class="btn btn-sm" style="flex:1;font-size:11px;padding:6px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:6px;display:none" onclick="browseProjectDriveFolder()">Browse Folder</button>
-        </div>
-      </div>
-      <div>
         <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#8590a6;margin-bottom:4px">Display Units</label>
         <select id="unitSelect" onchange="setUnitPrefFromUI()" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px;background:#fff">
           <option value="mm">Millimetres (mm)</option>
@@ -1157,8 +1115,7 @@
         <input type="text" id="projNewName" placeholder="Project name" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
         <input type="text" id="projNewCode" placeholder="Code" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px">
       </div>
-      <input type="text" id="projNewDrive" placeholder="Google Drive link (optional)" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px;margin-bottom:8px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
         <button class="btn btn-primary btn-sm" onclick="projCreate()" style="justify-content:center;padding:8px 12px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">+ Create &amp; switch</button>
         <button class="btn btn-sm" onclick="projCreateCloud()" title="Requires sign-in with a verified email" style="justify-content:center;padding:8px 12px;border:1px solid #0058be;border-radius:6px;background:#fff;color:#0058be;cursor:pointer">+ ☁ Create in cloud</button>
       </div>

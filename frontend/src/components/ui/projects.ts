@@ -1,5 +1,5 @@
 // ── Project management (local-first) ─────────────────────────────────────
-// A "project" bundles a name/code + a Google Drive link + a little per-
+// A "project" bundles a name/code + a little per-
 // project UI state (camera, last page). There is no backend — everything
 // lives in LocalStorage via lib/projects-store.ts. Switching (or creating)
 // a project unloads every loaded model (federation-load.ts's
@@ -10,7 +10,7 @@ import { escapeHtml } from '../../lib/escape.js';
 import { navigateTo } from './router.js';
 import { getLoadedModelCount, fedRenderSlots } from '../compare/federation-load.js';
 import {
-  loadRegistry, saveRegistry, mirrorActiveDriveLink,
+  loadRegistry, saveRegistry,
   createProject, renameProject, deleteProject, setActive, getActiveProject,
   updateProjectState, type ProjectRegistry, type Project,
 } from '../../lib/projects-store.js';
@@ -36,7 +36,6 @@ import { log } from '../core/ifc-category.js';
 
 function persist(): void {
   saveRegistry(registry);
-  mirrorActiveDriveLink(registry);
   try {
     if (appState.activeCloudProjectId) {
       localStorage.setItem('ifc.lastCloudProjectId', appState.activeCloudProjectId);
@@ -131,10 +130,10 @@ function renderProjectList(): void {
   const localRows = registry.list.map(p => {
     const active = p.id === registry.activeId && !appState.activeCloudProjectId;
     return `<div class="proj-row${active ? ' active' : ''}">
-      <div class="proj-row-dot" style="background:${p.state.driveLink ? '#16a34a' : '#8590a6'}"></div>
+      <div class="proj-row-dot" style="background:${active ? '#16a34a' : '#8590a6'}"></div>
       <div class="proj-row-info">
         <div class="proj-row-name">💻 ${escapeHtml(p.name)}${p.code ? ' <span class="proj-row-code">' + escapeHtml(p.code) + '</span>' : ''}</div>
-        <div class="proj-row-sub">${active ? 'Active' : (p.state.driveLink ? 'Drive linked' : 'No Drive link')}</div>
+        <div class="proj-row-sub">${active ? 'Active' : 'Local project'}</div>
       </div>
       <div class="proj-row-actions">
         ${active ? '' : `<button class="proj-row-btn" onclick="projSwitch('${p.id}')" title="Switch to this project">Switch</button>`}
@@ -199,14 +198,13 @@ function renderProjectList(): void {
 };
 
 function saveOutgoingState(): void {
-  // Leaving a CLOUD project must not stamp its page/camera/driveLink onto
-  // whatever unrelated local project happens to be the registry's active.
+  // Leaving a CLOUD project must not stamp its page/camera onto whatever
+  // unrelated local project happens to be the registry's active.
   if (appState.activeCloudProjectId) return;
   const active = getActiveProject(registry);
   if (!active) return;
-  const patch: { page: string; camera?: any; driveLink: string } = {
+  const patch: { page: string; camera?: any } = {
     page: appState.activePage,
-    driveLink: '',
   };
   if (appState.camera && appState.controls) {
     patch.camera = {
@@ -214,7 +212,6 @@ function saveOutgoingState(): void {
       tx: appState.controls.target.x, ty: appState.controls.target.y, tz: appState.controls.target.z,
     };
   }
-  try { patch.driveLink = localStorage.getItem('projectDriveLink') || ''; } catch { /* private mode */ }
   registry = updateProjectState(registry, active.id, patch);
 }
 
@@ -254,18 +251,15 @@ window.toggleProjectsPanel = function (): void {
 window.projCreate = function (): void {
   const nameEl = document.getElementById('projNewName') as HTMLInputElement | null;
   const codeEl = document.getElementById('projNewCode') as HTMLInputElement | null;
-  const driveEl = document.getElementById('projNewDrive') as HTMLInputElement | null;
   const name = nameEl?.value.trim() || '';
   if (!name) { nameEl?.focus(); return; }
   if (!confirmIfHasWork('Creating a new project switches to it and unloads all loaded models. Continue?')) return;
 
   const code = codeEl?.value.trim() || '';
-  const drive = driveEl?.value.trim() || '';
   saveOutgoingState();
-  registry = createProject(registry, name, code, drive);
+  registry = createProject(registry, name, code);
   if (nameEl) nameEl.value = '';
   if (codeEl) codeEl.value = '';
-  if (driveEl) driveEl.value = '';
   finishActivation();
 };
 
@@ -579,19 +573,16 @@ window.projCreateCloud = async function (): Promise<void> {
   if (!user || !user.emailVerified) { alert('Sign in with a verified email to create cloud projects.'); return; }
   const nameEl = document.getElementById('projNewName') as HTMLInputElement | null;
   const codeEl = document.getElementById('projNewCode') as HTMLInputElement | null;
-  const driveEl = document.getElementById('projNewDrive') as HTMLInputElement | null;
   const name = nameEl?.value.trim() || '';
   if (!name) { nameEl?.focus(); return; }
   if (!confirmIfHasWork('Creating a new project switches to it and unloads all loaded models. Continue?')) return;
 
   const code = codeEl?.value.trim() || '';
-  const drive = driveEl?.value.trim() || '';
-  const created = await createCloudProject(name, code, user.uid, user.email, { driveLink: drive });
+  const created = await createCloudProject(name, code, user.uid, user.email, {});
   if (!created) { alert('Could not create the cloud project. Check your connection and try again.'); return; }
   cloudList = [...cloudList, created];
   if (nameEl) nameEl.value = '';
   if (codeEl) codeEl.value = '';
-  if (driveEl) driveEl.value = '';
   window.projSwitchCloud?.(created.id);
 };
 
@@ -630,12 +621,6 @@ window.projSaveSettings = function (): void {
   const active = getActiveProject(registry);
   if (!active) return;
   registry = renameProject(registry, active.id, nameEl?.value ?? active.name, codeEl?.value ?? active.code);
-  // Settings' own drive-link input writes the legacy key just before this
-  // runs (ui-shell.ts's toggleSettingsPanel close-path) — mirror it into the
-  // active project record too so it's reflected even without a switch.
-  let link = '';
-  try { link = localStorage.getItem('projectDriveLink') || ''; } catch { /* private mode */ }
-  registry = updateProjectState(registry, active.id, { driveLink: link });
   persist();
   chipLabel();
 };

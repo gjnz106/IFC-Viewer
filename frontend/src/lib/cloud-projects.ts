@@ -16,7 +16,6 @@ import type { Project } from './projects-store.js';
 
 export interface CloudProjectSettings {
   units?: 'mm' | 'm' | 'ftin';
-  driveLink?: string;
 }
 
 export interface CloudProject {
@@ -48,7 +47,6 @@ export interface MergedProjectItem {
   id: string;
   name: string;
   code: string;
-  driveLink: string;
   active: boolean;
   raw: CloudProject | Project;
 }
@@ -96,7 +94,7 @@ export function buildCloudProjectDoc(
   settings: CloudProjectSettings = {},
 ): Omit<CloudProject, 'id'> {
   const now = Date.now();
-  const cleanSettings: CloudProjectSettings = { driveLink: (settings.driveLink || '').trim() };
+  const cleanSettings: CloudProjectSettings = {};
   if (settings.units) cleanSettings.units = settings.units;
   return {
     name: name.trim() || 'Untitled Project',
@@ -114,7 +112,6 @@ export function buildCloudProjectDoc(
 export function buildMigrationDoc(project: Project, ownerUid: string, ownerEmail: string): Omit<CloudProject, 'id'> {
   return buildCloudProjectDoc(project.name, project.code, ownerUid, ownerEmail, {
     units: project.state.units,
-    driveLink: project.state.driveLink,
   });
 }
 
@@ -134,7 +131,6 @@ export function mergeProjectRegistries(
     id: p.id,
     name: p.name,
     code: p.code,
-    driveLink: p.settings.driveLink || '',
     active: p.id === activeCloudId,
     raw: p,
   }));
@@ -143,7 +139,6 @@ export function mergeProjectRegistries(
     id: p.id,
     name: p.name,
     code: p.code,
-    driveLink: p.state.driveLink || '',
     active: !activeCloudId && p.id === activeLocalId,
     raw: p,
   }));

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createProject, renameProject, deleteProject, setActive, getActiveProject,
-  migrateLegacy, updateProjectState, type ProjectRegistry,
+  updateProjectState, type ProjectRegistry,
 } from './projects-store.js';
 
 function emptyReg(): ProjectRegistry {
@@ -10,12 +10,11 @@ function emptyReg(): ProjectRegistry {
 
 describe('projects-store', () => {
   it('createProject adds a project and makes it active', () => {
-    const reg = createProject(emptyReg(), 'City Tower', 'CT-P1', 'https://drive.google.com/x');
+    const reg = createProject(emptyReg(), 'City Tower', 'CT-P1');
     expect(reg.list).toHaveLength(1);
     expect(reg.activeId).toBe(reg.list[0].id);
     expect(reg.list[0].name).toBe('City Tower');
     expect(reg.list[0].code).toBe('CT-P1');
-    expect(reg.list[0].state.driveLink).toBe('https://drive.google.com/x');
   });
 
   it('renameProject updates name/code without touching other projects', () => {
@@ -37,11 +36,10 @@ describe('projects-store', () => {
   });
 
   it('updateProjectState merges partial state', () => {
-    let reg = createProject(emptyReg(), 'A', 'A1', 'link1');
+    let reg = createProject(emptyReg(), 'A', 'A1');
     const id = reg.list[0].id;
     reg = updateProjectState(reg, id, { units: 'm' });
     expect(reg.list[0].state.units).toBe('m');
-    expect(reg.list[0].state.driveLink).toBe('link1');
   });
 
   it('deleteProject on the active project promotes the first remaining project', () => {
@@ -97,19 +95,5 @@ describe('projects-store', () => {
     expect(getActiveProject(reg)?.name).toBe('B');
     reg = { ...reg, activeId: 'missing' };
     expect(getActiveProject(reg)?.name).toBe('A'); // falls back to list[0]
-  });
-
-  it('migrateLegacy wraps a legacy drive link into a one-project registry', () => {
-    const reg = migrateLegacy('https://drive.google.com/drive/folders/xyz');
-    expect(reg.list).toHaveLength(1);
-    expect(reg.list[0].name).toBe('Default Project');
-    expect(reg.list[0].state.driveLink).toBe('https://drive.google.com/drive/folders/xyz');
-    expect(reg.activeId).toBe(reg.list[0].id);
-  });
-
-  it('migrateLegacy with an empty link still produces a usable registry', () => {
-    const reg = migrateLegacy('');
-    expect(reg.list).toHaveLength(1);
-    expect(reg.list[0].state.driveLink).toBe('');
   });
 });
