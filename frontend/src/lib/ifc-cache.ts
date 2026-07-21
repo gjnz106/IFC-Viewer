@@ -107,12 +107,12 @@ function deleteKeys(db: IDBDatabase, keys: string[]): Promise<void> {
   });
 }
 
-// Returns the cached File for `record`, or null on a cache miss (caller
-// falls through to downloadProjectFile). Bumps `lastAccess` on hit.
-export async function getCachedFile(record: CloudProjectFile): Promise<File | null> {
+// Returns the cached File stored under `key`, or null on a cache miss.
+// Bumps `lastAccess` on hit. `fileName` is used to rebuild the File object
+// (the stored blob itself has no name).
+export async function getCachedBlob(key: string, fileName: string): Promise<File | null> {
   try {
     const db = await openDb();
-    const key = cacheKeyFor(record);
     return await new Promise<File | null>((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite');
       const store = tx.objectStore(STORE);
@@ -122,23 +122,23 @@ export async function getCachedFile(record: CloudProjectFile): Promise<File | nu
         if (!v) { resolve(null); return; }
         v.lastAccess = Date.now();
         store.put(v);
-        resolve(new File([v.blob], record.name, { type: 'application/octet-stream' }));
+        resolve(new File([v.blob], fileName, { type: 'application/octet-stream' }));
       };
       req.onerror = () => reject(req.error);
     });
   } catch (e) {
-    console.warn('[ifc-cache] getCachedFile failed, treating as miss:', e);
+    console.warn('[ifc-cache] getCachedBlob failed, treating as miss:', e);
     return null;
   }
 }
 
-// Stores `file` under `record`'s cache key, evicting oldest-accessed
-// entries first if the budget would be exceeded. Best-effort — a failure
-// here never blocks the caller's already-completed download/load.
-export async function putCachedFile(record: CloudProjectFile, file: File, budgetBytes: number = DEFAULT_CACHE_BUDGET_BYTES): Promise<void> {
+// Stores `file` under `key`, evicting oldest-accessed entries first (shared
+// LRU budget across every key in this store) if the budget would be
+// exceeded. Best-effort — a failure here never blocks the caller's
+// already-completed download/load.
+export async function putCachedBlob(key: string, file: File, budgetBytes: number = DEFAULT_CACHE_BUDGET_BYTES): Promise<void> {
   try {
     const db = await openDb();
-    const key = cacheKeyFor(record);
     const existing = await listEntries(db);
     const evictKeys = planEviction(existing.filter(e => e.key !== key), file.size, budgetBytes);
     await deleteKeys(db, evictKeys);
@@ -150,8 +150,31 @@ export async function putCachedFile(record: CloudProjectFile, file: File, budget
       tx.onerror = () => reject(tx.error);
     });
   } catch (e) {
-    console.warn('[ifc-cache] putCachedFile failed (best-effort, ignored):', e);
+    console.warn('[ifc-cache] putCachedBlob failed (best-effort, ignored):', e);
   }
+}
+
+// Best-effort delete of a single cache entry.
+export async function deleteCachedBlob(key: string): Promise<void> {
+  try {
+    const db = await openDb();
+    await deleteKeys(db, [key]);
+  } catch (e) {
+    console.warn('[ifc-cache] deleteCachedBlob failed (best-effort, ignored):', e);
+  }
+}
+
+// Returns the cached File for `record`, or null on a cache miss (caller
+// falls through to downloadProjectFile). Bumps `lastAccess` on hit.
+export function getCachedFile(record: CloudProjectFile): Promise<File | null> {
+  return getCachedBlob(cacheKeyFor(record), record.name);
+}
+
+// Stores `file` under `record`'s cache key, evicting oldest-accessed
+// entries first if the budget would be exceeded. Best-effort — a failure
+// here never blocks the caller's already-completed download/load.
+export function putCachedFile(record: CloudProjectFile, file: File, budgetBytes: number = DEFAULT_CACHE_BUDGET_BYTES): Promise<void> {
+  return putCachedBlob(cacheKeyFor(record), file, budgetBytes);
 }
 
 export async function clearCache(): Promise<void> {

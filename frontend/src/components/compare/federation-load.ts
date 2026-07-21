@@ -34,6 +34,7 @@ import { runCompare as computeDiff } from './compare.js';
 import { log } from '../core/ifc-category.js';
 import { disposeModel } from '../core/viewer-core.js';
 import { syncUploadSlot } from '../ui/projects.js';
+import { saveLocalSessionFile, clearLocalSessionFile } from '../../lib/local-session.js';
 import { syncChipLabel } from '../../lib/cloud-files.js';
 import { saveResult, buildModelSignature, formatCompareCounts, buildResultMetadata } from '../../lib/cloud-results.js';
 
@@ -58,6 +59,7 @@ window.fedHandleFile = function(ev: Event){
     await (window as any).loadIFC(idx);
     fedRenderSlots();
     syncUploadSlot(idx, f).catch((e: unknown)=>console.warn('syncUploadSlot error:', e));
+    if(!appState.activeCloudProjectId) saveLocalSessionFile(idx, f).catch((e: unknown)=>console.warn('saveLocalSessionFile error:', e));
   })().catch((e: unknown)=>console.error('fedHandleFile error:', e));
   // Reset input so same file can be reloaded
   (ev.target as HTMLInputElement).value = '';
@@ -71,6 +73,7 @@ window.fedRemoveSlot = function(idx: number){
     appState.loadedModels[idx] = null;
   }
   appState.files[idx] = null;
+  if(!appState.activeCloudProjectId) clearLocalSessionFile(idx).catch((e: unknown)=>console.warn('clearLocalSessionFile error:', e));
   if(window._colorizeInvalidate) window._colorizeInvalidate(idx);
   // If the removed slot was the current clash Source/Target, repoint it at a
   // still-loaded model (otherwise Run silently no-ops on a disposed slot).
