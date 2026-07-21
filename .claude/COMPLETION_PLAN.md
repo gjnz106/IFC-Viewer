@@ -760,7 +760,10 @@ từng cái: **làm** box size/volume filter + Duplicate type + Single Model (se
   standalone review 0 pageerror.)
 
 ## Phase 21 — 🩺 SG Validate còn lỗi + xoay view mượt (feedback user 2026-07-18)
-**Status:** 🟡 In progress
+**Status:** ✅ Done — commit `82afa32` "Fix SG validate (spaces/buildings), speed up getAllProps,
+smoother orbit" (đã merged thẳng vào `main`, ngoài luồng `/ifc`; xác nhận code đã có trên
+`origin/main` — mọi task bên dưới đã tick, "Done khi" đã pass từ trước). Chỉ cập nhật status ở
+lượt chạy `/ifc 21` này, không có thay đổi code mới.
 
 > Phản hồi trực tiếp: "IFC SG checking chưa ổn đang bị lỗi"; "load model cloud chạy chậm từng
 > mode"; "xoay view chưa mượt như Dalux/Revit". (Cache local đã có từ Phase 14 — cache-first mặc
