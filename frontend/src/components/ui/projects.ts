@@ -26,6 +26,7 @@ import {
   exceedsUploadQuota, sumStorageUsage, formatBytes,
 } from '../../lib/cloud-files.js';
 import { getCachedFile, putCachedFile, clearCache } from '../../lib/ifc-cache.js';
+import { restoreLocalSession } from '../../lib/local-session.js';
 import {
   fetchResultMetadata, downloadResult, buildModelSignature, signaturesMatch, outdatedBadgeLabel,
   type ResultKind,
@@ -64,9 +65,59 @@ function currentAuthUser() {
 // Fetches (once per panel-open) the cloud project list for the signed-in,
 // verified user and re-renders. No-op for logged-out/unverified users so
 // their experience stays exactly the local-only Phase 6 flow.
+// Guards local-session restore (Phase 21) to run at most once per page
+// load — refreshCloudList() is also called later (panel open, sign-in) and
+// re-running the restore then would clobber whatever the user has since
+// loaded locally.
+let _localSessionChecked = false;
+
+// Best-effort restore of whatever was loaded locally (no cloud project) on
+// the previous visit. No-op for cloud-project users, who already get their
+// files back via autoLoadCloudProjectFiles() above.
+async function checkLocalSessionRestore(): Promise<void> {
+  if (_localSessionChecked || appState.activeCloudProjectId) return;
+  _localSessionChecked = true;
+  const restored = await restoreLocalSession();
+  if (restored.length === 0) return;
+  const lo = document.getElementById('loadOv');
+  const lt = document.getElementById('loadTxt');
+  const lf = document.getElementById('loadFill') as HTMLElement | null;
+  lo?.classList.add('on');
+  for (let i = 0; i < restored.length; i++) {
+    const { idx, file } = restored[i];
+    if (lt) lt.textContent = `Restoring ${file.name} (${i + 1}/${restored.length})…`;
+    if (lf) lf.style.width = Math.round(((i + 0.3) / restored.length) * 100) + '%';
+    try {
+      appState.files[idx] = file;
+      if (idx < 2) {
+        document.getElementById('uc' + idx)?.classList.add('loaded');
+        const fn = document.getElementById('fn' + idx); if (fn) fn.textContent = file.name;
+        const fs = document.getElementById('fs' + idx); if (fs) fs.textContent = (file.size / 1048576).toFixed(1) + ' MB';
+      } else {
+        appState.fedNextSlot = Math.max(appState.fedNextSlot, idx + 1);
+      }
+      if (!appState.ifcLoader) {
+        if (!await (window as any).initIFC?.()) throw new Error('IFC init failed');
+      }
+      await (window as any).loadIFC?.(idx);
+      log(`Local session restore: ${file.name} loaded into slot ${idx}`);
+    } catch (e: any) {
+      console.warn('[local-session] restore failed for slot', idx, e);
+      log(`Local session restore failed for slot ${idx}: ${e?.message || e}`);
+    }
+  }
+  if (lf) lf.style.width = '100%';
+  lo?.classList.remove('on');
+  if (fedRenderSlots) fedRenderSlots();
+}
+
 async function refreshCloudList(): Promise<void> {
   const user = currentAuthUser();
-  if (!user || !user.emailVerified) { cloudList = []; cloudLoadError = false; renderProjectList(); return; }
+  if (!user || !user.emailVerified) {
+    cloudList = []; cloudLoadError = false; renderProjectList();
+    checkLocalSessionRestore().catch(e => console.warn('[local-session] restore failed:', e));
+    return;
+  }
   cloudLoading = true;
   renderProjectList();
   const fetched = await fetchCloudProjects(user.email);
@@ -85,6 +136,10 @@ async function refreshCloudList(): Promise<void> {
       chipLabel();
       autoLoadCloudProjectFiles(savedCloudId).catch(e => console.warn('[cloud-files] auto-restore failed:', e));
     }
+  }
+
+  if (!appState.activeCloudProjectId) {
+    checkLocalSessionRestore().catch(e => console.warn('[local-session] restore failed:', e));
   }
 
   renderProjectList();
