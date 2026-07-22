@@ -459,12 +459,12 @@ async function loadIFC(idx: number){
       fedRenderSlots();
     }
 
-    // Update clash mode if active
+    // Update clash mode if active. NOTE: #clashFileA/#clashFileB are <select>
+    // elements (Source/Target model pickers) — writing .textContent to them
+    // wipes their <option> children. clash.ts re-renders the dropdowns off the
+    // same ifc:modelloaded event dispatched below, so we only refresh the run
+    // button state here.
     if(appState.clashMode){
-      if(appState.files[0])document.getElementById('clashFileA')!.textContent=appState.files[0]!.name;
-      if(appState.files[1])document.getElementById('clashFileB')!.textContent=appState.files[1]!.name;
-      document.getElementById('clashFileA')!.classList.toggle('loaded',!!appState.loadedModels[0]);
-      document.getElementById('clashFileB')!.classList.toggle('loaded',!!appState.loadedModels[1]);
       (window as any).updateClashRunButtonState?.();
     }
 

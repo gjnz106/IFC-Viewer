@@ -26,7 +26,7 @@ import {
   exceedsUploadQuota, sumStorageUsage, formatBytes,
 } from '../../lib/cloud-files.js';
 import { getCachedFile, putCachedFile, clearCache } from '../../lib/ifc-cache.js';
-import { restoreLocalSession } from '../../lib/local-session.js';
+import { restoreLocalSession, clearLocalSession } from '../../lib/local-session.js';
 import {
   fetchResultMetadata, downloadResult, buildModelSignature, signaturesMatch, outdatedBadgeLabel,
   type ResultKind,
@@ -800,6 +800,10 @@ window.addEventListener('ifc:signout', () => {
   switchGeneration++; // kill any in-flight cloud auto-load too
   cloudList = [];
   cloudLoadError = false;
+  // Wipe any locally-cached file bytes so the next user on a shared machine
+  // can't F5 and restore this user's model (local-session is keyed by slot
+  // index only, and _localSessionChecked resets on the fresh page load).
+  clearLocalSession().catch(e => console.warn('[local-session] clear on sign-out failed:', e));
   document.getElementById('syncChip0')?.replaceChildren();
   document.getElementById('syncChip1')?.replaceChildren();
   chipLabel();

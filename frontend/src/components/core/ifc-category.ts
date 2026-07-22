@@ -120,11 +120,22 @@ const IFC_TO_REVIT_CAT: Record<string, string> = {
 // Resolve a raw IFC class name (e.g. 'IfcDoor') into the Revit Category
 // equivalent ('Doors'). Returns the input if no mapping exists, and strips
 // unknown 'IFC_' numeric prefixes that slipped through. Pure function.
+// Case-insensitive index of IFC_TO_REVIT_CAT, built once. Numeric lookups
+// sometimes hand back an ALL-CAPS class name (e.g. 'IFCWALLSTANDARDCASE');
+// reconstructing PascalCase by only capitalizing the first letter yields
+// 'Ifcwallstandardcase', which can never match a multi-word key like
+// 'IfcWallStandardCase' — there's no way to recover word boundaries from an
+// all-caps string, so a title-case attempt silently fails and walls end up in
+// a phantom 'IFCWALLSTANDARDCASE' bucket. Comparing lowercase-to-lowercase
+// sidesteps that. (This is the version on window + imported by colorize/
+// properties/clash/ai — the earlier title-case-only fix lived in an unused
+// export.)
+const IFC_TO_REVIT_CAT_LOWER: Record<string, string> = {};
+for (const k in IFC_TO_REVIT_CAT) IFC_TO_REVIT_CAT_LOWER[k.toLowerCase()] = IFC_TO_REVIT_CAT[k];
+
 export function ifcClassToRevitCategory(cls: string): string {
   if(!cls)return cls||'Unknown';
-  // Normalize: sometimes we get an ALL-CAPS IFCDOOR from numeric lookups
-  // — try title-case variant too
-  return IFC_TO_REVIT_CAT[cls] || IFC_TO_REVIT_CAT[cls.charAt(0)+cls.slice(1).toLowerCase()] || cls;
+  return IFC_TO_REVIT_CAT[cls] || IFC_TO_REVIT_CAT_LOWER[cls.toLowerCase()] || cls;
 }
 
 export function log(...a: any[]): void {if((window as any).DEBUG)console.log('[IFC]',...a)}

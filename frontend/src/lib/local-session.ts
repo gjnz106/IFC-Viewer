@@ -105,6 +105,18 @@ export async function clearLocalSessionFile(idx: number): Promise<void> {
   }
 }
 
+// Wipes the entire local session — every cached slot blob plus the manifest.
+// Called on sign-out so the next user on a shared machine can't F5 and have
+// the previous user's locally-loaded file bytes restored into their viewport
+// (the manifest/store are keyed only by slot index, not by uid). Best-effort.
+export async function clearLocalSession(): Promise<void> {
+  const manifest = readManifest();
+  for (const { idx } of manifest.slots) {
+    try { await deleteCachedBlob(localSessionKey(idx)); } catch { /* best-effort */ }
+  }
+  try { localStorage.removeItem(MANIFEST_KEY); } catch { /* best-effort */ }
+}
+
 // Reads the manifest and fetches each recorded slot's cached blob. A slot
 // whose blob is missing (e.g. evicted by LRU) is dropped from the manifest
 // and skipped rather than erroring.
