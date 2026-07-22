@@ -170,6 +170,28 @@ window.colorizeSetProp = function (v: string): void {
   }
 };
 
+// ── Navigation guide overlay ──────────────────────────────────────────────
+// Shown once (like BIMcollab's onboarding hint) the first time a model
+// appears in an empty viewport — see the wasEmpty check around loadIFC() in
+// section-visibility.ts. Dismissal is remembered in localStorage so it
+// doesn't reappear on every subsequent load; reachable again anytime via
+// Help Hub → "Navigation guide" (which passes force=true).
+const NAV_HELP_DISMISSED_KEY = 'ifc.navHelpDismissed';
+
+window.closeNavHelp = function (): void {
+  document.getElementById('navHelpOverlay')?.classList.remove('on');
+  try { localStorage.setItem(NAV_HELP_DISMISSED_KEY, '1'); } catch { /* storage quota — ignore */ }
+};
+
+window.showNavHelp = function (force = false): void {
+  if (!force) {
+    try {
+      if (localStorage.getItem(NAV_HELP_DISMISSED_KEY) === '1') return;
+    } catch { /* private mode — fall through and show anyway */ }
+  }
+  document.getElementById('navHelpOverlay')?.classList.add('on');
+};
+
 (window as any).clearNotifs = function (): void {
   const list = document.getElementById('notifList');
   if (list) {

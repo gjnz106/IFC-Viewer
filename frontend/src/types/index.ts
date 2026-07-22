@@ -233,6 +233,8 @@ declare global {
     zoomFit?: () => void;
     resetCam?: () => void;
     toggleWire?: () => void;
+    showNavHelp?: (force?: boolean) => void;
+    closeNavHelp?: () => void;
     captureScreenshot?: () => void;
     _camTweenId?: number | null;
     _zoomState?: {

@@ -216,6 +216,11 @@
             <div><b>Double Click</b> - Select & zoom element</div>
             <div><b>Right Click</b> - Context menu options</div>
           </div>
+          <div style="height:1px;background:var(--border);margin:8px 0"></div>
+          <button onclick="showNavHelp(true);toggleHelpMenu()" class="exp-item" style="padding:7px 8px">
+            <span class="exp-ico" style="width:24px;height:24px"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M20 12a8 8 0 1 1-2.7-6"/><path d="M20 4v5h-5"/></svg></span>
+            <span class="exp-txt"><span class="exp-title" style="font-size:11.5px">Navigation guide</span></span>
+          </button>
         </div>
         <div id="helpMenuBg" onclick="toggleHelpMenu()" style="display:none;position:fixed;inset:0;z-index:999"></div>
       </div>
@@ -564,6 +569,51 @@
           <span style="font-size:12.5px;font-weight:700;color:var(--text)" id="vpHUDTitle">3D View</span>
           <span style="width:1px;height:14px;background:var(--border)"></span>
           <span style="font-size:12px;font-weight:500;color:var(--text-muted)" id="vpHUDMeta">—</span>
+        </div>
+
+        <!-- Navigation guide (shown once when a model first loads; reopen from Help Hub) -->
+        <div class="nav-help-overlay" id="navHelpOverlay">
+          <button class="nav-help-close" onclick="closeNavHelp()" title="Close">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+          <div class="nav-help-group">
+            <div class="nav-help-icon"><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M20 12a8 8 0 1 1-2.7-6"/><path d="M20 4v5h-5"/></svg></div>
+            <div class="nav-help-label">Orbit</div>
+            <div class="nav-help-sub">Left drag</div>
+          </div>
+          <div class="nav-help-group">
+            <div class="nav-help-icon"><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3v18M3 12h18"/><path d="M7 8l-4 4 4 4M17 8l4 4-4 4M8 7l4-4 4 4M8 17l4 4 4-4"/></svg></div>
+            <div class="nav-help-label">Pan</div>
+            <div class="nav-help-sub">Middle drag</div>
+          </div>
+          <div class="nav-help-group">
+            <div class="nav-help-icon"><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8M10.5 8v5M8 10.5h5"/></svg></div>
+            <div class="nav-help-label">Zoom</div>
+            <div class="nav-help-sub">Scroll wheel</div>
+          </div>
+          <div class="nav-help-sep"></div>
+          <div class="nav-help-group">
+            <div class="nav-help-keys"><span class="nav-help-key">W</span></div>
+            <div class="nav-help-keys"><span class="nav-help-key">A</span><span class="nav-help-key">S</span><span class="nav-help-key">D</span></div>
+            <div class="nav-help-label">Walk</div>
+            <div class="nav-help-sub">Walk mode only</div>
+          </div>
+          <div class="nav-help-group">
+            <div class="nav-help-keys"><span class="nav-help-key">Q</span><span class="nav-help-key">E</span></div>
+            <div class="nav-help-label">Up / Down</div>
+            <div class="nav-help-sub">Walk mode only</div>
+          </div>
+          <div class="nav-help-group">
+            <div class="nav-help-keys"><span class="nav-help-key">Shift</span></div>
+            <div class="nav-help-label">2x Speed</div>
+            <div class="nav-help-sub">Hold while moving</div>
+          </div>
+          <div class="nav-help-sep"></div>
+          <div class="nav-help-group">
+            <div class="nav-help-icon"><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9l6 6M15 9l-6 6"/></svg></div>
+            <div class="nav-help-label">Select</div>
+            <div class="nav-help-sub">Double-click</div>
+          </div>
         </div>
 
         <!-- ── Floating vertical toolbar (v5 shell) ── -->

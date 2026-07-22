@@ -417,7 +417,13 @@ async function loadIFC(idx: number){
     // Ensure loadedModels array is long enough
     while(appState.loadedModels.length <= idx) appState.loadedModels.push(null);
     appState.loadedModels[idx]=model;appState.scene.add(model);
+    // Only true the very first time a model fills the previously-empty
+    // viewport (federation/second-slot loads land here with display
+    // already 'none') — that's the moment to greet the user with the
+    // nav guide, same trigger point BIMcollab uses.
+    const wasEmptyViewport=document.getElementById('emptyVP')!.style.display!=='none';
     document.getElementById('emptyVP')!.style.display='none';
+    if(wasEmptyViewport)(window as any).showNavHelp?.();
 
     // ── Extract project units + spatial structure for this model ──
     try{
