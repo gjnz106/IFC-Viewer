@@ -1665,6 +1665,32 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 /* ── Overview section (rail: Overview) — IDD Model Browser ── */
 .lp-overview{display:flex;flex-direction:column;flex:1;min-height:0;height:calc(100% - 44px);overflow:hidden}
 .lp-overview.hide{display:none}
+
+/* ── Navigation panel (Models / Objects / Structure tabs) ─────────── */
+.nav-tabs{display:flex;gap:2px;padding:6px 8px 0;border-bottom:1px solid #eef0f2;flex:none}
+.nav-tab{flex:1;padding:8px 6px;border:none;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:#8590a6;cursor:pointer;border-bottom:2px solid transparent;transition:color .12s,border-color .12s}
+.nav-tab:hover{color:#111827}
+.nav-tab.active{color:#111827;border-bottom-color:var(--accent,#2563eb)}
+.nav-pane{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.nav-pane.hide{display:none}
+.nav-pane-actions{display:flex;align-items:center;gap:6px;padding:8px 10px;flex:none}
+.nav-search{flex:1;min-width:0;background:#f3f4f6;border:none;outline:none;border-radius:8px;padding:6px 10px;font-family:inherit;font-size:12.5px;color:#111827}
+.nav-search::placeholder{color:#9ca3af}
+.nav-mini-btn{flex:none;padding:6px 8px;border:1px solid #e5e7eb;border-radius:7px;background:#fff;font-family:inherit;font-size:11px;font-weight:600;color:#4b5563;cursor:pointer;transition:background .12s,border-color .12s}
+.nav-mini-btn:hover{background:#f3f4f6;border-color:#cbd5e1}
+.nav-list{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 0 16px;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+.nav-list::-webkit-scrollbar{width:6px}
+.nav-list::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+.nav-row{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #f6f7f8;user-select:none}
+.nav-row:hover{background:#f9fafb}
+.nav-row.off .nav-row-name{color:#9ca3af}
+.nav-eye{flex:none;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:6px;cursor:pointer;color:#374151;transition:background .12s,color .12s}
+.nav-eye:hover{background:#eef2ff;color:var(--accent,#2563eb)}
+.nav-row.off .nav-eye{color:#c0c7d1}
+.nav-eye svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav-row-name{flex:1;min-width:0;font-size:12.5px;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-row-count{flex:none;font-size:11px;font-weight:600;color:#9ca3af;font-variant-numeric:tabular-nums}
+.nav-empty{padding:20px 14px;text-align:center;font-size:12px;color:#9ca3af;line-height:1.5}
 .ov-summary{display:flex;gap:8px;padding:10px 14px 4px;flex-shrink:0}
 .ov-summary:empty{display:none}
 .ov-stat{flex:1;background:var(--bg-card);border-radius:10px;padding:7px 4px;text-align:center;display:flex;flex-direction:column;gap:1px}
