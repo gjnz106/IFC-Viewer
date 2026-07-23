@@ -354,7 +354,19 @@ async function readSpatialInfo(modelID: number, modelName: string){
   return info;
 }
 
-async function loadIFC(idx: number){
+// Serialize all loads. loadIFC is entered from four independent triggers
+// (manual upload, drag-drop, cloud auto-load, local-session restore); two
+// overlapping calls would (a) both see anyOtherLoaded=false before either sets
+// loadedModels[idx] and each overwrite sharedCenterOffset from their own bbox
+// → misaligned models, and (b) re-enter web-ifc's single non-reentrant WASM
+// parser. A one-lane promise chain makes each load atomic w.r.t. the others.
+let _loadChain: Promise<void> = Promise.resolve();
+function loadIFC(idx: number): Promise<void>{
+  const run = _loadChain.then(() => _loadIFCInner(idx));
+  _loadChain = run.catch(() => {}); // keep the lane alive; inner never throws (own try/catch)
+  return run;
+}
+async function _loadIFCInner(idx: number){
   const file=appState.files[idx];if(!file||!appState.ifcLoader)return;
   // Status element: slots 0,1 have their own DOM; federation slots update fedRenderSlots
   const st=idx<2?document.getElementById('us'+idx):null;
@@ -459,12 +471,12 @@ async function loadIFC(idx: number){
       fedRenderSlots();
     }
 
-    // Update clash mode if active
+    // Update clash mode if active. NOTE: #clashFileA/#clashFileB are <select>
+    // elements (Source/Target model pickers) — writing .textContent to them
+    // wipes their <option> children. clash.ts re-renders the dropdowns off the
+    // same ifc:modelloaded event dispatched below, so we only refresh the run
+    // button state here.
     if(appState.clashMode){
-      if(appState.files[0])document.getElementById('clashFileA')!.textContent=appState.files[0]!.name;
-      if(appState.files[1])document.getElementById('clashFileB')!.textContent=appState.files[1]!.name;
-      document.getElementById('clashFileA')!.classList.toggle('loaded',!!appState.loadedModels[0]);
-      document.getElementById('clashFileB')!.classList.toggle('loaded',!!appState.loadedModels[1]);
       (window as any).updateClashRunButtonState?.();
     }
 

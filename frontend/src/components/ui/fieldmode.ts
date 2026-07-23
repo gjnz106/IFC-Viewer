@@ -657,7 +657,7 @@ function fieldBuildStoreys(){
   }
 
   container.innerHTML = unique.map((s, i) =>
-    `<button class="field-storey-pill" data-elev="${s.elevation}" onclick="fieldSelectStorey(${i},${s.elevation})">${s.name}</button>`
+    `<button class="field-storey-pill" data-elev="${s.elevation}" onclick="fieldSelectStorey(${i},${s.elevation})">${escapeH(s.name)}</button>`
   ).join('');
 }
 
@@ -996,7 +996,7 @@ function fieldPlan2DBuildStoreys(){
     return;
   }
   container.innerHTML = storeys.map((s, i) =>
-    `<button class="field-plan2d-pill${i===fieldPlan2DStoreyIdx?' on':''}" onclick="fieldPlan2DSelectStorey(${i})">${s.name}</button>`
+    `<button class="field-plan2d-pill${i===fieldPlan2DStoreyIdx?' on':''}" onclick="fieldPlan2DSelectStorey(${i})">${escapeH(s.name)}</button>`
   ).join('');
 }
 

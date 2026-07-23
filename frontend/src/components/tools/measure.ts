@@ -36,9 +36,21 @@ function fmtLen(v: number): string {
 // redraw a live in-progress shape — e.g. area's outline — without touching
 // the other markers like the per-vertex spheres, which addMeasurePoint
 // already tracks separately and must persist across redraws).
+// Free GPU resources for a measure object before dropping it. Markers carry
+// SphereGeometry/BufferGeometry + Line/Sprite materials, and every label
+// sprite owns a CanvasTexture (material.map) — none of which the driver
+// reclaims on scene.remove() alone. Without this, every measure click and
+// every clearMeasure (fired automatically on each unit change) leaked VRAM.
+function disposeMeasureObj(obj: any): void {
+  obj?.geometry?.dispose?.();
+  const mats = Array.isArray(obj?.material) ? obj.material : [obj?.material];
+  mats.forEach((m: any) => { m?.map?.dispose?.(); m?.dispose?.(); });
+}
+
 function removeMarker(obj: THREE.Object3D | null): void {
   if (!obj) return;
   if (obj.parent) obj.parent.remove(obj);
+  disposeMeasureObj(obj);
   const idx = measureMarkers.indexOf(obj);
   if (idx >= 0) measureMarkers.splice(idx, 1);
 }
@@ -350,10 +362,10 @@ const MEASURE_MODE_BTNS: { type: string; id: string; placeholder: string }[] = [
 
 (window as any).clearMeasure = function (): void {
   measurePoints.length = 0;
-  measureMarkers.forEach(m => { if (m.parent) m.parent.remove(m); });
+  measureMarkers.forEach(m => { if (m.parent) m.parent.remove(m); disposeMeasureObj(m); });
   measureMarkers = [];
-  if (measureLine) { if (measureLine.parent) measureLine.parent.remove(measureLine); measureLine = null; }
-  if (measureLabel) { if (measureLabel.parent) measureLabel.parent.remove(measureLabel); measureLabel = null; }
+  if (measureLine) { if (measureLine.parent) measureLine.parent.remove(measureLine); disposeMeasureObj(measureLine); measureLine = null; }
+  if (measureLabel) { if (measureLabel.parent) measureLabel.parent.remove(measureLabel); disposeMeasureObj(measureLabel); measureLabel = null; }
   areaOutline = null; areaFill = null; areaLabel = null; areaFinished = false;
   angleLineA = null; angleLineB = null; angleLabel = null;
   const on = (window as any).measureMode;

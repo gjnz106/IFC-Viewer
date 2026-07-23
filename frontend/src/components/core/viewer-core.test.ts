@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { ifcClassToRevitCategory } from './viewer-core.js';
+// Import from ifc-category.js — the version actually exported on window and
+// imported by colorize/properties/clash/ai. (viewer-core.js exports an
+// identical-behavior copy that nothing but the old test used.)
+import { ifcClassToRevitCategory } from './ifc-category.js';
 
 describe('ifcClassToRevitCategory', () => {
   it('resolves a well-formed PascalCase class name', () => {

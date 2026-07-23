@@ -497,7 +497,11 @@ async function getAllProps(modelID: number): Promise<Record<string, any>> {
             // Prevents abstract containers (sans Representation) from becoming
             // issues that can't be zoomed to. Mirrors the check in Method 2.
             if(!p.Representation)continue;
-            props[p.GlobalId.value]={expressID:eid,globalId:p.GlobalId.value,type:typeName,name:p.Name?.value||'',description:p.Description?.value||'',objectType:p.ObjectType?.value||'',tag:p.Tag?.value||''};
+            props[p.GlobalId.value]={expressID:eid,globalId:p.GlobalId.value,type:typeName,name:p.Name?.value||'',description:p.Description?.value||'',objectType:p.ObjectType?.value||'',tag:p.Tag?.value||'',
+              // Direct IFC attributes the SG validator reads (OverallWidth/Height on
+              // doors/windows, PredefinedType on slabs, LongName on spaces). p is already
+              // fetched so this is free; kept raw ({value}) since rules read `.value`.
+              OverallWidth:p.OverallWidth,OverallHeight:p.OverallHeight,PredefinedType:p.PredefinedType,LongName:p.LongName};
             found++;
           }
         }catch(e){}
@@ -573,7 +577,11 @@ async function getAllProps(modelID: number): Promise<Record<string, any>> {
         if(p.Representation){
           let typeName='Unknown';
           try{typeName=IFC_NAMES[lineType]||('IFC_'+lineType)}catch(e){}
-          props[p.GlobalId.value]={expressID:eid,globalId:p.GlobalId.value,type:typeName,name:p.Name?.value||'',description:p.Description?.value||'',objectType:p.ObjectType?.value||'',tag:p.Tag?.value||''};
+          props[p.GlobalId.value]={expressID:eid,globalId:p.GlobalId.value,type:typeName,name:p.Name?.value||'',description:p.Description?.value||'',objectType:p.ObjectType?.value||'',tag:p.Tag?.value||'',
+              // Direct IFC attributes the SG validator reads (OverallWidth/Height on
+              // doors/windows, PredefinedType on slabs, LongName on spaces). p is already
+              // fetched so this is free; kept raw ({value}) since rules read `.value`.
+              OverallWidth:p.OverallWidth,OverallHeight:p.OverallHeight,PredefinedType:p.PredefinedType,LongName:p.LongName};
           extra++;found++;
         }
       }catch(e){}

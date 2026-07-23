@@ -26,7 +26,7 @@ import {
   exceedsUploadQuota, sumStorageUsage, formatBytes,
 } from '../../lib/cloud-files.js';
 import { getCachedFile, putCachedFile, clearCache } from '../../lib/ifc-cache.js';
-import { restoreLocalSession } from '../../lib/local-session.js';
+import { restoreLocalSession, clearLocalSession } from '../../lib/local-session.js';
 import {
   fetchResultMetadata, downloadResult, buildModelSignature, signaturesMatch, outdatedBadgeLabel,
   type ResultKind,
@@ -172,9 +172,25 @@ persist();
 // activation; units.ts's own localStorage remains the source of truth
 // otherwise (this only overrides it when the cloud doc actually has a
 // saved preference different from the current one).
+// Remembers the local/default unit pref the first time a cloud project
+// overrides it, so returning to a local project restores the user's own
+// choice instead of leaving them stuck on the last cloud project's units.
+let localUnitPrefBackup: string | null = null;
+
 function applyCloudProjectUnits(cp: CloudProject | undefined): void {
   const units = cp?.settings?.units;
-  if (units && units !== getUnitPref()) setUnitPref(units);
+  if (units && units !== getUnitPref()) {
+    if (localUnitPrefBackup === null) localUnitPrefBackup = getUnitPref();
+    setUnitPref(units);
+  }
+}
+
+// Called when activating a LOCAL project — undo any cloud unit override.
+function restoreLocalUnitPref(): void {
+  if (localUnitPrefBackup !== null) {
+    if (localUnitPrefBackup !== getUnitPref()) setUnitPref(localUnitPrefBackup as any);
+    localUnitPrefBackup = null;
+  }
 }
 
 function chipLabel(): void {
@@ -381,8 +397,9 @@ window.projSwitch = function (id: string, opts?: { fromField?: boolean }): void 
   appState.activeCloudProjectId = null;
   appState.cloudFileRecords = {};
   appState.cloudSyncStatus = {};
-  document.getElementById('syncChip0')!.textContent = '';
-  document.getElementById('syncChip1')!.textContent = '';
+  restoreLocalUnitPref(); // undo any cloud project's unit override
+  document.getElementById('syncChip0')?.replaceChildren();
+  document.getElementById('syncChip1')?.replaceChildren();
   finishActivation(fromField);
   if (!fromField) window.toggleProjectsPanel?.();
 };
@@ -800,6 +817,10 @@ window.addEventListener('ifc:signout', () => {
   switchGeneration++; // kill any in-flight cloud auto-load too
   cloudList = [];
   cloudLoadError = false;
+  // Wipe any locally-cached file bytes so the next user on a shared machine
+  // can't F5 and restore this user's model (local-session is keyed by slot
+  // index only, and _localSessionChecked resets on the fresh page load).
+  clearLocalSession().catch(e => console.warn('[local-session] clear on sign-out failed:', e));
   document.getElementById('syncChip0')?.replaceChildren();
   document.getElementById('syncChip1')?.replaceChildren();
   chipLabel();

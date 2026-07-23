@@ -132,26 +132,40 @@ export async function getCachedBlob(key: string, fileName: string): Promise<File
   }
 }
 
+// Serializes the list→plan-eviction→delete→put critical section. The cloud
+// auto-loader fires several putCachedBlob calls concurrently; without this,
+// each reads the same stale entry snapshot, so eviction is planned against
+// out-of-date sizes (budget over-shoots) and one writer can evict a blob
+// another is mid-writing. A single-lane promise chain keeps each put's
+// read-modify-write atomic w.r.t. the others.
+let _putChain: Promise<void> = Promise.resolve();
+
 // Stores `file` under `key`, evicting oldest-accessed entries first (shared
 // LRU budget across every key in this store) if the budget would be
 // exceeded. Best-effort — a failure here never blocks the caller's
 // already-completed download/load.
-export async function putCachedBlob(key: string, file: File, budgetBytes: number = DEFAULT_CACHE_BUDGET_BYTES): Promise<void> {
-  try {
-    const db = await openDb();
-    const existing = await listEntries(db);
-    const evictKeys = planEviction(existing.filter(e => e.key !== key), file.size, budgetBytes);
-    await deleteKeys(db, evictKeys);
-    const entry: StoredBlob = { key, size: file.size, lastAccess: Date.now(), blob: file };
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put(entry);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (e) {
-    console.warn('[ifc-cache] putCachedBlob failed (best-effort, ignored):', e);
-  }
+export function putCachedBlob(key: string, file: File, budgetBytes: number = DEFAULT_CACHE_BUDGET_BYTES): Promise<void> {
+  const run = _putChain.then(async () => {
+    try {
+      const db = await openDb();
+      const existing = await listEntries(db);
+      const evictKeys = planEviction(existing.filter(e => e.key !== key), file.size, budgetBytes);
+      await deleteKeys(db, evictKeys);
+      const entry: StoredBlob = { key, size: file.size, lastAccess: Date.now(), blob: file };
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(entry);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) {
+      console.warn('[ifc-cache] putCachedBlob failed (best-effort, ignored):', e);
+    }
+  });
+  // Keep the chain alive even if this link rejects (it can't — inner try/catch
+  // swallows), and don't let the shared chain accumulate rejections.
+  _putChain = run.catch(() => {});
+  return run;
 }
 
 // Best-effort delete of a single cache entry.

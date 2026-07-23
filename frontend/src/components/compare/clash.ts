@@ -1477,7 +1477,10 @@ window.focusClash = function(idx: number): void {
   // ── Remove old focus highlights ──
   const oldFocus: THREE.Object3D[] = [];
   appState.scene.traverse(c => { if ((c as any).userData?.clashFocus) oldFocus.push(c); });
-  oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); });
+  // Dispose, not just remove — each focus creates two fresh subset meshes +
+  // materials; over a session of clicking cards (or a BCF export that focuses
+  // every clash) these leak GPU geometry/materials without the dispose.
+  oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); disposeModel(c); });
 
   // ── Highlight the two specific clashing elements with colored subsets ──
   const matFocusA = new THREE.MeshPhongMaterial({ color: 0xef4444, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: true, clippingPlanes: appState.clipPlanes });
@@ -1852,7 +1855,7 @@ window.exportClashBCF = async function(): Promise<void> {
   //    we don't want them piled up).
   const focusHL: THREE.Object3D[] = [];
   appState.scene.traverse(c => { if ((c as any).userData?.clashFocus) focusHL.push(c); });
-  focusHL.forEach(c => { if (c.parent) c.parent.remove(c); });
+  focusHL.forEach(c => { if (c.parent) c.parent.remove(c); disposeModel(c); });
   // 2. If user wasn't in a section box before, deactivate section panel.
   if (!saveSectionActive && appState.sectionActive) {
     appState.sectionActive = false;
@@ -1930,6 +1933,11 @@ function maybeAutoRunClash(): void {
   }, 2500); // settle window: cloud auto-load loads slots sequentially
 }
 window.addEventListener('ifc:modelloaded', maybeAutoRunClash);
+// A (re)loaded model slot changes the Source/Target picker options (new file
+// name, or a slot going from empty→loaded). Rebuild the dropdowns off the same
+// event — loadIFC no longer touches these <select>s directly (doing so wiped
+// their <option> children).
+window.addEventListener('ifc:modelloaded', renderClashModelSelects);
 
 // Entering the clash page consumes a queued auto-run.
 window.addEventListener('ifc:pagechange', (e: Event) => {
