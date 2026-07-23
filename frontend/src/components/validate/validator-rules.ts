@@ -60,6 +60,17 @@ export function sgReadNumeric(entity: any, paramName: string, psetNameHint?: str
   return isNaN(n) ? null : n;
 }
 
+// The step geometry properties (NumberOfRiser/RiserHeight/TreadLength) live in
+// Pset_StairFlightCommon on IfcStairFlight in standard IFC, not on the IfcStair
+// aggregate — so the stair rules must check the flights. Some authoring tools
+// only export the IfcStair aggregate (with Pset_StairCommon), so fall back to
+// it when no flights are present. Prefer flights to avoid a mixed report where
+// the aggregate false-fails while its own flight carries the data.
+export function sgStairCheckEntities(ctx: any): any[] {
+  const flights = ctx.byClass.get('IfcStairFlight') || [];
+  return flights.length ? flights : (ctx.byClass.get('IfcStair') || []);
+}
+
 export const SG_RULES: any[] = [
   // ── GENERAL: project & spatial structure ──────────────────────────
   {
@@ -526,7 +537,7 @@ export const SG_RULES: any[] = [
     desc: 'Pset_StairCommon.NumberOfRiser needed for capacity review.',
     severity: 'warn',
     check: (ctx: any) => {
-      const stairs = ctx.byClass.get('IfcStair') || [];
+      const stairs = sgStairCheckEntities(ctx);
       const passed: any[] = [], failed: any[] = [];
       for (const s of stairs) {
         if (sgReadNumeric(s, 'NumberOfRiser') != null) passed.push({ eid: s.eid, name: s.name });
@@ -541,7 +552,7 @@ export const SG_RULES: any[] = [
     desc: 'BCA accessibility requires riser height ≤ 175mm.',
     severity: 'warn',
     check: (ctx: any) => {
-      const stairs = ctx.byClass.get('IfcStair') || [];
+      const stairs = sgStairCheckEntities(ctx);
       const passed: any[] = [], failed: any[] = [];
       for (const s of stairs) {
         const rh = sgReadNumeric(s, 'RiserHeight');
@@ -559,7 +570,7 @@ export const SG_RULES: any[] = [
     desc: 'BCA accessibility requires tread length ≥ 250mm.',
     severity: 'warn',
     check: (ctx: any) => {
-      const stairs = ctx.byClass.get('IfcStair') || [];
+      const stairs = sgStairCheckEntities(ctx);
       const passed: any[] = [], failed: any[] = [];
       for (const s of stairs) {
         const tl = sgReadNumeric(s, 'TreadLength');

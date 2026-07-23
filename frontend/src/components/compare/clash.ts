@@ -611,15 +611,18 @@ export function exitClashMode(): void {
   appState.scene.traverse(c => { if ((c as any).userData?.clashFocus) oldFocus.push(c); });
   oldFocus.forEach(c => { if (c.parent) c.parent.remove(c); disposeModel(c); });
 
-  // Restore visibility for whichever slots the last run actually used —
-  // Source/Target can be any loaded slot (federation included), not just 0/1.
-  const exitClashIndices = new Set<number>([0, 1, appState.clashSourceIdx, appState.clashTargetIdx]);
-  exitClashIndices.forEach(i => {
-    if (!appState.loadedModels[i]) return;
+  // Restore materials for EVERY loaded model, not just the currently-selected
+  // Source/Target slots. The run that faded a slot could have used a different
+  // Source/Target than what's selected now (e.g. a cloud restore faded slot 3,
+  // then the dropdowns reset to 0/1) — keying off the current indices left that
+  // slot stuck translucent. _clashOrigMats is the reliable "was faded" marker,
+  // so restore wherever it's present; drive visibility off the A/B checkboxes
+  // (federation slots default visible).
+  appState.loadedModels.forEach((model, i) => {
+    if (!model) return;
     const visEl = document.getElementById(i === 0 ? 'visA' : i === 1 ? 'visB' : '') as HTMLInputElement | null;
-    const vis = visEl ? visEl.checked : true;
-    appState.loadedModels[i]!.visible = vis;
-    appState.loadedModels[i]!.traverse(c => {
+    model.visible = visEl ? visEl.checked : true;
+    model.traverse(c => {
       if ((c as any).isMesh) {
         if ((c as any).userData._clashOrigMats) { (c as any).material = (c as any).userData._clashOrigMats; delete (c as any).userData._clashOrigMats; }
         (c as any).visible = true;
