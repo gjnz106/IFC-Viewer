@@ -34,10 +34,18 @@ function onMove(e: PointerEvent): void {
   const hits = ray.intersectObjects(collectPickables(), false);
   if (hits.length) {
     const p = hits[0].point;
+    // loadIFC recenters every model by -sharedCenterOffset so the federation
+    // sits near the origin. The raycast hit is therefore in recentered scene
+    // space — add the offset back to report the true model/IFC coordinate a
+    // BIM user expects, not the shifted one.
+    const off = appState.sharedCenterOffset as any;
+    const px = p.x + (off?.x || 0);
+    const py = p.y + (off?.y || 0);
+    const pz = p.z + (off?.z || 0);
     const pref = getUnitPref();
-    const fx = formatLengthMm(worldToMm(p.x, appState.loadedModels), pref);
-    const fy = formatLengthMm(worldToMm(p.y, appState.loadedModels), pref);
-    const fz = formatLengthMm(worldToMm(p.z, appState.loadedModels), pref);
+    const fx = formatLengthMm(worldToMm(px, appState.loadedModels), pref);
+    const fy = formatLengthMm(worldToMm(py, appState.loadedModels), pref);
+    const fz = formatLengthMm(worldToMm(pz, appState.loadedModels), pref);
     readout.innerHTML = `X <b>${fx}</b>&nbsp;&nbsp;Y <b>${fy}</b>&nbsp;&nbsp;Z <b>${fz}</b>`;
   } else {
     readout.innerHTML = 'X —&nbsp;&nbsp;Y —&nbsp;&nbsp;Z —';

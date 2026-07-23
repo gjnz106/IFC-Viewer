@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compoundToDeg, sgReadParam, sgHasParam, sgReadNumeric, SG_RULES } from './validator-rules.js';
+import { compoundToDeg, sgReadParam, sgHasParam, sgReadNumeric, sgStairCheckEntities, SG_RULES } from './validator-rules.js';
 
 const rule = (id: string) => {
   const r = SG_RULES.find((x: any) => x.id === id);
@@ -7,15 +7,23 @@ const rule = (id: string) => {
   return r;
 };
 // Minimal ctx matching what sgBuildContext() produces.
-const makeCtx = (opts: { buildings?: any[]; spaces?: any[] } = {}) => {
+const makeCtx = (opts: { buildings?: any[]; spaces?: any[]; stairs?: any[]; stairFlights?: any[] } = {}) => {
   const byClass = new Map<string, any[]>();
   if (opts.spaces) byClass.set('IfcSpace', opts.spaces);
+  if (opts.stairs) byClass.set('IfcStair', opts.stairs);
+  if (opts.stairFlights) byClass.set('IfcStairFlight', opts.stairFlights);
   return {
     modelIDs: [{ modelID: 1, modelIdx: 0, spatial: { buildings: opts.buildings || [], sites: [], storeys: [] } }],
     byClass,
     entities: [...(opts.spaces || [])],
   };
 };
+
+// Builds an entity carrying one pset property, matching sgReadParam's shape.
+const withProp = (eid: number, name: string, psetName: string, propName: string, value: any) => ({
+  eid, name,
+  psets: [{ Name: { value: psetName }, HasProperties: [{ Name: { value: propName }, NominalValue: { value } }] }],
+});
 
 describe('compoundToDeg', () => {
   it('passes through plain numbers', () => {
@@ -151,6 +159,41 @@ describe('GEN-005 IfcBuilding present (reads spatial.buildings)', () => {
     const res = rule('GEN-005').check(makeCtx({ buildings: [] }));
     expect(res.passed).toHaveLength(0);
     expect(res.failed[0].reason).toMatch(/No IfcBuilding/);
+  });
+});
+
+describe('sgStairCheckEntities (prefers IfcStairFlight, falls back to IfcStair)', () => {
+  it('returns the flights when present', () => {
+    const flights = [{ eid: 10, name: 'Flight 1' }];
+    const stairs = [{ eid: 1, name: 'Stair 1' }];
+    expect(sgStairCheckEntities(makeCtx({ stairs, stairFlights: flights }))).toBe(flights);
+  });
+  it('falls back to IfcStair when no flights exist', () => {
+    const stairs = [{ eid: 1, name: 'Stair 1' }];
+    expect(sgStairCheckEntities(makeCtx({ stairs }))).toBe(stairs);
+  });
+  it('returns [] when neither is present', () => {
+    expect(sgStairCheckEntities(makeCtx({}))).toEqual([]);
+  });
+});
+
+describe('BCA-ARCH-ST02 RiserHeight (reads step props off IfcStairFlight)', () => {
+  it('passes a compliant flight whose props live in Pset_StairFlightCommon', () => {
+    // Props on the flight, NOT the IfcStair aggregate — the exact case the old
+    // ctx.byClass.get("IfcStair") lookup missed (every stair false-failed).
+    const res = rule('BCA-ARCH-ST02').check(makeCtx({
+      stairs: [{ eid: 1, name: 'Stair 1' }], // aggregate carries no step props
+      stairFlights: [withProp(10, 'Flight 1', 'Pset_StairFlightCommon', 'RiserHeight', 150)],
+    }));
+    expect(res.failed).toHaveLength(0);
+    expect(res.passed).toHaveLength(1);
+  });
+  it('fails a flight over the 175mm limit', () => {
+    const res = rule('BCA-ARCH-ST02').check(makeCtx({
+      stairFlights: [withProp(10, 'Flight 1', 'Pset_StairFlightCommon', 'RiserHeight', 200)],
+    }));
+    expect(res.passed).toHaveLength(0);
+    expect(res.failed[0].reason).toMatch(/> 175mm/);
   });
 });
 
