@@ -12,6 +12,25 @@ export const aiRouter = Router();
    header `Authorization: Bearer <Firebase ID token>`.
 ═══════════════════════════════════════════════════════════════════════ */
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyCrqJiIxlahcHZuwa7xS7KMX8Z5c6Ky3Oo';
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'ifc-delta';
+
+// Allowlist: email phải có doc `allowedUsers/{email}` trên Firestore (admin
+// cấp trong Console). Đọc qua Firestore REST bằng CHÍNH token của user —
+// security rules cho phép user đọc doc allow của riêng mình, không cần
+// service-account. 200 = có; 403/404/lỗi = không.
+async function isAllowedEmail(idToken: string, email: string): Promise<boolean> {
+  try {
+    const docId = encodeURIComponent(email.toLowerCase());
+    const resp = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/allowedUsers/${docId}`,
+      { headers: { Authorization: 'Bearer ' + idToken } }
+    );
+    return resp.ok;
+  } catch (err) {
+    console.error('[ai] allowlist check failed:', err);
+    return false;
+  }
+}
 
 async function verifyFirebaseToken(idToken: string): Promise<{ uid: string; email?: string } | null> {
   try {
@@ -26,9 +45,10 @@ async function verifyFirebaseToken(idToken: string): Promise<{ uid: string; emai
     if (!resp.ok) return null;
     const data: any = await resp.json();
     const user = data?.users?.[0];
-    if (!user?.localId) return null;
-    // Chỉ chấp nhận tài khoản đã xác minh email — khớp gate ở frontend (auth.ts).
-    if (!user.emailVerified) return null;
+    if (!user?.localId || !user.email) return null;
+    // Chỉ chấp nhận account trong allowlist (admin cấp) — khớp gate ở frontend
+    // (auth.ts) và security rules. Không dùng email verification nữa.
+    if (!(await isAllowedEmail(idToken, user.email))) return null;
     return { uid: user.localId, email: user.email };
   } catch (err) {
     console.error('[ai] Firebase token verification failed:', err);

@@ -246,8 +246,6 @@ declare global {
     };
 
     // Auth
-    checkVerifiedNow?: () => void;
-    signOutFromVerify?: () => void;
     showResetView?: () => void;
     toggleUserMenu?: () => void;
     doLogout?: () => void;

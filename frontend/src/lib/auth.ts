@@ -3,12 +3,10 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   signOut,
-  sendEmailVerification,
   sendPasswordResetEmail,
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
-  reload as reloadUser,
   type User,
 } from 'firebase/auth';
 import { appState } from '../store/index.js';
@@ -55,15 +53,13 @@ const $ = (id: string) => document.getElementById(id) as HTMLElement;
 const overlay = $('authOverlay');
 const viewLoading = $('authViewLoading');
 const viewLogin = $('authViewLogin');
-const viewVerify = $('authViewVerify');
 const viewReset = $('authViewReset');
 
 // Sign-up is intentionally not self-serve — accounts are provisioned by an
 // admin (Firebase Console → Authentication → Add user). No 'signup' state.
-function showView(which: 'loading' | 'login' | 'verify' | 'reset') {
+function showView(which: 'loading' | 'login' | 'reset') {
   viewLoading.style.display = which === 'loading' ? '' : 'none';
   viewLogin.style.display = which === 'login' ? '' : 'none';
-  viewVerify.style.display = which === 'verify' ? '' : 'none';
   viewReset.style.display = which === 'reset' ? '' : 'none';
 }
 
@@ -150,26 +146,50 @@ if (auth) {
     setAuth(user);
     (window as any).isAdmin = !!(user.email && ADMIN_EMAILS.has(user.email.toLowerCase()));
 
-    if (!user.emailVerified) {
-      overlay.classList.remove('hidden');
-      showView('verify');
-      $('verifyEmail').textContent = user.email || '';
-      if (!sessionStorage.getItem('verifySent_' + user.uid)) {
-        sendEmailVerification(user)
-          .then(() => {
-            showMsg('verifyMsg', 'Verification email sent. Check your inbox (and spam folder).', 'success');
-            sessionStorage.setItem('verifySent_' + user.uid, '1');
-          })
-          .catch(e => {
-            console.warn('[auth] auto sendEmailVerification:', e?.code);
-          });
-      }
-      return;
-    }
-    // Signed in AND verified → grant access
-    overlay.classList.add('hidden');
-    showLoggedInUser(user);
+    // Access is restricted to admin-provisioned accounts. Email verification
+    // is no longer used; instead an email must be listed in Firestore
+    // `allowedUsers/{email}` (the admin creates the account in the Firebase
+    // console and adds the matching allowlist doc). Any account not on the
+    // allowlist — including a self-signup — is signed straight back out.
+    void grantAccessIfAllowed(user);
   });
+}
+
+// Checks the Firestore allowlist for this user's email. Each user may read
+// only their own `allowedUsers/{email}` doc (see firestore.rules), so this
+// leaks nothing about who else is allowed. firebase/firestore is lazy-imported
+// to keep it out of the initial auth path bundle. Fails closed (returns false)
+// on any error so a read failure never grants access.
+async function isEmailAllowed(user: User): Promise<boolean> {
+  const email = (user.email || '').toLowerCase();
+  if (!email) return false;
+  const { getFirestore, doc, getDoc } = await import('firebase/firestore');
+  const snap = await getDoc(doc(getFirestore(), 'allowedUsers', email));
+  return snap.exists();
+}
+
+async function grantAccessIfAllowed(user: User): Promise<void> {
+  overlay.classList.remove('hidden');
+  showView('loading');
+  let allowed = false;
+  try {
+    allowed = await isEmailAllowed(user);
+  } catch (e) {
+    console.warn('[auth] allowlist check failed — denying access:', e);
+    allowed = false;
+  }
+  // Auth changed while we were checking (fast sign-out/in) — let the newer
+  // event own the UI.
+  if (authState.user !== user) return;
+  if (!allowed) {
+    if (auth) await signOut(auth).catch(() => {});
+    // onAuthStateChanged(null) will re-show the login view; add the reason.
+    showView('login');
+    showMsg('loginMsg', 'This account is not authorized. Contact your admin.', 'error');
+    return;
+  }
+  overlay.classList.add('hidden');
+  showLoggedInUser(user);
 }
 
 function showLoggedInUser(user: User) {
@@ -193,11 +213,6 @@ function showLoggedInUser(user: User) {
   if (profileName) profileName.textContent = user.displayName || local;
   const profileEmail = document.getElementById('profileEmail');
   if (profileEmail) profileEmail.textContent = email;
-  const profileVerified = document.getElementById('profileVerified');
-  if (profileVerified) {
-    profileVerified.textContent = user.emailVerified ? 'Verified' : 'Not verified';
-    profileVerified.style.color = user.emailVerified ? 'var(--green, #009668)' : '#b75a00';
-  }
   const profileRole = document.getElementById('profileRole');
   if (profileRole) profileRole.textContent = (window as any).isAdmin ? 'Admin' : 'Member';
 }
@@ -219,47 +234,6 @@ function showLoggedInUser(user: User) {
     setLoading('loginSubmit', false);
   }
 });
-
-// ── VERIFY-EMAIL view actions ───────────────────────────────────────────
-$('verifyResend').addEventListener('click', async () => {
-  if (!auth?.currentUser) return;
-  clearMsg('verifyMsg');
-  setLoading('verifyResend', true);
-  try {
-    await sendEmailVerification(auth.currentUser);
-    showMsg('verifyMsg', 'Verification email sent. Check your inbox.', 'success');
-  } catch (err) {
-    showMsg('verifyMsg', friendlyAuthError(err));
-  } finally {
-    setLoading('verifyResend', false);
-  }
-});
-
-$('verifyCheck').addEventListener('click', async () => {
-  if (!auth?.currentUser) return;
-  setLoading('verifyCheck', true);
-  try {
-    await auth.currentUser.reload();
-    if (auth.currentUser.emailVerified) {
-      // Force-refresh the ID token: the cached one still carries
-      // email_verified:false for up to ~1h, silently denying all
-      // Firestore/Storage rules until then.
-      await auth.currentUser.getIdToken(true).catch(() => {});
-      overlay.classList.add('hidden');
-      showLoggedInUser(auth.currentUser);
-    } else {
-      showMsg('verifyMsg', 'Email is not verified yet. Check your inbox and click the link first.', 'info');
-    }
-  } catch (err) {
-    showMsg('verifyMsg', friendlyAuthError(err));
-  }
-});
-
-window.signOutFromVerify = async function () {
-  if (!auth) return;
-  try { await signOut(auth); } catch (e) { }
-  sessionStorage.clear();
-};
 
 // Used by the AI chat proxy call (src/app/22-ai.ts and
 // frontend/.../integrations/ai.ts) to authenticate POST /api/ai/chat.
