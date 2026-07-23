@@ -286,7 +286,7 @@
 
   <!-- ═══ ICON RAIL (52px) — drives left-panel content (v5 shell) ═══ -->
   <nav class="icon-rail" id="iconRail">
-    <button class="rail-btn active" id="rail-overview" onclick="railSelect('overview')" title="BIM Viewer (Overall) — spatial structure per file">
+    <button class="rail-btn active" id="rail-overview" onclick="railSelect('overview')" title="Navigation — toggle models, objects & structure">
       <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 17l10 5 10-5"/></svg>
     </button>
     <button class="rail-btn" id="rail-files" onclick="railSelect('files')" title="Model Files">
@@ -513,18 +513,47 @@
 
       </div><!-- /lpModel -->
 
-      <!-- === OVERVIEW section — per-file spatial tree (rail: Overview) === -->
+      <!-- === NAVIGATION section — Models / Objects / Structure (rail: Overview) === -->
       <div class="lp-overview hide" id="lpOverview">
-        <div id="ovClash"></div>
-        <div class="ov-summary" id="ovSummary"></div>
-        <div class="ov-search-wrap">
-          <div class="ov-search-box">
-            <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#9ca3af;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
-            <input class="ov-search-input" id="ovSearch" placeholder="Search models…" oninput="ovSearchInput()">
-          </div>
+        <div class="nav-tabs" role="tablist">
+          <button class="nav-tab active" id="navTab-models" onclick="navShowTab('models')">Models</button>
+          <button class="nav-tab" id="navTab-objects" onclick="navShowTab('objects')">Objects</button>
+          <button class="nav-tab" id="navTab-structure" onclick="navShowTab('structure')">Structure</button>
         </div>
-        <div class="ov-tree" id="ovTree">
-          <div class="ov-empty">No models loaded.<br>Load an IFC file to see its structure here.</div>
+
+        <!-- Models pane: toggle whole model files on/off -->
+        <div class="nav-pane" id="navPane-models">
+          <div class="nav-pane-actions">
+            <input class="nav-search" id="navModelSearch" placeholder="Search models…" oninput="navRenderModels()">
+            <button class="nav-mini-btn" onclick="navAllModels(true)" title="Show all models">Show all</button>
+            <button class="nav-mini-btn" onclick="navAllModels(false)" title="Hide all models">Hide all</button>
+          </div>
+          <div class="nav-list" id="navModelsList"></div>
+        </div>
+
+        <!-- Objects pane: toggle IFC categories on/off -->
+        <div class="nav-pane hide" id="navPane-objects">
+          <div class="nav-pane-actions">
+            <input class="nav-search" id="navObjectSearch" placeholder="Search categories…" oninput="navRenderObjects()">
+            <button class="nav-mini-btn" onclick="navAllObjects(true)" title="Show all categories">Show all</button>
+            <button class="nav-mini-btn" onclick="navAllObjects(false)" title="Hide all categories">Hide all</button>
+          </div>
+          <div class="nav-list" id="navObjectsList"></div>
+        </div>
+
+        <!-- Structure pane: existing per-file spatial tree -->
+        <div class="nav-pane hide" id="navPane-structure">
+          <div id="ovClash"></div>
+          <div class="ov-summary" id="ovSummary"></div>
+          <div class="ov-search-wrap">
+            <div class="ov-search-box">
+              <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#9ca3af;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+              <input class="ov-search-input" id="ovSearch" placeholder="Search structure…" oninput="ovSearchInput()">
+            </div>
+          </div>
+          <div class="ov-tree" id="ovTree">
+            <div class="ov-empty">No models loaded.<br>Load an IFC file to see its structure here.</div>
+          </div>
         </div>
       </div><!-- /lpOverview -->
     </aside>

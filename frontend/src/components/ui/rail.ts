@@ -18,7 +18,7 @@ function isLeftCollapsed(): boolean {
 }
 
 const RAIL_TITLES: Record<string, string> = {
-  overview: 'BIM Viewer (Overall)',
+  overview: 'Navigation',
   files: 'Model Files',
   tree: 'Entity Tree',
   issues: 'Changes',
@@ -69,7 +69,7 @@ function showLeftPanel(): void {
   overview?.classList.toggle('hide', tab !== 'overview');
   model?.classList.toggle('hide', tab === 'files' || tab === 'overview');
   if (tab === 'overview') {
-    (window as any).ovRefresh?.();
+    (window as any).navRefresh?.();  // renders the active Navigation tab (Models/Objects/Structure)
   } else if (tab !== 'files') {
     (window as any).switchTab?.(tab);
   }
