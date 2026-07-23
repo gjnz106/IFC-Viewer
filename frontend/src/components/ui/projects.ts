@@ -35,7 +35,7 @@ import { restoreCompareResult } from '../compare/federation-load.js';
 import { restoreClashResult } from '../compare/clash.js';
 import { log } from '../core/ifc-category.js';
 import { getUnitPref, setUnitPref } from '../../lib/units.js';
-import { restoreCamera } from './state-persist.js';
+import { restoreCamera, saveCameraForProject, clearCameraForProject } from './state-persist.js';
 
 function persist(): void {
   saveRegistry(registry);
@@ -143,6 +143,7 @@ async function refreshCloudList(): Promise<void> {
     if (savedCloudId && fetched.some(p => p.id === savedCloudId)) {
       switchGeneration++; // invalidates any in-flight local-session restore (same slots)
       appState.activeCloudProjectId = savedCloudId;
+      appState.activeProjectId = savedCloudId; // key camera restore to this project
       chipLabel();
       applyCloudProjectUnits(fetched.find(p => p.id === savedCloudId));
       autoLoadCloudProjectFiles(savedCloudId).catch(e => console.warn('[cloud-files] auto-restore failed:', e));
@@ -164,6 +165,9 @@ async function refreshCloudList(): Promise<void> {
 // across reloads (Phase 9's per-project viewpoints key off this id).
 let registry: ProjectRegistry = loadRegistry();
 persist();
+// Seed the unified active-project id (local by default; refreshCloudList
+// overrides it to the cloud id if it restores a cloud project on boot).
+appState.activeProjectId = registry.activeId;
 
 // Cloud settings sync was write-only (syncProjectSettings pushes the local
 // unit pref up on change, nothing ever read it back) — a project opened on
@@ -292,6 +296,9 @@ function renderProjectList(): void {
 };
 
 function saveOutgoingState(): void {
+  // Snapshot the outgoing project's camera under its own id (works for both
+  // local and cloud projects) so it's restored next time this project opens.
+  saveCameraForProject(appState.activeProjectId);
   // Leaving a CLOUD project must not stamp its page/camera onto whatever
   // unrelated local project happens to be the registry's active.
   if (appState.activeCloudProjectId) return;
@@ -313,6 +320,8 @@ function saveOutgoingState(): void {
 // projCreate (a new project is always made active) and projSwitch.
 function finishActivation(skipNav = false): void {
   switchGeneration++; // invalidates any in-flight cloud auto-load
+  // Local activation — the unified active-project id follows the registry.
+  appState.activeProjectId = registry.activeId;
   persist();
   // Field Mode is its own page and already shows the viewport; navigating to
   // 'viewer' there would kick the user out of Field Mode, so switches invoked
@@ -376,6 +385,7 @@ window.projDelete = function (id: string): void {
   const wasActive = registry.activeId === id;
   registry = deleteProject(registry, id);
   deleteProjectViewpoints(id);
+  clearCameraForProject(id);
   if (wasActive) {
     finishActivation();
   } else {
@@ -623,6 +633,7 @@ window.projSwitchCloud = function (id: string, opts?: { fromField?: boolean }): 
   saveOutgoingState();
   switchGeneration++; // invalidates any in-flight auto-load for the previous project
   appState.activeCloudProjectId = id;
+  appState.activeProjectId = id; // key camera restore to this project
   persist();
   applyCloudProjectUnits(cloudList.find(c => c.id === id));
   // Field Mode stays on its own page (see finishActivation note); desktop jumps
@@ -815,6 +826,7 @@ window.addEventListener('ifc:projectchange', () => { refreshStorageUsage(); });
 // local active project in the chip so the next user starts clean.
 window.addEventListener('ifc:signout', () => {
   switchGeneration++; // kill any in-flight cloud auto-load too
+  appState.activeProjectId = registry.activeId; // back to the local project's camera
   cloudList = [];
   cloudLoadError = false;
   // Wipe any locally-cached file bytes so the next user on a shared machine

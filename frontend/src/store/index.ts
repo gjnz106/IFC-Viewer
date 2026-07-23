@@ -107,6 +107,12 @@ export const appState = {
   // File auto-load against this id is Phase 13's job.
   activeCloudProjectId: null as string | null,
 
+  // Unified id of whatever project is currently active — the cloud project id
+  // when activeCloudProjectId is set, otherwise the local registry's active id.
+  // Used to key per-project camera persistence (see state-persist.ts) so each
+  // project restores its own view. Maintained by projects.ts.
+  activeProjectId: '' as string,
+
   // ── Cloud files (Phase 13) ────────────────────────────────────────────
   // Known `files/{fileId}` records for the active cloud project, keyed by
   // slot index (0/1 = A/B, 2+ = federation) — populated on auto-load and

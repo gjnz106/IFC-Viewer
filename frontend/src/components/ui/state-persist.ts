@@ -38,14 +38,10 @@ function save() {
     localStorage.setItem(K.colMode, appState.colorize.mode || 'auto');
     localStorage.setItem(K.colProp, appState.colorize.property || 'category');
 
-    // Camera — only when Three.js is live
-    const ctrl = appState.controls as any;
-    if (appState.camera && ctrl?.target) {
-      localStorage.setItem(K.camera, JSON.stringify({
-        px: appState.camera.position.x, py: appState.camera.position.y, pz: appState.camera.position.z,
-        tx: ctrl.target.x,              ty: ctrl.target.y,              tz: ctrl.target.z,
-      }));
-    }
+    // Camera — persisted per-project (each project restores its own view),
+    // keyed by appState.activeProjectId. Falls back to the legacy global key
+    // when no project id is set yet (very early boot).
+    saveCameraForProject(appState.activeProjectId);
   } catch { /* storage quota — silent */ }
 }
 
@@ -94,11 +90,38 @@ function restore() {
   } catch { /* corrupt data — ignore */ }
 }
 
-// ── Camera restore (called after model loads so zoomFit doesn't override) ─
+// ── Per-project camera persistence ────────────────────────────────────────
+// Each project (local or cloud) restores its own view. Camera is keyed by the
+// active project id; the legacy global `ifc.camera` key is used as a fallback
+// only when no project id is available (very early boot before the registry
+// resolves).
+const CAM_PROJ_PREFIX = 'ifc.camera.proj:';
+function cameraKeyFor(projectId: string): string {
+  return projectId ? CAM_PROJ_PREFIX + projectId : K.camera;
+}
 
-export function restoreCamera() {
+export function saveCameraForProject(projectId: string): void {
+  const ctrl = appState.controls as any;
+  if (!appState.camera || !ctrl?.target) return;
   try {
-    const raw = localStorage.getItem(K.camera);
+    localStorage.setItem(cameraKeyFor(projectId), JSON.stringify({
+      px: appState.camera.position.x, py: appState.camera.position.y, pz: appState.camera.position.z,
+      tx: ctrl.target.x,              ty: ctrl.target.y,              tz: ctrl.target.z,
+    }));
+  } catch { /* storage quota — silent */ }
+}
+
+// Drop a project's stored camera (called when the project is deleted so its
+// key doesn't linger in localStorage).
+export function clearCameraForProject(projectId: string): void {
+  if (!projectId) return;
+  try { localStorage.removeItem(cameraKeyFor(projectId)); } catch { /* ignore */ }
+}
+
+// Called after a project's models finish loading so zoomFit doesn't override.
+export function restoreCameraForProject(projectId: string): void {
+  try {
+    const raw = localStorage.getItem(cameraKeyFor(projectId));
     if (!raw) return;
     const c = JSON.parse(raw);
     const ctrl = appState.controls as any;
@@ -107,6 +130,13 @@ export function restoreCamera() {
     ctrl.target.set(c.tx, c.ty, c.tz);
     ctrl.update?.();
   } catch { /* ignore */ }
+}
+
+// Back-compat shim: restore the currently-active project's camera. Existing
+// call sites (cloud auto-load, local-session restore) call this at the right
+// moment; it now resolves the per-project key off appState.activeProjectId.
+export function restoreCamera(): void {
+  restoreCameraForProject(appState.activeProjectId);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
