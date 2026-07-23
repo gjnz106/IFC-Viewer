@@ -122,7 +122,7 @@ async function checkLocalSessionRestore(): Promise<void> {
 
 async function refreshCloudList(): Promise<void> {
   const user = currentAuthUser();
-  if (!user || !user.emailVerified) {
+  if (!user) {
     cloudList = []; cloudLoadError = false; renderProjectList();
     checkLocalSessionRestore().catch(e => console.warn('[local-session] restore failed:', e));
     return;
@@ -223,7 +223,7 @@ function renderProjectList(): void {
   const el = document.getElementById('projList');
   if (!el) return;
   const user = currentAuthUser();
-  const canUseCloud = !!(user && user.emailVerified);
+  const canUseCloud = !!user;
 
   const localRows = registry.list.map(p => {
     const active = p.id === registry.activeId && !appState.activeCloudProjectId;
@@ -281,7 +281,7 @@ function renderProjectList(): void {
 (window as any).projFieldRefresh = function () { refreshCloudList(); };
 (window as any).projFieldData = function () {
   const user = currentAuthUser();
-  const canUseCloud = !!(user && user.emailVerified);
+  const canUseCloud = !!user;
   return {
     canUseCloud,
     cloud: !canUseCloud ? [] : cloudList.map(p => ({
@@ -455,7 +455,7 @@ export async function syncUploadSlot(idx: number, file: File): Promise<void> {
   const projectId = appState.activeCloudProjectId;
   if (!projectId) return;
   const user = currentAuthUser();
-  if (!user || !user.emailVerified) return;
+  if (!user) return;
 
   // Storage rules reject any file >= 500MB — warn up front instead of
   // letting the upload run and fail server-side with a cryptic error.
@@ -678,7 +678,7 @@ window.projDeleteCloud = async function (id: string): Promise<void> {
 
 window.projCreateCloud = async function (): Promise<void> {
   const user = currentAuthUser();
-  if (!user || !user.emailVerified) { alert('Sign in with a verified email to create cloud projects.'); return; }
+  if (!user) { alert('Sign in to create cloud projects.'); return; }
   const nameEl = document.getElementById('projNewName') as HTMLInputElement | null;
   const codeEl = document.getElementById('projNewCode') as HTMLInputElement | null;
   const name = nameEl?.value.trim() || '';
@@ -699,7 +699,7 @@ window.projCreateCloud = async function (): Promise<void> {
 // handles actual IFC file upload/migration).
 window.projMigrateToCloud = async function (id: string): Promise<void> {
   const user = currentAuthUser();
-  if (!user || !user.emailVerified) { alert('Sign in with a verified email to use cloud projects.'); return; }
+  if (!user) { alert('Sign in to use cloud projects.'); return; }
   const p: Project | undefined = registry.list.find(x => x.id === id);
   if (!p) return;
   if (!confirm(`Copy "${p.name}" to the cloud as a new project? (File upload comes in a later update.)`)) return;

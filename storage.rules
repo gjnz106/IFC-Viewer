@@ -6,8 +6,13 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    function isVerified() {
-      return request.auth != null && request.auth.token.email_verified == true;
+    // Access is restricted to admin-provisioned accounts: the signed-in email
+    // must have a matching doc in Firestore `allowedUsers/{email}` (managed by
+    // the admin in the console). Mirrors firestore.rules' isAllowed() so the
+    // two services share one gate. Email verification is not used.
+    function isAllowed() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/allowedUsers/$(request.auth.token.email.lower()));
     }
 
     function isProjectMember(projectId) {
@@ -34,17 +39,17 @@ service firebase.storage {
     }
 
     match /projects/{projectId}/{allPaths=**} {
-      allow read: if isVerified() && isProjectMember(projectId);
+      allow read: if isAllowed() && isProjectMember(projectId);
 
       // Split from a single `allow write`: on delete `request.resource` is
       // null, so the size/contentType checks error out and every
       // deleteObject() was denied — orphaned blobs accrued forever.
-      allow create, update: if isVerified()
+      allow create, update: if isAllowed()
         && isProjectMember(projectId)
         && request.resource.size < 500 * 1024 * 1024
         && isAllowedIfcContentType();
 
-      allow delete: if isVerified() && isProjectMember(projectId);
+      allow delete: if isAllowed() && isProjectMember(projectId);
     }
   }
 }

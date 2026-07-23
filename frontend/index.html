@@ -63,19 +63,6 @@
           <button type="submit" class="auth-submit" id="loginSubmit"><span class="auth-spinner"></span><span class="auth-submit-label">Sign in</span></button>
         </form>
       </div>
-      <div id="authViewVerify" style="display:none">
-        <div class="auth-verify">
-          <div class="auth-verify-icon">✉</div>
-          <div class="auth-verify-title">Verify your email</div>
-          <div class="auth-verify-desc">We sent a verification link to <b id="verifyEmail">—</b>.<br>Click the link in your inbox, then refresh this page.</div>
-          <div class="auth-msg" id="verifyMsg"></div>
-          <div class="auth-verify-actions">
-            <button type="button" class="auth-submit" id="verifyResend"><span class="auth-spinner"></span><span class="auth-submit-label">Resend verification email</span></button>
-            <button type="button" class="auth-inline-link" id="verifyCheck" style="text-align:center;margin-top:8px">I've verified — refresh</button>
-            <button type="button" class="auth-inline-link" style="text-align:center;margin-top:4px;color:var(--text-muted)" onclick="signOutFromVerify()">Use a different account</button>
-          </div>
-        </div>
-      </div>
       <div id="authViewReset" style="display:none">
         <button type="button" class="auth-back-btn" onclick="showLoginView()">← Back to Sign in</button>
         <div class="auth-heading-block">
@@ -1116,10 +1103,6 @@
       </div>
     </div>
     <div style="display:grid;gap:10px;font-size:13px">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(0,0,0,0.02);border-radius:8px;border:1px solid #eee">
-        <span style="color:#8590a6">Email status</span>
-        <span id="profileVerified" style="font-weight:600">—</span>
-      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(0,0,0,0.02);border-radius:8px;border:1px solid #eee">
         <span style="color:#8590a6">Role</span>
         <span id="profileRole" style="font-weight:600">Member</span>

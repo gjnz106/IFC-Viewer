@@ -8,8 +8,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isVerified() {
-      return request.auth != null && request.auth.token.email_verified == true;
+    // Access is restricted to admin-provisioned accounts: the signed-in
+    // email must have a matching doc in `allowedUsers/{email}` (managed by
+    // the admin in the Firebase console). Email verification is not used —
+    // there is no self-serve signup, and a stranger who self-registers via
+    // the Auth API has no allowlist doc, so every rule below denies them.
+    // rules' get()/exists() are privileged reads, so the allowlist collection
+    // itself can stay locked to clients (see the allowedUsers match block).
+    function isAllowed() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email.lower()));
     }
 
     // Lowercased to match how the client normalizes/stores memberEmails
@@ -37,15 +45,26 @@ service cloud.firestore {
         && data.ownerEmail in data.memberEmails;
     }
 
-    match /projects/{projectId} {
-      allow read: if isVerified() && isMember(resource.data);
+    // Admin-managed allowlist: one doc per permitted account, id = the
+    // lowercased email. Created/edited by the admin in the Firebase console
+    // (client writes are denied). A user may read only their own doc, which
+    // the app's sign-in gate uses to decide access — so nobody can enumerate
+    // who else is allowed. (isAllowed()'s exists() is a privileged rules read
+    // and works regardless of these client rules.)
+    match /allowedUsers/{email} {
+      allow read: if request.auth != null && request.auth.token.email.lower() == email;
+      allow write: if false;
+    }
 
-      allow create: if isVerified()
+    match /projects/{projectId} {
+      allow read: if isAllowed() && isMember(resource.data);
+
+      allow create: if isAllowed()
         && request.resource.data.ownerEmail == email()
         && memberEmailsIncludeOwner(request.resource.data)
         && isMember(request.resource.data);
 
-      allow update: if isVerified()
+      allow update: if isAllowed()
         && isMember(resource.data)
         && memberEmailsIncludeOwner(request.resource.data)
         // Ownership can't be handed off by a plain update (no UI for it yet).
@@ -57,10 +76,10 @@ service cloud.firestore {
 
       // Owner-only: any member deleting the shared project (plus every
       // teammate's files) is too destructive to leave open.
-      allow delete: if isVerified() && email() == resource.data.ownerEmail;
+      allow delete: if isAllowed() && email() == resource.data.ownerEmail;
 
       match /files/{fileId} {
-        allow read, write: if isVerified()
+        allow read, write: if isAllowed()
           && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
       }
 
@@ -69,7 +88,7 @@ service cloud.firestore {
       // the default deny made saveResult()'s metadata write and
       // fetchResultMetadata()'s read both fail, so restore never fired.
       match /results/{resultId} {
-        allow read, write: if isVerified()
+        allow read, write: if isAllowed()
           && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
       }
     }
