@@ -895,6 +895,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
     const thinkEl = thinking(true);
     try {
       let guard = 0;
+      let answered = false;
       while (guard++ < 6) {
         // Call backend proxy instead of Anthropic API directly
         const authToken = window.getAuthToken ? await window.getAuthToken() : null;
@@ -935,8 +936,13 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
         // Lượt cuối: chỉ giờ mới hiển thị câu trả lời.
         const texts = (data.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n').trim();
         if (texts) render('assistant', texts);
+        answered = true;
         break;
       }
+      // The loop can exhaust its 6-iteration guard while the model is still
+      // asking for tools — without this the thinking indicator just vanishes
+      // with no reply. Surface a clear message instead of a silent dead-end.
+      if (!answered) render('error', 'The assistant needed too many steps to finish. Please try rephrasing or narrowing your question.');
     } catch (e: any) {
       render('error', (e && e.message) || String(e));
     } finally {

@@ -626,7 +626,21 @@ function setupPlanInteraction(): void {
         return;
       }
       const hit = validHit as any;
-      const eid = hit.object?.geometry?.attributes?.expressID?.array?.[hit.faceIndex * 3];
+      // Resolve the element like viewer-core's 3D pick: honor the index buffer
+      // and scan all 3 face vertices, accepting only expressID > 0. Reading a
+      // single vertex via faceIndex*3 (ignoring geometry.index) and treating 0
+      // as valid mis-selects on merged/diff subsets, where a face can start on
+      // an expressID-0 vertex. (createSubset({ids:[0]}) selects nothing.)
+      let eid: number | undefined;
+      const geom = hit.object?.geometry;
+      const eidArr = geom?.attributes?.expressID?.array as any;
+      if (eidArr) {
+        const base = hit.faceIndex * 3;
+        for (let k = 0; k < 3; k++) {
+          const vi = geom.index ? geom.index.array[base + k] : (base + k);
+          if (vi >= 0 && vi < eidArr.length && eidArr[vi] > 0) { eid = eidArr[vi]; break; }
+        }
+      }
       if (eid == null) {
         log('Plan shift-click: hit has no expressID');
         return;
