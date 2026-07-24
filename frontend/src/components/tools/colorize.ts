@@ -187,8 +187,7 @@ async function applyColorizeAuto(): Promise<void> {
           sub.traverse((ch: any)=>{if(ch.isMesh){ch.userData.srcModelIdx=mi;ch.userData.colorizeValue=e.value}});
           // Honor the current model-visibility state: if user has un-checked
           // Version A/B, the new subset for that model should also be hidden.
-          const visChk=document.getElementById(mi===0?'visA':'visB') as HTMLInputElement | null;
-          if(visChk && !visChk.checked)sub.visible=false;
+          if(appState.hiddenModels.has(mi))sub.visible=false;
           appState.colorize.subsets.push(sub);
         }
       }catch(err: any){log('Colorize subset error for value '+e.value,err?.message)}
@@ -251,8 +250,7 @@ async function applyColorizeRules(): Promise<void> {
           sub.userData.srcModelIdx=mi;
           sub.traverse((ch: any)=>{if(ch.isMesh){ch.userData.srcModelIdx=mi;ch.userData.colorizeRuleId=rule.id}});
           // Honor current model-visibility state (see applyColorizeAuto notes)
-          const visChk=document.getElementById(mi===0?'visA':'visB') as HTMLInputElement | null;
-          if(visChk && !visChk.checked)sub.visible=false;
+          if(appState.hiddenModels.has(mi))sub.visible=false;
           appState.colorize.subsets.push(sub);
         }
       }catch(err: any){log('Colorize rule subset error for rule '+ri,err?.message)}

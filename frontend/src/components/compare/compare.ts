@@ -635,9 +635,12 @@ window.toggleModelVis = function (idx: number, forceVis?: boolean) {
   if (!model) return;
 
   const chk = document.getElementById(idx === 0 ? 'visA' : idx === 1 ? 'visB' : '') as HTMLInputElement | null;
-  const curVis = (model as any).visible !== false;
+  // Read the user's current intent from hiddenModels, NOT model.visible — the
+  // latter is clobbered to false by the category-filter subset system.
+  const curVis = !appState.hiddenModels.has(idx);
   const vis = typeof forceVis === 'boolean' ? forceVis : !curVis;
 
+  if (vis) appState.hiddenModels.delete(idx); else appState.hiddenModels.add(idx);
   if (chk) chk.checked = vis;
   (model as any).visible = vis;
   log('toggleModelVis: model ' + idx + ' → ' + vis);
@@ -699,8 +702,7 @@ export function applyCategoryVisibility3D() {
         sub.updateMatrixWorld(true);
         sub.userData.diffSubset = name;
         sub.userData.srcModelIdx = mi;
-        const visChk = document.getElementById(mi === 0 ? 'visA' : mi === 1 ? 'visB' : '') as HTMLInputElement | null;
-        sub.visible = visChk ? visChk.checked : ((appState.loadedModels[mi] as any)?.visible !== false);
+        sub.visible = !appState.hiddenModels.has(mi);
       }
     } catch (e) { }
   };
@@ -714,8 +716,8 @@ export function applyCategoryVisibility3D() {
   // Base models: in compare mode, model A shows only "removed" subsets.
   // Base mesh is hidden but subsets handle visibility via srcModelIdx check above.
   // Respect user checkbox for base model visibility
-  const visAChecked = (document.getElementById('visA') as HTMLInputElement | null)?.checked ?? ((appState.loadedModels[0] as any)?.visible !== false);
-  const visBChecked = (document.getElementById('visB') as HTMLInputElement | null)?.checked ?? ((appState.loadedModels[1] as any)?.visible !== false);
+  const visAChecked = !appState.hiddenModels.has(0);
+  const visBChecked = !appState.hiddenModels.has(1);
 
   // Model A: if user ticked it, show as faded red overlay so they can see the old version
   if (appState.loadedModels[0]) {

@@ -135,8 +135,7 @@ export function rebuildModelSubset(mi: number): void {
   });
   (window as any).visSubsets=visSubsets;
 
-  const chk = document.getElementById(mi === 0 ? 'visA' : mi === 1 ? 'visB' : '') as HTMLInputElement | null;
-  const isModelVis = chk ? chk.checked : ((appState.loadedModels[mi] as any)?.visible !== false);
+  const isModelVis = !appState.hiddenModels.has(mi);
 
   // Hide base model
   appState.loadedModels[mi]!.visible=false;
@@ -220,8 +219,7 @@ export function showAllHidden(): void {
 
   for (let i = 0; i < appState.loadedModels.length; i++) {
     if (!appState.loadedModels[i]) continue;
-    const chk = document.getElementById(i === 0 ? 'visA' : i === 1 ? 'visB' : '') as HTMLInputElement | null;
-    const vis = chk ? chk.checked : ((appState.loadedModels[i] as any)?.visible !== false);
+    const vis = !appState.hiddenModels.has(i);
     appState.loadedModels[i]!.visible = vis;
     if (vis) {
       appState.loadedModels[i]!.traverse((c: any) => { if (c.isMesh) c.visible = true; });

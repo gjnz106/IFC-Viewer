@@ -103,7 +103,7 @@ window.vpSave = function (): void {
     anchor,
     section,
     visibility: {
-      slotVisible: appState.loadedModels.map(m => !m || (m as any).visible !== false),
+      slotVisible: appState.loadedModels.map((m, i) => !m || !appState.hiddenModels.has(i)),
       hiddenKeys: vis.hiddenKeys,
       isolated: vis.isolated,
     },
@@ -156,15 +156,9 @@ window.vpRestore = function (id: string): void {
 
   vp.visibility.slotVisible.forEach((visible, i) => {
     if (!appState.loadedModels[i]) return;
-    if (i === 0 || i === 1) {
-      const chk = document.getElementById(i === 0 ? 'visA' : 'visB') as HTMLInputElement | null;
-      if (chk) chk.checked = visible;
-      (window as any).toggleModelVis?.(i);
-    } else {
-      (appState.loadedModels[i] as any).visible = visible;
-      const fedChk = document.getElementById('fedVis' + i) as HTMLInputElement | null;
-      if (fedChk) fedChk.checked = visible;
-    }
+    // Force the slot to the saved state (toggleModelVis keeps hiddenModels,
+    // the A/B checkbox and the category subsets all in sync).
+    (window as any).toggleModelVis?.(i, visible);
   });
   applyVisibilityState({ hiddenKeys: vp.visibility.hiddenKeys, isolated: vp.visibility.isolated });
 

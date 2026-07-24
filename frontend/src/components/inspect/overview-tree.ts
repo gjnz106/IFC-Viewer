@@ -242,7 +242,7 @@ function render(): void {
     const isOpen = query.trim() !== '' || expanded.has(fileKey) || loadedIdxs.length === 1;
     const name = entry?.fileName || appState.files[i]?.name || `Model ${i}`;
     const elemCount = entry?.root ? entry.root.count.toLocaleString() : '0';
-    const isVis = (appState.loadedModels[i] as any)?.visible !== false;
+    const isVis = !appState.hiddenModels.has(i);
     const isSyncing = !entry?.root;
     
     html += `<div class="ov-file${isOpen ? ' open' : ''}" data-slot="${i}" data-filekey="${fileKey}">

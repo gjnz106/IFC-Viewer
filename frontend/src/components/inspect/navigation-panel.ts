@@ -35,7 +35,10 @@ function modelName(i: number): string {
 }
 
 function modelVisible(i: number): boolean {
-  return (appState.loadedModels[i] as any)?.visible !== false;
+  // Read the user's intent from hiddenModels, not the Three.js .visible flag —
+  // the category filter clobbers .visible on the base model when it swaps in a
+  // per-category subset, which would otherwise show every model as "hidden".
+  return !appState.hiddenModels.has(i);
 }
 
 function renderModels(): void {
