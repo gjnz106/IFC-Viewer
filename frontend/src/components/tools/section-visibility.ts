@@ -429,6 +429,7 @@ async function _loadIFCInner(idx: number){
     // Ensure loadedModels array is long enough
     while(appState.loadedModels.length <= idx) appState.loadedModels.push(null);
     appState.loadedModels[idx]=model;appState.scene.add(model);
+    appState.hiddenModels.delete(idx); // a freshly (re)loaded slot starts visible
     // Only true the very first time a model fills the previously-empty
     // viewport (federation/second-slot loads land here with display
     // already 'none') — that's the moment to greet the user with the
@@ -637,8 +638,11 @@ function applyCategoryVisibilityViewMode(){
 
   for(let idx=0;idx<appState.loadedModels.length;idx++){
     if(!appState.loadedModels[idx])continue;
-    const chk = document.getElementById(idx===0?'visA':idx===1?'visB':'') as HTMLInputElement | null;
-    const vis = chk ? chk.checked : ((appState.loadedModels[idx] as any)?.visible !== false);
+    // User intent comes from hiddenModels, NOT model.visible — this function
+    // itself sets model.visible=false below (to hide the base while showing a
+    // per-category subset), so reading intent from model.visible fed back on
+    // itself and made every model vanish after one category was hidden.
+    const vis = !appState.hiddenModels.has(idx);
 
     if(!vis||showNone){
       appState.loadedModels[idx]!.visible=false;

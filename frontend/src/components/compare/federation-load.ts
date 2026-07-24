@@ -73,6 +73,7 @@ window.fedRemoveSlot = function(idx: number){
     appState.loadedModels[idx] = null;
   }
   appState.files[idx] = null;
+  appState.hiddenModels.delete(idx); // don't let a stale hidden flag carry to a future slot reuse
   if(!appState.activeCloudProjectId) clearLocalSessionFile(idx).catch((e: unknown)=>console.warn('clearLocalSessionFile error:', e));
   if(window._colorizeInvalidate) window._colorizeInvalidate(idx);
   // If the removed slot was the current clash Source/Target, repoint it at a
@@ -89,7 +90,9 @@ window.fedRemoveSlot = function(idx: number){
 window.fedToggleVis = function(idx: number){
   if(!appState.loadedModels[idx]) return;
   const chk = document.getElementById('fedVis'+idx) as HTMLInputElement | null;
-  appState.loadedModels[idx]!.visible = chk?.checked ?? true;
+  // Route through toggleModelVis so hiddenModels (the single source of truth)
+  // stays in sync and the category-filter subsets re-render correctly.
+  (window as any).toggleModelVis?.(idx, chk?.checked ?? true);
   if(window.requestPlanRender) window.requestPlanRender();
 };
 
@@ -125,7 +128,7 @@ export function fedRenderSlots(): void {
     // not just "loaded" — re-rendering this list (e.g. when another
     // federation file finishes loading) used to always mark the checkbox
     // checked, silently re-showing a model the user had just hidden.
-    const isVisible = loaded && appState.loadedModels[i]!.visible !== false;
+    const isVisible = loaded && !appState.hiddenModels.has(i);
     const syncSt = appState.cloudSyncStatus[i];
     const syncChip = appState.activeCloudProjectId && syncSt ? syncChipLabel(syncSt.status, syncSt.progress) : '';
     html += `<div class="fed-slot ${loaded?'loaded':''}">
@@ -196,6 +199,7 @@ export function unloadAllModels(): void {
   appState.aiIndex = null;
   appState.aiIndexKey = null;
   appState.activeCategories = new Set();
+  appState.hiddenModels.clear();
   (window as any)._catData = {};
   (window as any)._catModelIDs = {};
 

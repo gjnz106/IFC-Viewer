@@ -35,6 +35,14 @@ export const appState = {
   activePage: 'viewer' as Page,
   ctxTarget: null as any,
   activeCategories: new Set<string>(),
+  // User-intended model visibility (indices the user explicitly hid via the
+  // Models toggle / A-B checkboxes). Kept SEPARATE from each model's Three.js
+  // `.visible` flag, which the category-filter code overwrites (it hides the
+  // base model to show a per-category subset instead). Reading intent from
+  // `.visible` created a feedback loop that made hiding one category blank the
+  // whole model. This Set is the single source of truth for "does the user
+  // want to see model N".
+  hiddenModels: new Set<number>(),
   modelBounds: {
     min: new THREE.Vector3(),
     max: new THREE.Vector3(),
