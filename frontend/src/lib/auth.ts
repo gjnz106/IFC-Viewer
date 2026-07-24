@@ -155,25 +155,27 @@ if (auth) {
   });
 }
 
-// Checks the Firestore allowlist for this user's email. Each user may read
-// only their own `allowedUsers/{email}` doc (see firestore.rules), so this
-// leaks nothing about who else is allowed. firebase/firestore is lazy-imported
-// to keep it out of the initial auth path bundle. Fails closed (returns false)
-// on any error so a read failure never grants access.
-async function isEmailAllowed(user: User): Promise<boolean> {
+// Checks the Firestore allowlist for this user's email and reads their admin
+// flag. Each user may read only their own `allowedUsers/{email}` doc (see
+// firestore.rules), so this leaks nothing about who else is allowed.
+// firebase/firestore is lazy-imported to keep it out of the initial auth path
+// bundle. Fails closed on any error (allowed:false) so a read failure never
+// grants access.
+async function checkAllowlist(user: User): Promise<{ allowed: boolean; admin: boolean }> {
   const email = (user.email || '').toLowerCase();
-  if (!email) return false;
+  if (!email) return { allowed: false, admin: false };
   const { getFirestore, doc, getDoc } = await import('firebase/firestore');
   const snap = await getDoc(doc(getFirestore(), 'allowedUsers', email));
-  return snap.exists();
+  return { allowed: snap.exists(), admin: snap.exists() && (snap.data() as any)?.admin === true };
 }
 
 async function grantAccessIfAllowed(user: User): Promise<void> {
   overlay.classList.remove('hidden');
   showView('loading');
-  let allowed = false;
+  let allowed = false, adminFromDoc = false;
   try {
-    allowed = await isEmailAllowed(user);
+    const r = await checkAllowlist(user);
+    allowed = r.allowed; adminFromDoc = r.admin;
   } catch (e) {
     console.warn('[auth] allowlist check failed — denying access:', e);
     allowed = false;
@@ -188,6 +190,12 @@ async function grantAccessIfAllowed(user: User): Promise<void> {
     showMsg('loginMsg', 'This account is not authorized. Contact your admin.', 'error');
     return;
   }
+  // Admin = legacy hardcoded list OR the allowedUsers doc's `admin: true` flag
+  // (the latter is what firestore.rules enforces for cloud-project creation).
+  (window as any).isAdmin = adminFromDoc || !!(user.email && ADMIN_EMAILS.has(user.email.toLowerCase()));
+  // Let any already-rendered admin-gated UI (e.g. the cloud "Create" button)
+  // reconcile now that the async admin check has resolved.
+  try { window.dispatchEvent(new CustomEvent('ifc:adminchange')); } catch {}
   overlay.classList.add('hidden');
   showLoggedInUser(user);
 }

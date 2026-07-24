@@ -224,6 +224,13 @@ function renderProjectList(): void {
   if (!el) return;
   const user = currentAuthUser();
   const canUseCloud = !!user;
+  // Cloud project CREATION (new + migrate) is admin-only — enforced in
+  // firestore.rules; the UI just hides the entry points for members.
+  const canCreateCloud = canUseCloud && !!(window as any).isAdmin;
+  // The "Create in cloud" button lives in a static markup block — toggle it
+  // here so it tracks admin state whenever the panel re-renders.
+  const createCloudBtn = document.getElementById('btnCreateCloud');
+  if (createCloudBtn) createCloudBtn.style.display = canCreateCloud ? '' : 'none';
 
   const localRows = registry.list.map(p => {
     const active = p.id === registry.activeId && !appState.activeCloudProjectId;
@@ -236,7 +243,7 @@ function renderProjectList(): void {
       <div class="proj-row-actions">
         ${active ? '' : `<button class="proj-row-btn" onclick="projSwitch('${p.id}')" title="Switch to this project">Switch</button>`}
         <button class="proj-row-btn" onclick="projRename('${p.id}')" title="Rename">✎</button>
-        ${canUseCloud ? `<button class="proj-row-btn" onclick="projMigrateToCloud('${p.id}')" title="Copy this project to the cloud">☁ Migrate</button>` : ''}
+        ${canCreateCloud ? `<button class="proj-row-btn" onclick="projMigrateToCloud('${p.id}')" title="Copy this project to the cloud">☁ Migrate</button>` : ''}
         <button class="proj-row-btn proj-row-btn-danger" onclick="projDelete('${p.id}')" title="Delete">✕</button>
       </div>
     </div>`;
@@ -679,6 +686,7 @@ window.projDeleteCloud = async function (id: string): Promise<void> {
 window.projCreateCloud = async function (): Promise<void> {
   const user = currentAuthUser();
   if (!user) { alert('Sign in to create cloud projects.'); return; }
+  if (!(window as any).isAdmin) { alert('Only an admin can create cloud projects. Contact your admin.'); return; }
   const nameEl = document.getElementById('projNewName') as HTMLInputElement | null;
   const codeEl = document.getElementById('projNewCode') as HTMLInputElement | null;
   const name = nameEl?.value.trim() || '';
@@ -700,6 +708,7 @@ window.projCreateCloud = async function (): Promise<void> {
 window.projMigrateToCloud = async function (id: string): Promise<void> {
   const user = currentAuthUser();
   if (!user) { alert('Sign in to use cloud projects.'); return; }
+  if (!(window as any).isAdmin) { alert('Only an admin can create cloud projects. Contact your admin.'); return; }
   const p: Project | undefined = registry.list.find(x => x.id === id);
   if (!p) return;
   if (!confirm(`Copy "${p.name}" to the cloud as a new project? (File upload comes in a later update.)`)) return;
@@ -922,6 +931,11 @@ document.getElementById('btnSettings')?.addEventListener('click', () => refreshS
 window.addEventListener('ifc:signin', () => {
   refreshCloudList();
 });
+
+// window.isAdmin resolves asynchronously (after the Firestore allowlist read),
+// which can land after the projects panel has already rendered — re-render so
+// the admin-only cloud "Create"/"Migrate" entry points appear or hide.
+window.addEventListener('ifc:adminchange', () => { renderProjectList(); });
 
 window.addEventListener('beforeunload', () => {
   try {

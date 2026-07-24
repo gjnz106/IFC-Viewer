@@ -20,6 +20,15 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email.lower()));
     }
 
+    // Admin = an allowed user whose allowedUsers/{email} doc has `admin: true`
+    // (set by the site admin in the Firebase console). Only admins may CREATE
+    // cloud projects; members can still read/update/switch the ones they're
+    // shared into. get().data.get(key, default) tolerates docs without the field.
+    function isAdmin() {
+      return isAllowed()
+        && get(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email.lower())).data.get('admin', false) == true;
+    }
+
     // Lowercased to match how the client normalizes/stores memberEmails
     // (cloud-projects.ts's normEmail) — a raw-case mismatch here would
     // make Firestore reject the whole query, not just deny matching docs.
@@ -59,7 +68,9 @@ service cloud.firestore {
     match /projects/{projectId} {
       allow read: if isAllowed() && isMember(resource.data);
 
-      allow create: if isAllowed()
+      // Creation is admin-only (members can still be shared into existing
+      // projects and read/update them).
+      allow create: if isAdmin()
         && request.resource.data.ownerEmail == email()
         && memberEmailsIncludeOwner(request.resource.data)
         && isMember(request.resource.data);
