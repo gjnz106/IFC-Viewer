@@ -675,6 +675,15 @@ function applyCategoryVisibilityViewMode(){
         // No material = use original IFC materials
       });
       if(sub){
+        // Without this, viewer-core's pick handler falls back to findModelIdx()
+        // — which only walks each loadedModels[i]'s own child hierarchy — and
+        // this subset was added directly to the scene, not as a child of any
+        // model, so it always resolved to -1 and every click was silently
+        // dropped. Category filter is active as soon as ANY category is
+        // hidden, so this broke picking on the WHOLE model, not just the
+        // hidden category. Matches the srcModelIdx pattern used by diff/clash
+        // subsets, which viewer-core checks first.
+        sub.userData.srcModelIdx=idx;
         sub.position.copy(appState.loadedModels[idx]!.position);
         sub.updateMatrixWorld(true);
         // Apply clipping if section active
