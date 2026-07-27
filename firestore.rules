@@ -65,6 +65,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Manpower Planning app (separate hosting site, same project). Its data is
+    // shared across the whole team — the same allowlist gate as everything
+    // else, no per-project membership. Collections are prefixed `manpower_` so
+    // they never collide with IFC Delta's own `projects/*` above.
+    match /manpower_projects/{docId} {
+      allow read, write: if isAllowed();
+    }
+    match /manpower_groups/{docId} {
+      allow read, write: if isAllowed();
+    }
+    match /manpower_positions/{docId} {
+      allow read, write: if isAllowed();
+    }
+
     match /projects/{projectId} {
       allow read: if isAllowed() && isMember(resource.data);
 
