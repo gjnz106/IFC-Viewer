@@ -42,7 +42,7 @@ if (typeof (window as any).initSectionDrag === 'function') {
 initViewCube();
 initStatePersist();  // restore UI prefs from localStorage
 initRouter();        // set up hash routing + restore last page
-log('T3LAB.IFC ready');
+log('IFC Viewer ready');
 
 // AI data-index module isn't wired to any startup UI (console debug tool
 // only, window.aiIndexSummary()) and nothing else imports it, so defer its
