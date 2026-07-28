@@ -509,7 +509,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
     position:relative;z-index:2;
     width:56px;height:56px;
     border-radius:50%;
-    background:url('/icons/t3lab-assistant.png') center/cover no-repeat;
+    background:url('/icons/ai-assistant.png') center/cover no-repeat;
     animation:aic-ring-rotate 8s linear infinite;
   }
   .aic-fab-wrap.busy .aic-fab-icon{
@@ -585,7 +585,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   /* ── Head content ── */
   .aic-head-logo{
     width:26px;height:26px;border-radius:50%;flex-shrink:0;
-    background:url('/icons/t3lab-assistant.png') center/cover no-repeat;
+    background:url('/icons/ai-assistant.png') center/cover no-repeat;
   }
   .aic-panel.busy .aic-head-logo{animation:aic-spin .9s linear infinite}
   .aic-iconbtn{
@@ -680,7 +680,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   fabRing.appendChild(fabRingMask);
 
   const fab = document.createElement('button');
-  fab.className = 'aic-fab'; fab.title = 'T3Lab Assistant';
+  fab.className = 'aic-fab'; fab.title = 'AI Assistant';
   const fabIcon = document.createElement('div');
   fabIcon.className = 'aic-fab-icon';
   fab.appendChild(fabIcon);
@@ -693,7 +693,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   panel.className = 'aic-panel';
   panel.innerHTML = `
     <div class="aic-head">
-      <div class="aic-head-logo"></div><b>T3Lab Assistant</b>
+      <div class="aic-head-logo"></div><b>AI Assistant</b>
       <div class="aic-head-actions">
         <button class="aic-iconbtn" data-act="clear" title="Reset chat">↻</button>
         <button class="aic-iconbtn" data-act="close" title="Close">✕</button>
@@ -866,7 +866,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
       }
     } catch (e) { }
     return [
-      'Bạn là T3Lab Assistant — trợ lý xem & truy vấn mô hình IFC trên web cho kỹ sư BIM.',
+      'Bạn là AI Assistant — trợ lý xem & truy vấn mô hình IFC trên web cho kỹ sư BIM.',
       'PHẠM VI: CHỈ hỗ trợ về (các) MÔ HÌNH IFC đang mở và tính năng của IFC Delta (đếm element, tổng khối lượng/diện tích/chiều dài, category, tầng, vật liệu, thuộc tính).',
       'TỪ CHỐI NGOÀI PHẠM VI: nếu câu hỏi KHÔNG liên quan đến mô hình đang mở (kiến thức chung, lập trình, tin tức, toán/đời sống ngoài lề, trò chuyện phiếm…), hãy lịch sự từ chối ngắn gọn và nhắc rằng bạn chỉ trả lời về mô hình IFC đang mở. Tuyệt đối không dùng kiến thức ngoài, không trả lời thông tin ngoài mô hình.',
       'QUY TẮC SỐ LIỆU: với mọi câu hỏi cần con số, PHẢI gọi tool count_elements hoặc sum_quantity để lấy số CHÍNH XÁC. Chỉ dùng dữ liệu từ tool và ngữ cảnh bên dưới. TUYỆT ĐỐI không tự đoán, không bịa số.',

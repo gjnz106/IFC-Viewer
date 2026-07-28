@@ -1,4 +1,4 @@
-// Hash-based client-side router for T3LAB.IFC — the single source of truth
+// Hash-based client-side router for IFC Viewer — the single source of truth
 // for which page is active. All mode entry points (sidebar, header CTAs,
 // right-panel SG tab, field Desktop button, touch hint) call navigateTo();
 // applyPage() then *reconciles* the real mode flags (clashMode, sgState.open,
