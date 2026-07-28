@@ -38,7 +38,7 @@ function renderPropertiesAccordion(elementHeader: string, groups: any[]): void {
     let rowsHtml = '';
     for(const r of g.rows){
       if(r._empty){
-        rowsHtml += `<div class="pr"><div class="pk" style="grid-column:1/-1;color:var(--text-muted);font-style:italic;font-size:11px">(no properties)</div></div>`;
+        rowsHtml += `<div class="pr"><div class="pk" style="grid-column:1/-1;color:var(--text-muted);font-style:italic;font-size:13.2px">(no properties)</div></div>`;
       }else{
         rowsHtml += `<div class="pr"><div class="pk">${esc(r.label)}</div><div class="pv">${esc(r.value)}</div></div>`;
       }

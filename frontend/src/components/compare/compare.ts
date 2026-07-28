@@ -354,11 +354,11 @@ export function renderTree() {
       // reads it back off the element, so it never enters a JS string literal.
       html += `<div class="ti" data-g="${escapeHtml(e.gid)}" onclick="selIEl(this)"><div class="ti-dot ${e.status}"></div><span class="ti-nm">${escapeHtml(en?.name || '(unnamed)')}</span><span class="ti-id">${e.status}</span></div>`;
     });
-    if (list.length > 150) html += `<div style="padding:4px 26px;font-size:12px;color:var(--text-muted)">+${list.length - 150} more</div>`;
+    if (list.length > 150) html += `<div style="padding:4px 26px;font-size:14.4px;color:var(--text-muted)">+${list.length - 150} more</div>`;
     html += '</div></div>';
   }
   const eTree = document.getElementById('eTree');
-  if (eTree) eTree.innerHTML = html || `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:14px">${items.length === 0 ? 'No changes found for this filter' : 'No match'}</div>`;
+  if (eTree) eTree.innerHTML = html || `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:16.8px">${items.length === 0 ? 'No changes found for this filter' : 'No match'}</div>`;
 }
 window.renderTree = renderTree;
 window.togG = function (h: HTMLElement) { h.querySelector('.tg-arr')?.classList.toggle('col'); h.nextElementSibling?.classList.toggle('col'); };
@@ -381,9 +381,9 @@ window.selI = function (gid: string) {
 function showEntityProps(item: any, ent: any) {
   const c: Record<string, string> = { added: 'var(--green)', removed: 'var(--red)', modified: 'var(--amber)', unchanged: 'var(--indigo)' };
   const bg: Record<string, string> = { added: 'var(--green-lt)', removed: 'var(--red-lt)', modified: 'var(--amber-lt)', unchanged: 'var(--blue-lt)' };
-  let h = `<div style="padding:8px 12px;background:${bg[item.status]};border-bottom:1px solid var(--border)"><span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:${c[item.status]}">${item.status.toUpperCase()}</span></div>
+  let h = `<div style="padding:8px 12px;background:${bg[item.status]};border-bottom:1px solid var(--border)"><span style="font-family:JetBrains Mono;font-size:15.6px;font-weight:700;color:${c[item.status]}">${item.status.toUpperCase()}</span></div>
   <div class="ps"><div class="ps-t">Identity</div>
-  <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:10px">${escapeHtml(ent?.globalId) || '—'}</div></div>
+  <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:12px">${escapeHtml(ent?.globalId) || '—'}</div></div>
   <div class="pr"><div class="pk">Type</div><div class="pv">${escapeHtml(ent?.type) || '—'}</div></div>
   <div class="pr"><div class="pk">Name</div><div class="pv">${escapeHtml(ent?.name) || '—'}</div></div>
   <div class="pr"><div class="pk">Tag</div><div class="pv">${escapeHtml(ent?.tag) || '—'}</div></div></div>`;
@@ -475,7 +475,7 @@ export function buildIssues() {
   // Render issue cards
   let html = '';
   if (appState.issuesList.length === 0) {
-    html = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:14px">No changes detected</div>';
+    html = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:16.8px">No changes detected</div>';
   } else {
     appState.issuesList.forEach((iss: any, i: number) => {
       html += `<div class="issue-card" id="issue-${i}" onclick="focusIssue(${i})">
@@ -602,11 +602,11 @@ function updateCatTags() {
   const tags = document.getElementById('catTags');
   if (!tags) return;
   if (appState.activeCategories.size === 0) {
-    tags.innerHTML = '<span style="color:var(--text-muted);font-size:13px">All categories</span>';
+    tags.innerHTML = '<span style="color:var(--text-muted);font-size:15.6px">All categories</span>';
     return;
   }
   if (appState.activeCategories.has('__none__')) {
-    tags.innerHTML = '<span style="color:var(--red);font-size:13px">None selected</span>';
+    tags.innerHTML = '<span style="color:var(--red);font-size:15.6px">None selected</span>';
     return;
   }
   let html = '';

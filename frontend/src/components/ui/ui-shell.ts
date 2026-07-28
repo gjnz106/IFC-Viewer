@@ -195,7 +195,7 @@ window.showNavHelp = function (force = false): void {
 (window as any).clearNotifs = function (): void {
   const list = document.getElementById('notifList');
   if (list) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:#8590a6;font-size:11px">No new notifications</div>';
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#8590a6;font-size:13.2px">No new notifications</div>';
   }
   const badge = document.getElementById('notifBadge');
   if (badge) badge.style.display = 'none';

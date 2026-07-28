@@ -423,7 +423,7 @@ function colorizeRenderRules(): void {
   const host=document.getElementById('czRules');
   if(!host)return;
   if(!appState.colorize.rules.length){
-    host.innerHTML='<div class="cz-list-empty">No rules yet.<br>Click <b>+ Add rule</b> to create one.<br><span style="font-size:11px">First matching rule wins.</span></div>';
+    host.innerHTML='<div class="cz-list-empty">No rules yet.<br>Click <b>+ Add rule</b> to create one.<br><span style="font-size:13.2px">First matching rule wins.</span></div>';
     return;
   }
   const safeAttr=(s: any)=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -718,7 +718,7 @@ function colorizeRenderSchemes(): void {
   const schemes=colorizeReadSchemes();
   const names=Object.keys(schemes).sort((a,b)=>(schemes[b].savedAt||0)-(schemes[a].savedAt||0));
   if(!names.length){
-    sp.innerHTML='<div class="cz-schemes-empty">No saved schemes yet.<br><span style="font-size:11px">Click 💾 Save to save the current setup.</span></div>';
+    sp.innerHTML='<div class="cz-schemes-empty">No saved schemes yet.<br><span style="font-size:13.2px">Click 💾 Save to save the current setup.</span></div>';
     return;
   }
   const safeAttr=(s: any)=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

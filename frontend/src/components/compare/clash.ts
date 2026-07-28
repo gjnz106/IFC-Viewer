@@ -631,7 +631,7 @@ export function exitClashMode(): void {
   });
 
   document.getElementById('clashStats')!.style.display = 'none';
-  document.getElementById('clashList')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div>';
+  document.getElementById('clashList')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:15.6px">Configure Source &amp; Target sets, then click <b>▶ Run Clash</b></div>';
   // (Formerly wiped #clashFiltersA/B here — those IDs died with the pre-rule-row
   // clash UI, so the two lines threw every exit and aborted the reflow below.
   // Rule rows persist in clashRuleRows and re-render on the next enter.)
@@ -1415,12 +1415,12 @@ function renderClashList(): void {
     const s = clashIssueSummary;
     html += `<div class="clash-track-banner">🆕 ${s.newCount} new · ${s.stillCount} still open · ✔ ${s.autoResolved} auto-resolved${s.reappeared ? ` · ⚠ ${s.reappeared} re-appeared` : ''}</div>`;
   }
-  if (_clashCapNote) html += `<div style="margin:6px 8px;padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;font-size:11.5px;color:var(--text-dim);line-height:1.4">${escapeHtml(_clashCapNote)}</div>`;
+  if (_clashCapNote) html += `<div style="margin:6px 8px;padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;font-size:13.8px;color:var(--text-dim);line-height:1.4">${escapeHtml(_clashCapNote)}</div>`;
 
   if (indices.length === 0) {
     html += appState.clashResults.length === 0
-      ? '<div style="padding:20px;text-align:center;color:var(--green);font-size:14px;font-weight:600">✓ No clashes detected!</div>'
-      : '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No clashes match this status filter</div>';
+      ? '<div style="padding:20px;text-align:center;color:var(--green);font-size:16.8px;font-weight:600">✓ No clashes detected!</div>'
+      : '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:15.6px">No clashes match this status filter</div>';
     list.innerHTML = html;
     return;
   }
@@ -1573,7 +1573,7 @@ window.focusClash = function(idx: number): void {
   // Show clash details in properties panel
   const penMM = (cl.penetration * 1000).toFixed(1);
   let h = `<div style="padding:8px 12px;background:var(--red-lt);border-bottom:1px solid var(--border)">
-    <span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:var(--red)">CLASH #${idx + 1} — ${cl.isHard ? 'HARD CLASH' : 'CLEARANCE'}</span>
+    <span style="font-family:JetBrains Mono;font-size:15.6px;font-weight:700;color:var(--red)">CLASH #${idx + 1} — ${cl.isHard ? 'HARD CLASH' : 'CLEARANCE'}</span>
   </div>
   <div class="ps"><div class="ps-t">Clash Info</div>
     <div class="pr"><div class="pk">${cl.isHard ? 'Penetration' : 'Gap'}</div><div class="pv" style="color:${cl.isHard ? 'var(--red)' : 'var(--amber)'};font-weight:700">${penMM} mm</div></div>

@@ -992,7 +992,7 @@ function fieldPlan2DBuildStoreys(){
   const container = document.getElementById('fieldPlan2DStoreys')!;
   const storeys = fieldPlan2DGetStoreys();
   if(storeys.length === 0){
-    container.innerHTML = '<span style="font-size:11px;color:var(--text-muted)">No storeys</span>';
+    container.innerHTML = '<span style="font-size:13.2px;color:var(--text-muted)">No storeys</span>';
     return;
   }
   container.innerHTML = storeys.map((s, i) =>
