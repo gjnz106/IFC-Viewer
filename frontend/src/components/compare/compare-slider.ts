@@ -131,7 +131,7 @@ function injectStyle(): void {
   .cmp-split-a{left:12px;background:rgba(37,99,235,.9)}
   .cmp-split-b{right:12px;background:rgba(220,38,38,.9)}
   .cmp-split-divider{position:absolute;top:0;bottom:0;width:0;border-left:2px solid rgba(255,255,255,.95);box-shadow:0 0 0 1px rgba(0,0,0,.3);transform:translateX(-1px)}
-  .cmp-split-handle{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:#fff;color:#1a1d26;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,.35);cursor:ew-resize;pointer-events:auto;user-select:none}`;
+  .cmp-split-handle{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:#fff;color:#1a1d26;display:flex;align-items:center;justify-content:center;font-size:16.8px;box-shadow:0 2px 10px rgba(0,0,0,.35);cursor:ew-resize;pointer-events:auto;user-select:none}`;
   document.head.appendChild(s);
 }
 

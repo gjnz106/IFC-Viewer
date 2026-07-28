@@ -242,8 +242,8 @@ function searchRenderResults(){
       <div class="search-item-meta"><span>${shortType}</span>${tagHtml}<span style="opacity:.5">M${e.modelIdx}</span></div>
     </div>`;
   }
-  if(count > maxShow) html += `<div class="search-item" style="text-align:center;color:var(--text-muted);font-size:10px">… and ${count-maxShow} more (narrow your search)</div>`;
-  if(count === 0) html = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:11px">No elements match</div>';
+  if(count > maxShow) html += `<div class="search-item" style="text-align:center;color:var(--text-muted);font-size:12px">… and ${count-maxShow} more (narrow your search)</div>`;
+  if(count === 0) html = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13.2px">No elements match</div>';
   container.innerHTML = html;
 }
 
@@ -354,7 +354,7 @@ window.searchClear = function(){
   document.getElementById('searchAdv')!.classList.remove('show');
   _searchResults = [];
   _searchSelectedIdx = -1;
-  document.getElementById('searchResults')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:11px">Type to search elements</div>';
+  document.getElementById('searchResults')!.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13.2px">Type to search elements</div>';
   document.getElementById('searchCount')!.style.display = 'none';
   document.getElementById('searchActions')!.style.display = 'none';
   document.getElementById('searchStatsText')!.textContent = (_searchCache?.elements?.length||0) + ' elements indexed';

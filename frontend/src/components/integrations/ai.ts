@@ -563,7 +563,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
     cursor:grab;user-select:none;-webkit-user-select:none;
   }
   .aic-head:active{cursor:grabbing}
-  .aic-head b{flex:1;font-size:13px}
+  .aic-head b{flex:1;font-size:15.6px}
   /* Icon buttons grouped tightly at the end, close always last/rightmost */
   .aic-head-actions{display:flex;align-items:center;gap:1px;flex-shrink:0}
   .aic-head-actions button{cursor:pointer}
@@ -590,14 +590,14 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   .aic-panel.busy .aic-head-logo{animation:aic-spin .9s linear infinite}
   .aic-iconbtn{
     background:none;border:none;cursor:pointer;
-    color:var(--text-dim,#4a5068);font-size:15px;
+    color:var(--text-dim,#4a5068);font-size:18px;
     padding:5px;border-radius:8px;line-height:1;
     transition:background .12s ease,color .12s ease;
   }
   .aic-iconbtn:hover{background:var(--bg-hover,#e8eaef);color:#18181B}
   /* ── Messages (transparent so the glass panel shows through) ── */
   .aic-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:9px;background:transparent}
-  .aic-msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
+  .aic-msg{max-width:85%;padding:9px 12px;border-radius:12px;font-size:15.6px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
   .aic-msg.user{
     align-self:flex-end;background:#18181B;color:#fff;
     border-bottom-right-radius:4px;
@@ -606,8 +606,8 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
     align-self:flex-start;background:rgba(255,255,255,.55);
     border:1px solid rgba(255,255,255,.6);border-bottom-left-radius:4px;
   }
-  .aic-msg.error{align-self:stretch;background:var(--red-bg,#fdeaea);color:var(--red,#dc2626);border:1px solid var(--red,#dc2626);font-size:12px;max-width:100%}
-  .aic-tool{align-self:flex-start;font-size:11px;color:var(--text-muted,#8590a6);background:rgba(255,255,255,.4);
+  .aic-msg.error{align-self:stretch;background:var(--red-bg,#fdeaea);color:var(--red,#dc2626);border:1px solid var(--red,#dc2626);font-size:14.4px;max-width:100%}
+  .aic-tool{align-self:flex-start;font-size:13.2px;color:var(--text-muted,#8590a6);background:rgba(255,255,255,.4);
     border:1px solid rgba(255,255,255,.6);border-radius:8px;padding:5px 9px;font-family:'JetBrains Mono',monospace}
   /* animated thinking dots */
   .aic-think{
@@ -634,7 +634,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   .aic-foot textarea{
     flex:1;resize:none;border:1px solid rgba(255,255,255,.7);
     background:rgba(255,255,255,.55);
-    border-radius:10px;padding:9px 11px;font-size:13px;line-height:1.35;
+    border-radius:10px;padding:9px 11px;font-size:15.6px;line-height:1.35;
     font-family:inherit;max-height:90px;min-height:38px;box-sizing:border-box;
     transition:border-color .15s ease,box-shadow .15s ease;
     outline:none;
@@ -646,7 +646,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   .aic-send{
     background:#18181B;color:#fff;border:none;
     border-radius:10px;width:40px;cursor:pointer;
-    font-size:15px;flex-shrink:0;
+    font-size:18px;flex-shrink:0;
     display:flex;align-items:center;justify-content:center;
     transition:background .15s ease,transform .1s ease;
   }
@@ -656,12 +656,12 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
   /* ── Markdown ── */
   .aic-msg.assistant strong{font-weight:700}
   .aic-msg.assistant em{font-style:italic}
-  .aic-msg.assistant code{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-card,#f0f1f4);padding:1px 4px;border-radius:4px}
+  .aic-msg.assistant code{font-family:'JetBrains Mono',monospace;font-size:14.4px;background:var(--bg-card,#f0f1f4);padding:1px 4px;border-radius:4px}
   .aic-md-h{font-weight:700;margin:4px 0 2px}
   .aic-md-ul{margin:4px 0;padding-left:18px}
   .aic-md-ul li{margin:2px 0}
   .aic-md-sp{height:5px}
-  .aic-md-table{border-collapse:collapse;margin:6px 0;font-size:12px;width:100%}
+  .aic-md-table{border-collapse:collapse;margin:6px 0;font-size:14.4px;width:100%}
   .aic-md-table th,.aic-md-table td{border:1px solid var(--border,#d5d9e2);padding:3px 7px;text-align:left;vertical-align:top}
   .aic-md-table th{background:var(--bg-card,#f0f1f4);font-weight:600}
   `;

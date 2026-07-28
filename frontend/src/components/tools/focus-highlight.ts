@@ -181,20 +181,20 @@ function showIssueProps(iss: any): void {
   const colors: Record<string, string> = { added: 'var(--green)', removed: 'var(--red)', modified: 'var(--amber)' };
   const bgs: Record<string, string> = { added: 'var(--green-lt)', removed: 'var(--red-lt)', modified: 'var(--amber-lt)' };
   let h = `<div style="padding:8px 12px;background:${bgs[iss.status]};border-bottom:1px solid var(--border)">
-    <span style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:${colors[iss.status]}">ISSUE #${iss.num} — ${iss.status.toUpperCase()}</span>
+    <span style="font-family:JetBrains Mono;font-size:15.6px;font-weight:700;color:${colors[iss.status]}">ISSUE #${iss.num} — ${iss.status.toUpperCase()}</span>
   </div>
   <div class="ps"><div class="ps-t">Element</div>
     <div class="pr"><div class="pk">Name</div><div class="pv">${iss.name}</div></div>
     <div class="pr"><div class="pk">Type</div><div class="pv">${iss.type}</div></div>
     <div class="pr"><div class="pk">Tag / Element ID</div><div class="pv">${iss.tag || '—'}</div></div>
-    <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:10px">${iss.gid}</div></div>
+    <div class="pr"><div class="pk">GlobalId</div><div class="pv" style="font-family:JetBrains Mono;font-size:12px">${iss.gid}</div></div>
     <div class="pr"><div class="pk">ExpressID</div><div class="pv">${iss.expressID}</div></div>
     <div class="pr"><div class="pk">Source</div><div class="pv">Version ${iss.modelIdx === 0 ? 'A' : 'B'}</div></div>
   </div>
   <div class="ps"><div class="ps-t">How to find in BIM software</div>
-    <div class="pr"><div class="pk">Revit</div><div class="pv" style="font-size:12px">Select by ID → <b>${iss.tag || 'N/A'}</b></div></div>
-    <div class="pr"><div class="pk">Tekla</div><div class="pv" style="font-size:12px">Inquire → GUID: <b style="word-break:break-all">${iss.gid}</b></div></div>
-    <div class="pr"><div class="pk">ArchiCAD</div><div class="pv" style="font-size:12px">Find by IFC GlobalId: <b style="word-break:break-all">${iss.gid}</b></div></div>
+    <div class="pr"><div class="pk">Revit</div><div class="pv" style="font-size:14.4px">Select by ID → <b>${iss.tag || 'N/A'}</b></div></div>
+    <div class="pr"><div class="pk">Tekla</div><div class="pv" style="font-size:14.4px">Inquire → GUID: <b style="word-break:break-all">${iss.gid}</b></div></div>
+    <div class="pr"><div class="pk">ArchiCAD</div><div class="pv" style="font-size:14.4px">Find by IFC GlobalId: <b style="word-break:break-all">${iss.gid}</b></div></div>
   </div>`;
 
   if (iss.diffs && iss.diffs.length > 0) {

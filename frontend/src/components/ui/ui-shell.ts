@@ -184,6 +184,11 @@ window.closeNavHelp = function (): void {
 };
 
 window.showNavHelp = function (force = false): void {
+  // Field Mode has its own bottom toolbar occupying the same screen region —
+  // this overlay would visually stack on top of it (CSS also hard-hides it
+  // there, but skip flipping the class at all rather than leaving stale
+  // "on" state that could flash before the field-mode stylesheet applies).
+  if (document.body.classList.contains('field-mode')) return;
   if (!force) {
     try {
       if (localStorage.getItem(NAV_HELP_DISMISSED_KEY) === '1') return;
@@ -195,7 +200,7 @@ window.showNavHelp = function (force = false): void {
 (window as any).clearNotifs = function (): void {
   const list = document.getElementById('notifList');
   if (list) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:#8590a6;font-size:11px">No new notifications</div>';
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#8590a6;font-size:13.2px">No new notifications</div>';
   }
   const badge = document.getElementById('notifBadge');
   if (badge) badge.style.display = 'none';
