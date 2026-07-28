@@ -1097,6 +1097,12 @@ body.field-mode .sg-panel{display:none !important}
    (Measure, Photo, Section, Walk, Fit, Plan 2D) — in Field Mode the bottom
    bar is the single toolbar. */
 body.field-mode .float-tools{display:none !important}
+/* The desktop-only nav-help overlay (Orbit/Pan/Zoom cheat sheet) sits
+   bottom-center — the exact spot Field Mode's own bottom toolbar occupies.
+   Without this it can still be showing (e.g. a model loaded into an empty
+   viewport right as the user entered Field Mode) and visually overlaps the
+   field toolbar's two button rows. */
+body.field-mode .nav-help-overlay{display:none !important}
 /* The AI assistant is now a proper button in the Field toolbar (opens the same
    chat panel), so the floating color-wheel FAB is hidden in Field Mode — it
    overlapped the model and duplicated the new bar button. */
@@ -1751,11 +1757,11 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
 .ovc-open{margin-top:8px;width:100%;padding:7px;border-radius:8px;border:none;background:var(--text);color:#fff;font-family:inherit;font-size:13.8px;font-weight:600;cursor:pointer}
 
 /* ── Floating vertical toolbar (viewport, left-center) ── */
-.float-tools{position:absolute;left:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:5px;background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 14px -6px rgba(44,36,32,.18);z-index:6}
-.ft-btn{width:36px;height:36px;border-radius:9px;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--t)}
+.float-tools{position:absolute;left:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2.4px;padding:6px;background:var(--bg-panel);border:1px solid var(--line);border-radius:16.8px;box-shadow:0 4px 14px -6px rgba(44,36,32,.18);z-index:6}
+.ft-btn{width:43.2px;height:43.2px;border-radius:10.8px;border:none;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--t)}
 .ft-btn:hover{background:var(--bg-hover)}
 .ft-btn.active{background:var(--blue-lt);color:var(--blue)}
-.ft-btn svg{width:15px;height:15px}
+.ft-btn svg{width:18px;height:18px}
 .ft-sep{height:1px;background:var(--bg-card);margin:2px 3px}
 
 /* ── Status bar (26px footer) ── */

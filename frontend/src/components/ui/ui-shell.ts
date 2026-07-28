@@ -184,6 +184,11 @@ window.closeNavHelp = function (): void {
 };
 
 window.showNavHelp = function (force = false): void {
+  // Field Mode has its own bottom toolbar occupying the same screen region —
+  // this overlay would visually stack on top of it (CSS also hard-hides it
+  // there, but skip flipping the class at all rather than leaving stale
+  // "on" state that could flash before the field-mode stylesheet applies).
+  if (document.body.classList.contains('field-mode')) return;
   if (!force) {
     try {
       if (localStorage.getItem(NAV_HELP_DISMISSED_KEY) === '1') return;
