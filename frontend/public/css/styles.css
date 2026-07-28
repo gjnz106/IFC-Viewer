@@ -29,10 +29,26 @@
   --resize-h: 5px; /* height of row drag dividers */
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Space Grotesk','Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+/* ── UI scale (x1.5) ──────────────────────────────────────────────────
+   `zoom` on the root element reflows the whole page at 1.5x — text, icons,
+   borders, spacing all grow together proportionally, unlike bumping
+   font-size alone (which would leave fixed-px icon/button boxes too small
+   and cause clipping/overlap). CAVEAT: `zoom` does NOT remap vh/vw units to
+   the effective (zoomed) viewport the way native browser page-zoom does —
+   an unzoomed `Xvh` renders at `Xvh * 1.5` on screen, overflowing the real
+   window. Two consequences, both handled below:
+   1. The full-bleed html/body/.app layout uses height:100% instead of
+      100vh (percentage heights DO resolve correctly against the zoomed
+      root, verified empirically — vh does not).
+   2. Every other vh/vw usage in this file (modal/panel max-height/width
+      caps) is wrapped in calc(Xvh / 1.5) to compensate.
+   If this scale ever changes, every `/ 1.5` below (plus viewer-core.ts's
+   bottom-panel drag clamp) must be updated together. */
+html{height:100%;zoom:150%}
+body{font-family:'Space Grotesk','Inter',sans-serif;background:var(--bg);color:var(--text);height:100%;overflow:hidden}
 /* Grid (v5 shell): header (full width) / [rail | lcol | resize | viewport | resize | rcol] / status bar (full width).
    Rail is a fixed 52px nav column; topbar is 48px. */
-.app{display:grid;grid-template-rows:48px 1fr;grid-template-columns:52px var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100vh}
+.app{display:grid;grid-template-rows:48px 1fr;grid-template-columns:52px var(--lcol) var(--resize-w) 1fr var(--resize-w) var(--rcol);height:100%}
 /* Left panel collapsed (no rail tab active): hide the panel + its resize handle by zeroing the track */
 .app.left-collapsed{grid-template-columns:52px 0 0 1fr var(--resize-w) var(--rcol)}
 .app.left-collapsed .left-panel,.app.left-collapsed #lresize{display:none}
@@ -367,7 +383,7 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
 .settings-card {
   background: var(--bg-panel); border: 1px solid var(--border);
   border-radius: 18px; box-shadow: var(--sh-lg);
-  width: 460px; max-width: 96vw; padding: 28px 28px 24px;
+  width: 460px; max-width: calc(96vw / 1.5); padding: 28px 28px 24px;
 }
 .settings-card-title {
   font-size: 16px; font-weight: 700; color: var(--text);
@@ -647,7 +663,7 @@ body.resizing{cursor:col-resize;user-select:none}
    - Auto:  color by property (Category/Type) — auto legend
    - Rules: user-defined AND-groups; OR between rules; first match wins.
    Interoperates with compare mode (mutex). */
-.colorize-panel{position:absolute;left:10px;bottom:10px;z-index:11;width:320px;max-height:calc(100vh - 140px);background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 38px -10px rgba(44,36,32,.22);display:none;flex-direction:column;font-family:'Space Grotesk'}
+.colorize-panel{position:absolute;left:10px;bottom:10px;z-index:11;width:320px;max-height:calc(100vh / 1.5 - 140px);background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 38px -10px rgba(44,36,32,.22);display:none;flex-direction:column;font-family:'Space Grotesk'}
 .colorize-panel.show{display:flex}
 /* Collapsed state: hide everything except the header bar */
 .colorize-panel.collapsed{max-height:none;height:auto}
@@ -919,12 +935,12 @@ body.resizing{cursor:col-resize;user-select:none}
 /* stack the 3 columns vertically; each scrolls within a capped height */
 .sg-in-panel .sg-body{display:flex;flex-direction:column;gap:1px}
 .sg-in-panel .sg-col{flex:none}
-.sg-in-panel #sgRulesList{max-height:40vh}
-.sg-in-panel #sgFailList{max-height:30vh}
+.sg-in-panel #sgRulesList{max-height:calc(40vh / 1.5)}
+.sg-in-panel #sgFailList{max-height:calc(30vh / 1.5)}
 /* JSON loader dialog overlay */
 .sg-json-overlay{display:none;position:fixed;inset:0;background:rgba(44,36,32,.55);z-index:9999;align-items:center;justify-content:center}
 .sg-json-overlay.show{display:flex}
-.sg-json-dialog{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;width:580px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 38px -10px rgba(44,36,32,.3)}
+.sg-json-dialog{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;width:580px;max-height:calc(80vh / 1.5);display:flex;flex-direction:column;box-shadow:0 16px 38px -10px rgba(44,36,32,.3)}
 .sg-json-dialog-hdr{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .sg-json-dialog-hdr h3{margin:0;font-size:14px;font-weight:600;color:var(--text)}
 .sg-json-dialog-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-muted);padding:4px 8px}
@@ -1177,7 +1193,7 @@ body.field-mode .field-bar{
   display:none;position:fixed;bottom:0;left:0;right:0;z-index:250;
   background:var(--bg-panel);border-top:1px solid var(--border);
   border-radius:16px 16px 0 0;
-  max-height:55vh;overflow-y:auto;overflow-x:hidden;
+  max-height:calc(55vh / 1.5);overflow-y:auto;overflow-x:hidden;
   transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.9,.3,1);
   padding-bottom:calc(68px + env(safe-area-inset-bottom));
   box-shadow:0 -8px 30px rgba(44,36,32,.25);
@@ -1256,7 +1272,7 @@ body.field-mode .field-more.show{display:block;transform:translateY(0);opacity:1
 .field-tool-sheet{
   display:none;position:fixed;bottom:0;left:0;right:0;z-index:255;
   background:var(--bg-panel);border-top:1px solid var(--border);
-  border-radius:16px 16px 0 0;max-height:70vh;overflow-y:auto;overflow-x:hidden;
+  border-radius:16px 16px 0 0;max-height:calc(70vh / 1.5);overflow-y:auto;overflow-x:hidden;
   transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.9,.3,1);
   padding-bottom:calc(68px + env(safe-area-inset-bottom));
   box-shadow:0 -8px 30px rgba(44,36,32,.25);
@@ -1846,8 +1862,8 @@ body.field-mode .walk-touch.show{display:flex;justify-content:space-between;alig
     position:fixed;top:64px;bottom:0;z-index:150;
     box-shadow:0 8px 30px -8px rgba(44,36,32,.35);
   }
-  #leftPanel{left:52px;width:calc(100vw - 52px);max-width:340px}
-  #rightPanel{right:0;width:min(340px,calc(100vw - 52px))}
+  #leftPanel{left:52px;width:calc(100vw / 1.5 - 52px);max-width:340px}
+  #rightPanel{right:0;width:min(340px,calc(100vw / 1.5 - 52px))}
 }
 
 /* ── Upload card ─────────────────────────────────────────────────── */

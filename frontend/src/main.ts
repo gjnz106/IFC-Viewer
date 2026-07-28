@@ -42,7 +42,7 @@ if (typeof (window as any).initSectionDrag === 'function') {
 initViewCube();
 initStatePersist();  // restore UI prefs from localStorage
 initRouter();        // set up hash routing + restore last page
-log('IFC Viewer ready');
+log('DQT ready');
 
 // AI data-index module isn't wired to any startup UI (console debug tool
 // only, window.aiIndexSummary()) and nothing else imports it, so defer its

@@ -663,7 +663,12 @@ export function initThree(): void {
         if(!dragging)return;
         const vpRect=c.parentElement!.getBoundingClientRect(); // vpArea bbox
         const newH = vpRect.bottom - e.clientY - 3; // 3px = half handle height
-        const maxH = Math.floor(window.innerHeight * 0.7);
+        // window.innerHeight is the TRUE (unzoomed) window height; the app is
+        // rendered at CSS zoom:150% (see styles.css's "UI scale" comment),
+        // which does not remap this the way native browser page-zoom does.
+        // Divide by the same factor so the cap matches what actually fits
+        // on screen once zoom renders --bottom-h back out at 1.5x.
+        const maxH = Math.floor(window.innerHeight * 0.7 / 1.5);
         const clamped = Math.max(200, Math.min(maxH, newH));
         root.style.setProperty('--bottom-h', clamped+'px');
         window._vpResize();
