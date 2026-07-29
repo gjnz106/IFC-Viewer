@@ -15,7 +15,7 @@
   --accent:#C2410C;--accent-hover:#EA580C;--accent-soft:#FBEAE0;
   --radius:12px;--t:.15s ease;
   --topbar-h: 48px;
-  --font-main: 'Swis721 LtCn BT', 'Space Grotesk', 'Inter', sans-serif;
+  --font-main: 'Times New Roman', Times, serif;
 }
 /* ── Resizable layout ──────────────────────────────────────────────────
    Column widths (left sidebar, right Properties panel) and bottom-panel
