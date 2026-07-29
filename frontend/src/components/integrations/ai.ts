@@ -537,7 +537,7 @@ console.log('      await listElements({category:"Columns", storey:"L3"})');
     border-radius:20px;
     box-shadow:0 16px 48px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.07),inset 0 1px 0 rgba(255,255,255,.8);
     display:none;flex-direction:column;overflow:hidden;
-    font-family:'Space Grotesk',Inter,system-ui,sans-serif;
+    font-family:var(--font-main,'Swis721 LtCn BT','Space Grotesk',Inter,system-ui,sans-serif);
     color:var(--text,#1a1d26);
     transform-origin:bottom right;
     will-change:transform;
