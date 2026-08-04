@@ -312,43 +312,49 @@ async function readSpatialInfo(modelID: number, modelName: string){
         }
       }catch(tnErr: any){ log('TrueNorth read err:', tnErr?.message); }
     }
+    // Each getItemProperties() is a separate WASM round-trip; awaiting them
+    // one at a time inside the loop serialized this per-load tax with the
+    // storey/site/building count (worst on tall buildings). Firing them
+    // concurrently per category collapses N round-trips into 1 batch.
     const siteIDs=await api.GetLineIDsWithType(modelID, IFCSITE);
-    for(let si=0; si<siteIDs.size(); si++){
-      const s=await mgr.getItemProperties(modelID, siteIDs.get(si), false);
-      if(!s) continue;
+    const siteExpressIDs=Array.from({length:siteIDs.size()},(_,i)=>siteIDs.get(i));
+    const siteProps=await Promise.all(siteExpressIDs.map(id=>mgr.getItemProperties(modelID, id, false)));
+    siteProps.forEach((s: any, si: number)=>{
+      if(!s) return;
       if(si===0) info.siteName = s?.Name?.value || s?.LongName?.value || '';
       info.sites.push({
-        expressID: siteIDs.get(si),
+        expressID: siteExpressIDs[si],
         name: s?.Name?.value || s?.LongName?.value || '',
         refLat: s?.RefLatitude ?? null,
         refLon: s?.RefLongitude ?? null,
         refElev: s?.RefElevation?.value ?? s?.RefElevation ?? null,
       });
-    }
+    });
     const bldgIDs=await api.GetLineIDsWithType(modelID, IFCBUILDING);
-    for(let bi=0; bi<bldgIDs.size(); bi++){
-      const bid=bldgIDs.get(bi);
-      const b=await mgr.getItemProperties(modelID, bid, false);
+    const bldgExpressIDs=Array.from({length:bldgIDs.size()},(_,i)=>bldgIDs.get(i));
+    const bldgProps=await Promise.all(bldgExpressIDs.map(id=>mgr.getItemProperties(modelID, id, false)));
+    bldgProps.forEach((b: any, bi: number)=>{
       const bname = b?.Name?.value || b?.LongName?.value || '';
       if(bi===0) info.buildingName = bname;
       // Populate the `buildings` array SG rule GEN-005 reads. Previously only
       // `buildingName` (a string) was set, so `spatial.buildings` was always
       // undefined and "IfcBuilding present" reported "No IfcBuilding found"
       // even when the model clearly had one.
-      info.buildings.push({ expressID: bid, name: bname });
-    }
+      info.buildings.push({ expressID: bldgExpressIDs[bi], name: bname });
+    });
     const storeyIDs=await api.GetLineIDsWithType(modelID, IFCBUILDINGSTOREY);
-    for(let i=0;i<storeyIDs.size();i++){
-      const sid=storeyIDs.get(i);
-      const s=await mgr.getItemProperties(modelID, sid, false);
-      if(!s)continue;
+    const storeyExpressIDs=Array.from({length:storeyIDs.size()},(_,i)=>storeyIDs.get(i));
+    const storeyProps=await Promise.all(storeyExpressIDs.map(id=>mgr.getItemProperties(modelID, id, false)));
+    storeyProps.forEach((s: any, i: number)=>{
+      if(!s)return;
+      const sid=storeyExpressIDs[i];
       const elev = s.Elevation?.value ?? 0;
       info.storeys.push({
         expressID: sid,
         name: s.Name?.value || s.LongName?.value || ('Storey '+sid),
         elevation: elev,
       });
-    }
+    });
     info.storeys.sort((a: any,b: any)=>a.elevation-b.elevation);
   }catch(e: any){log('readSpatialInfo err:',e?.message)}
   return info;
@@ -372,7 +378,7 @@ async function _loadIFCInner(idx: number){
   const st=idx<2?document.getElementById('us'+idx):null;
   if(st){st.className='uc-status prog';st.textContent='⏳ Parsing...';}
   try{
-    if(appState.loadedModels[idx]){disposeModel(appState.loadedModels[idx]);appState.scene.remove(appState.loadedModels[idx]!);appState.loadedModels[idx]=null}
+    if(appState.loadedModels[idx]){invalidateCatScan((appState.loadedModels[idx] as any).modelID);disposeModel(appState.loadedModels[idx]);appState.scene.remove(appState.loadedModels[idx]!);appState.loadedModels[idx]=null}
     // Invalidate cached props for this slot so Colorize rescans on next use
     if(window._colorizeInvalidate)window._colorizeInvalidate(idx);
     // If no models remain at all, reset shared offset
@@ -497,6 +503,21 @@ async function _loadIFCInner(idx: number){
   }
 }
 
+// Per-model category scan cache: modelID -> {typeName: expressIDs[]}. A model's
+// category breakdown never changes after load, so once scanned it's reused
+// instead of re-running ~90 GetLineIDsWithType calls every time *any* slot
+// (re)loads — buildCatFromModels used to rescan both slots unconditionally
+// on every single model load.
+const _catScanCache: Record<number, Record<string, number[]>> = {};
+
+// web-ifc can reuse a numeric modelID handle after a model is closed, so a
+// stale cache entry could otherwise be served for an unrelated file loaded
+// later into the same slot. Call this whenever a model is disposed.
+export function invalidateCatScan(modelID: number | undefined | null): void {
+  if(modelID==null)return;
+  delete _catScanCache[modelID];
+}
+
 // ══ Build Category Filter from loaded models ══
 async function buildCatFromModels(){
   const api=(appState.ifcLoader?.ifcManager as any)?.state?.api;
@@ -593,18 +614,30 @@ async function buildCatFromModels(){
   for(let idx=0;idx<2;idx++){
     if(!appState.loadedModels[idx])continue;
     const mid=(appState.loadedModels[idx] as any).modelID;
-    for(const typeNum of PRODUCT_TYPES){
-      try{
-        const lines=api.GetLineIDsWithType(mid,typeNum);
-        const cnt=lines.size();
-        if(cnt===0)continue;
-        const typeName=IFC_NAMES[typeNum]||('IFC_'+typeNum);
-        if(!window._catData[typeName])window._catData[typeName]={total:0,added:0,removed:0,modified:0};
-        if(!window._catModelIDs[typeName])window._catModelIDs[typeName]={};
-        if(!window._catModelIDs[typeName][idx])window._catModelIDs[typeName][idx]=[];
-        for(let i=0;i<cnt;i++) window._catModelIDs[typeName][idx].push(lines.get(i));
-        window._catData[typeName].total+=cnt;
-      }catch(e){}
+
+    let scan=_catScanCache[mid];
+    if(!scan){
+      scan={};
+      for(const typeNum of PRODUCT_TYPES){
+        try{
+          const lines=api.GetLineIDsWithType(mid,typeNum);
+          const cnt=lines.size();
+          if(cnt===0)continue;
+          const typeName=IFC_NAMES[typeNum]||('IFC_'+typeNum);
+          const ids=new Array(cnt);
+          for(let i=0;i<cnt;i++) ids[i]=lines.get(i);
+          scan[typeName]=ids;
+        }catch(e){}
+      }
+      _catScanCache[mid]=scan;
+    }
+
+    for(const typeName in scan){
+      const ids=scan[typeName];
+      if(!window._catData[typeName])window._catData[typeName]={total:0,added:0,removed:0,modified:0};
+      if(!window._catModelIDs[typeName])window._catModelIDs[typeName]={};
+      window._catModelIDs[typeName][idx]=ids;
+      window._catData[typeName].total+=ids.length;
     }
   }
 

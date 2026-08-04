@@ -33,6 +33,7 @@ import { escapeHtml } from '../../lib/escape.js';
 import { runCompare as computeDiff } from './compare.js';
 import { log } from '../core/ifc-category.js';
 import { disposeModel } from '../core/viewer-core.js';
+import { invalidateCatScan } from '../tools/section-visibility.js';
 import { syncUploadSlot } from '../ui/projects.js';
 import { saveLocalSessionFile, clearLocalSessionFile } from '../../lib/local-session.js';
 import { syncChipLabel } from '../../lib/cloud-files.js';
@@ -174,6 +175,7 @@ export function unloadAllModels(): void {
   for (let i = 0; i < appState.loadedModels.length; i++) {
     const m = appState.loadedModels[i];
     if (m) {
+      invalidateCatScan((m as any).modelID);
       disposeModel(m);
       appState.scene.remove(m);
       if (window._colorizeInvalidate) window._colorizeInvalidate(i);
