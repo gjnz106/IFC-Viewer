@@ -26,8 +26,17 @@ const webIfcDir = dirname(require.resolve('web-ifc'));
 const outDir = join(frontendDir, 'public', 'vendor', 'web-ifc');
 mkdirSync(outDir, { recursive: true });
 
+// web-ifc-mt.worker.js belongs in this list even though the app currently runs
+// the single-threaded build. web-ifc picks the multi-threaded build purely by
+// reading `self.crossOriginIsolated` (web-ifc-api.js), and the MT build spawns
+// its pthreads via locateFile('web-ifc-mt.worker.js'). Ship COOP/COEP headers
+// without that file and the worker request falls through to the SPA rewrite,
+// which answers with index.html — the thread pool never starts and every parse
+// hangs forever, at any file size. That is exactly what happened when
+// cross-origin isolation was first enabled. Keeping the worker in the bundle
+// means re-enabling isolation is a one-line header change, not a silent trap.
 let copied = 0;
-for (const f of ['web-ifc.wasm', 'web-ifc-mt.wasm']) {
+for (const f of ['web-ifc.wasm', 'web-ifc-mt.wasm', 'web-ifc-mt.worker.js']) {
   const src = join(webIfcDir, f);
   if (existsSync(src)) {
     copyFileSync(src, join(outDir, f));
