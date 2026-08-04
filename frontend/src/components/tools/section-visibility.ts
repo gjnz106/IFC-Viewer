@@ -153,7 +153,17 @@ async function initIFC(){
     // URL so it can fetch the version-matched wasm without a same-origin path.
     const wasmBase = (window as any).__WASM_BASE__ || '/vendor/web-ifc/';
     await appState.ifcLoader.ifcManager.setWasmPath(wasmBase);
-    await appState.ifcLoader.ifcManager.applyWebIfcConfig({USE_FAST_BOOLS:false});
+    // NOTE: this used to pass {USE_FAST_BOOLS:false}. That key does not exist
+    // in web-ifc 0.0.57 — CreateSettings only honours COORDINATE_TO_ORIGIN,
+    // CIRCLE_SEGMENTS, TAPE_SIZE, MEMORY_LIMIT and LINEWRITER_BUFFER, and
+    // silently drops anything else. It was reading as "boolean geometry is
+    // deliberately tuned here" while doing nothing at all. Left as an explicit
+    // empty config so the call site stays obvious if a real setting is needed.
+    // COORDINATE_TO_ORIGIN is deliberately NOT enabled: this module does its
+    // own centering and shares one offset across models so federated files stay
+    // aligned — letting web-ifc re-origin each file independently would break
+    // that alignment.
+    await appState.ifcLoader.ifcManager.applyWebIfcConfig({});
     await appState.ifcLoader.ifcManager.parser.setupOptionalCategories({[IFCSPACE]:false,[IFCOPENINGELEMENT]:false});
     log('WASM ready');setStatus('done','Ready');setTimeout(()=>setStatus('',''),2000);return true;
   }catch(e: any){log('WASM err:',e.message);setStatus('error',e.message);return false}
@@ -391,7 +401,12 @@ async function _loadIFCInner(idx: number){
 
     // Scan vertices, fix NaN, compute bounds
     let mnX=Infinity,mnY=Infinity,mnZ=Infinity,mxX=-Infinity,mxY=-Infinity,mxZ=-Infinity,vc=0;
-    const scan=(g: any)=>{if(!g?.attributes?.position)return;const a=g.attributes.position.array;for(let i=0;i<a.length;i+=3){if(isNaN(a[i])){a[i]=a[i+1]=a[i+2]=0;continue}vc++;if(a[i]<mnX)mnX=a[i];if(a[i]>mxX)mxX=a[i];if(a[i+1]<mnY)mnY=a[i+1];if(a[i+1]>mxY)mxY=a[i+1];if(a[i+2]<mnZ)mnZ=a[i+2];if(a[i+2]>mxZ)mxZ=a[i+2]}g.attributes.position.needsUpdate=true};
+    // needsUpdate is set ONLY when a NaN was actually patched. It used to be
+    // set unconditionally, which flagged every position buffer in the model as
+    // dirty and forced a full re-upload of all vertex data to the GPU on the
+    // next frame — a real per-load cost on big models, for buffers that were
+    // almost always untouched (clean geometry is the common case).
+    const scan=(g: any)=>{if(!g?.attributes?.position)return;const a=g.attributes.position.array;let patched=false;for(let i=0;i<a.length;i+=3){if(isNaN(a[i])){a[i]=a[i+1]=a[i+2]=0;patched=true;continue}vc++;if(a[i]<mnX)mnX=a[i];if(a[i]>mxX)mxX=a[i];if(a[i+1]<mnY)mnY=a[i+1];if(a[i+1]>mxY)mxY=a[i+1];if(a[i+2]<mnZ)mnZ=a[i+2];if(a[i+2]>mxZ)mxZ=a[i+2]}if(patched)g.attributes.position.needsUpdate=true};
     if(model.geometry)scan(model.geometry);model.traverse((c: any)=>{if(c.isMesh)scan(c.geometry)});
     if(!isFinite(mnX)||vc===0)throw new Error('No valid geometry');
 

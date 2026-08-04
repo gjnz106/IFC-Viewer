@@ -545,6 +545,10 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
   // no-op handler; the real await still sees the rejection.
   fetches.forEach(p => p.catch(() => {}));
 
+  // Tracks whether the overlay has already been released by the first
+  // successfully parsed model (see inside the loop).
+  let firstModelShown = false;
+
   for (let i = 0; i < ordered.length; i++) {
     if (stale()) { lo?.classList.remove('on'); return; }
     const rec = ordered[i];
@@ -571,6 +575,17 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
       if (lt) lt.textContent = `Loading ${rec.name} (${i + 1}/${ordered.length})…`;
       await (window as any).loadIFC?.(idx);
       log(`Cloud auto-load: ${rec.name} loaded into slot ${idx}`);
+      // Release the blocking overlay as soon as the FIRST model is in the
+      // scene. Parsing is serialized on one WASM instance, so on a multi-file
+      // project the remaining files can take a while — holding the overlay
+      // until the last one finished meant staring at a blocked screen even
+      // though the viewport already had geometry to look at. Each model is
+      // added to the scene as it lands, so the rest stream in behind a usable
+      // view. Per-slot progress chips still report the stragglers.
+      if (firstModelShown === false) {
+        firstModelShown = true;
+        lo?.classList.remove('on');
+      }
     } catch (e: any) {
       console.warn('[cloud-files] auto-load failed for', rec.name, e);
       appState.cloudSyncStatus[idx] = { status: 'error' };
