@@ -435,6 +435,21 @@ body.resizing{cursor:col-resize;user-select:none}
 .od-login-btn{width:100%;padding:7px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-family:var(--font-main);font-size:13.2px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all var(--t)}
 .od-login-btn:hover{background:var(--bg-hover);border-color:var(--border-hi)}
 .od-login-btn svg{width:14px;height:14px}
+/* View filters — named model-visibility presets */
+.mf-actions{display:flex;gap:6px}
+.mf-actions .od-login-btn{flex:1}
+.mf-clear{flex:0 0 auto!important;padding-left:10px;padding-right:10px}
+.mf-list{margin-top:6px;display:flex;flex-direction:column;gap:3px}
+.mf-empty{font-size:12px;color:var(--text-dim);padding:8px 2px;line-height:1.45}
+.mf-row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-card);cursor:pointer;transition:all var(--t)}
+.mf-row:hover{background:var(--bg-hover);border-color:var(--border-hi)}
+.mf-row-name{flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mf-row-count{font-size:11.5px;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.mf-warn{font-size:11.5px;color:#d97706}
+.mf-row-actions{display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.mf-row:hover .mf-row-actions{opacity:1}
+.mf-row-actions button{border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1;padding:2px 3px;border-radius:4px}
+.mf-row-actions button:hover{background:var(--bg-hover);color:var(--text)}
 .vp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
 .vp-card{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:pointer;background:var(--bg-card)}
 .vp-card:hover{border-color:var(--border-hi)}

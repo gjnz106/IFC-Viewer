@@ -340,6 +340,13 @@ declare global {
     unloadAllModels?: () => void;
 
     // Viewpoints (saved camera + section + visibility, per project)
+    mfTogglePanel?: () => void;
+    mfSave?: () => void;
+    mfApply?: (id: string) => void;
+    mfUpdate?: (id: string) => void;
+    mfRename?: (id: string) => void;
+    mfDelete?: (id: string) => void;
+    mfShowAll?: () => void;
     vpTogglePanel?: () => void;
     vpSave?: () => void;
     vpRestore?: (id: string) => void;

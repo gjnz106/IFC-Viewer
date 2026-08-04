@@ -8,6 +8,7 @@ import './components/core/ifc-category.js';
 import './components/tools/colorize.js';
 import './components/tools/color-schemes.js';
 import './components/tools/viewpoints.js';
+import './components/tools/model-filters.js';
 import './components/tools/section-visibility.js';
 import './components/compare/federation-load.js';
 import './components/compare/compare.js';

@@ -15,6 +15,7 @@ import {
   updateProjectState, type ProjectRegistry, type Project,
 } from '../../lib/projects-store.js';
 import { deleteProjectViewpoints } from '../../lib/viewpoints-store.js';
+import { deleteProjectFilters } from '../../lib/model-filters-store.js';
 import {
   fetchCloudProjects, createCloudProject, renameCloudProject, isProjectOwner,
   migrateLocalToCloud, addMemberEmail, removeMemberEmail, updateProjectMembers, syncProjectSettings,
@@ -392,6 +393,7 @@ window.projDelete = function (id: string): void {
   const wasActive = registry.activeId === id;
   registry = deleteProject(registry, id);
   deleteProjectViewpoints(id);
+  deleteProjectFilters(id);
   clearCameraForProject(id);
   if (wasActive) {
     finishActivation();
