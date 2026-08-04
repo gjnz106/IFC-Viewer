@@ -395,6 +395,24 @@
         </button>
       </div>
 
+      <div id="mfPanelSep" data-pages="viewer compare clash validate" style="height:1px;background:var(--border);margin:0 16px"></div>
+
+      <!-- View Filters (named model-visibility presets) -->
+      <div class="od-panel" id="mfPanel" data-pages="viewer compare clash validate">
+        <button class="od-toggle" onclick="mfTogglePanel()">
+          <span class="od-toggle-icon"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></span>
+          View Filters
+          <span class="od-toggle-badge" id="mfBadge">0</span>
+        </button>
+        <div class="od-body" id="mfBody">
+          <div class="mf-actions">
+            <button class="od-login-btn" onclick="mfSave()">+ Save filter</button>
+            <button class="od-login-btn mf-clear" onclick="mfShowAll()" title="Show every loaded model">Show all</button>
+          </div>
+          <div class="mf-list" id="mfList"></div>
+        </div>
+      </div>
+
       <div id="vpPanelSep" data-pages="viewer compare clash validate" style="height:1px;background:var(--border);margin:0 16px"></div>
 
       <!-- Saved Viewpoints -->
