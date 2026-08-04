@@ -387,17 +387,47 @@ async function _loadIFCInner(idx: number){
   // Status element: slots 0,1 have their own DOM; federation slots update fedRenderSlots
   const st=idx<2?document.getElementById('us'+idx):null;
   if(st){st.className='uc-status prog';st.textContent='⏳ Parsing...';}
+  // web-ifc parses inside a 32-bit WASM heap with a 2 GB default MEMORY_LIMIT,
+  // on the main thread. Past roughly a quarter of a gigabyte of source IFC the
+  // parse can run for many minutes or exhaust the heap outright, and the user
+  // has no way to tell that from a hang — so say so up front.
+  const sizeMB=file.size/1048576;
+  if(sizeMB>250)log(`WARNING: ${file.name} is ${sizeMB.toFixed(0)} MB. Files this large can take many minutes to parse or exhaust the browser's memory. If it never finishes, split the model by discipline or by level and load the parts as separate files.`);
   try{
     if(appState.loadedModels[idx]){invalidateCatScan((appState.loadedModels[idx] as any).modelID);disposeModel(appState.loadedModels[idx]);appState.scene.remove(appState.loadedModels[idx]!);appState.loadedModels[idx]=null}
     // Invalidate cached props for this slot so Colorize rescans on next use
     if(window._colorizeInvalidate)window._colorizeInvalidate(idx);
     // If no models remain at all, reset shared offset
     if(!appState.loadedModels.some(m=>!!m)){appState.sharedCenterOffset=null;appState.modelBounds.min.set(0,0,0);appState.modelBounds.max.set(0,0,0)}
-    const buf=await file.arrayBuffer();const url=URL.createObjectURL(new Blob([buf]));
-    const model=await new Promise<any>((ok,no)=>{
-      appState.ifcLoader.load(url,(m: any)=>ok(m),(p: any)=>{if(p.total>0&&st)st.textContent='⏳ '+Math.round(p.loaded/p.total*100)+'%'},(e: any)=>no(e));
-    });
-    URL.revokeObjectURL(url);
+    // `file` is already a Blob, so hand it to createObjectURL directly. This
+    // used to be `URL.createObjectURL(new Blob([await file.arrayBuffer()]))`,
+    // which read the whole file into the JS heap and then copied it into a
+    // second Blob — two full extra copies before the loader's own fetch made a
+    // third. On a 450 MB model that is ~1.3 GB of avoidable peak heap, on top of
+    // web-ifc's own 2 GB MEMORY_LIMIT inside a 32-bit WASM address space.
+    const url=URL.createObjectURL(file);
+    // The loader's onProgress tracks the blob-URL fetch, which for a local blob
+    // completes almost instantly — so the status froze at "100%" for the entire
+    // parse and a slow load was indistinguishable from a hang. Report elapsed
+    // parse time instead once the bytes are in.
+    let parsing=false;
+    const t0=Date.now();
+    const tick=setInterval(()=>{
+      if(!parsing||!st)return;
+      st.textContent='⏳ Parsing '+Math.round((Date.now()-t0)/1000)+'s';
+    },1000);
+    let model: any;
+    try{
+      model=await new Promise<any>((ok,no)=>{
+        appState.ifcLoader.load(url,(m: any)=>ok(m),(p: any)=>{
+          if(p.total>0&&st&&!parsing)st.textContent='⏳ '+Math.round(p.loaded/p.total*100)+'%';
+          if(p.total>0&&p.loaded>=p.total)parsing=true;
+        },(e: any)=>no(e));
+      });
+    }finally{
+      clearInterval(tick);
+      URL.revokeObjectURL(url);
+    }
 
     // Scan vertices, fix NaN, compute bounds
     let mnX=Infinity,mnY=Infinity,mnZ=Infinity,mxX=-Infinity,mxY=-Infinity,mxZ=-Infinity,vc=0;

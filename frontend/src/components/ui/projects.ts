@@ -538,9 +538,11 @@ async function autoLoadCloudProjectFiles(projectId: string): Promise<void> {
   const fetches = ordered.map(rec => (async () => {
     const cached = await getCachedFile(rec);
     if (cached) { log(`Cloud auto-load: ${rec.name} served from local cache`); return cached; }
-    const file = await downloadProjectFile(rec);
-    putCachedFile(rec, file); // best-effort, fire-and-forget
-    return file;
+    // downloadProjectFile already writes the cache itself. Calling putCachedFile
+    // here too meant every downloaded file was written to IndexedDB TWICE,
+    // concurrently — on a 450 MB model that is ~900 MB of redundant writes plus
+    // two eviction passes racing each other, enough to stall the whole tab.
+    return downloadProjectFile(rec);
   })());
   // A later file failing while an earlier one is still parsing would fire
   // "unhandledrejection" before the loop below awaits it — pre-attach a
