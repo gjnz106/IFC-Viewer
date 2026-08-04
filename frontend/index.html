@@ -405,9 +405,33 @@
           <span class="od-toggle-badge" id="mfBadge">0</span>
         </button>
         <div class="od-body" id="mfBody">
+          <div class="mf-filterbar" id="mfFilterBar">
+            <div class="mf-chip-wrap">
+              <button class="mf-chip" id="mfFileChip" onclick="mfToggleDropdown('file')">File <span id="mfFileCount"></span> <span class="mf-chip-arrow">▾</span></button>
+              <div class="mf-dropdown" id="mfFileDropdown">
+                <input class="mf-dd-search" id="mfFileSearch" placeholder="Search files..." oninput="mfFileSearchInput()">
+                <div class="mf-dd-actions">
+                  <button onclick="mfFileSelectAll(true)">Select all</button>
+                  <button onclick="mfFileSelectAll(false)">Clear</button>
+                </div>
+                <div class="mf-dd-list" id="mfFileList"></div>
+              </div>
+            </div>
+            <div class="mf-chip-wrap">
+              <button class="mf-chip" id="mfCatChip" onclick="mfToggleDropdown('cat')">Category <span id="mfCatCount"></span> <span class="mf-chip-arrow">▾</span></button>
+              <div class="mf-dropdown" id="mfCatDropdown">
+                <input class="mf-dd-search" id="mfCatSearch" placeholder="Search categories..." oninput="mfCatSearchInput()">
+                <div class="mf-dd-actions">
+                  <button onclick="mfCatSelectAll()">Select all</button>
+                  <button onclick="mfCatSelectNone()">Clear</button>
+                </div>
+                <div class="mf-dd-list" id="mfCatList"></div>
+              </div>
+            </div>
+          </div>
           <div class="mf-actions">
             <button class="od-login-btn" onclick="mfSave()">+ Save filter</button>
-            <button class="od-login-btn mf-clear" onclick="mfShowAll()" title="Show every loaded model">Show all</button>
+            <button class="od-login-btn mf-clear" onclick="mfShowAll()" title="Show every model and category">Show all</button>
           </div>
           <div class="mf-list" id="mfList"></div>
         </div>

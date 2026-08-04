@@ -341,6 +341,14 @@ declare global {
 
     // Viewpoints (saved camera + section + visibility, per project)
     mfTogglePanel?: () => void;
+    mfToggleDropdown?: (which: 'file' | 'cat') => void;
+    mfToggleFile?: (name: string) => void;
+    mfFileSearchInput?: () => void;
+    mfFileSelectAll?: (on: boolean) => void;
+    mfToggleCategory?: (cat: string) => void;
+    mfCatSearchInput?: () => void;
+    mfCatSelectAll?: () => void;
+    mfCatSelectNone?: () => void;
     mfSave?: () => void;
     mfApply?: (id: string) => void;
     mfUpdate?: (id: string) => void;

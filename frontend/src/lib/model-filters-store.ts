@@ -1,10 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════════════
    IFC DELTA — MODEL FILTERS (named "which models are visible" presets)
    ───────────────────────────────────────────────────────────────────────
-   A Dalux-style view filter: pick the models a discipline cares about
-   (ARC / STR / MEP / …), name it, and switch to it in one click. Applying
-   a filter ISOLATES — the listed models are shown, every other loaded slot
-   is hidden.
+   A Dalux-style view filter with two independent criteria, exactly like the
+   Dalux "File" / "Category" filter chips: pick the models a discipline cares
+   about (ARC / STR / MEP / …), optionally narrow to specific IFC categories,
+   name the combination, and switch to it in one click.
+
+   Applying a filter ISOLATES on both axes — models are the same file-based
+   isolate this store always did; categories reuse the app's existing single
+   global category-visibility engine (appState.activeCategories +
+   applyCatVis() in components/tools/section-visibility.ts /
+   components/compare/compare.ts), which a saved filter now also drives.
 
    Saved per project (localStorage key `ifc.modelfilters.<projectId>`),
    mirroring viewpoints-store.ts.
@@ -21,6 +27,14 @@ export interface ModelFilter {
   createdAt: number;
   /** File names of the models this filter shows. Everything else is hidden. */
   models: string[];
+  /**
+   * IFC category names (e.g. "IfcWall") this filter shows. Empty array means
+   * "all categories" — the same empty-set-is-everything convention
+   * appState.activeCategories already uses, so a filter saved before this
+   * field existed (`categories` undefined) reads identically to one that
+   * explicitly picked every category.
+   */
+  categories: string[];
 }
 
 function makeId(): string {
@@ -48,9 +62,11 @@ export function renameFilter(list: ModelFilter[], id: string, name: string): Mod
   return list.map(f => (f.id === id ? { ...f, name: name.trim() || f.name } : f));
 }
 
-/** Overwrite a filter's model set in place, keeping its id/name/createdAt. */
-export function updateFilterModels(list: ModelFilter[], id: string, models: string[]): ModelFilter[] {
-  return list.map(f => (f.id === id ? { ...f, models: models.slice() } : f));
+/** Overwrite a filter's model + category sets in place, keeping its id/name/createdAt. */
+export function updateFilterSelection(
+  list: ModelFilter[], id: string, models: string[], categories: string[],
+): ModelFilter[] {
+  return list.map(f => (f.id === id ? { ...f, models: models.slice(), categories: categories.slice() } : f));
 }
 
 export interface FilterResolution {
@@ -126,8 +142,13 @@ export function loadFilters(projectId: string): ModelFilter[] {
     // valid JSON that isn't an array, and every caller does .find/.map on it.
     if (!Array.isArray(parsed)) return [];
     // Drop entries whose `models` isn't an array — resolveFilter would throw on
-    // them, taking the whole panel down for one bad record.
-    return parsed.filter((f: any) => f && Array.isArray(f.models));
+    // them, taking the whole panel down for one bad record. `categories` is
+    // normalised rather than dropped: it postdates this store, so an entry
+    // saved before it existed should read as "all categories", not get thrown
+    // away.
+    return parsed
+      .filter((f: any) => f && Array.isArray(f.models))
+      .map((f: any) => (Array.isArray(f.categories) ? f : { ...f, categories: [] }));
   } catch { return []; }
 }
 

@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  addFilter, removeFilter, renameFilter, updateFilterModels,
+  addFilter, removeFilter, renameFilter, updateFilterSelection,
   resolveFilter, captureVisibleModels,
   loadFilters, saveFilters, deleteProjectFilters,
   type ModelFilter,
 } from './model-filters-store.js';
 
-function makeFilter(id: string, name: string, models: string[] = ['a.ifc']): ModelFilter {
-  return { id, name, createdAt: 1, models };
+function makeFilter(id: string, name: string, models: string[] = ['a.ifc'], categories: string[] = []): ModelFilter {
+  return { id, name, createdAt: 1, models, categories };
 }
 
 describe('addFilter', () => {
@@ -26,7 +26,7 @@ describe('addFilter', () => {
   });
 });
 
-describe('removeFilter / renameFilter / updateFilterModels', () => {
+describe('removeFilter / renameFilter / updateFilterSelection', () => {
   it('removes by id', () => {
     expect(removeFilter([makeFilter('1', 'a'), makeFilter('2', 'b')], '1').map(f => f.id)).toEqual(['2']);
   });
@@ -39,16 +39,19 @@ describe('removeFilter / renameFilter / updateFilterModels', () => {
     expect(renameFilter([makeFilter('1', 'a')], '1', '   ')[0].name).toBe('a');
   });
 
-  it('replaces the model set but keeps identity', () => {
-    const out = updateFilterModels([makeFilter('1', 'MEP', ['a.ifc'])], '1', ['b.ifc', 'c.ifc']);
-    expect(out[0]).toMatchObject({ id: '1', name: 'MEP', createdAt: 1, models: ['b.ifc', 'c.ifc'] });
+  it('replaces the model and category sets but keeps identity', () => {
+    const out = updateFilterSelection([makeFilter('1', 'MEP', ['a.ifc'], ['IfcWall'])], '1', ['b.ifc', 'c.ifc'], ['IfcDoor']);
+    expect(out[0]).toMatchObject({ id: '1', name: 'MEP', createdAt: 1, models: ['b.ifc', 'c.ifc'], categories: ['IfcDoor'] });
   });
 
-  it('copies the incoming array so later mutation cannot leak in', () => {
+  it('copies the incoming arrays so later mutation cannot leak in', () => {
     const models = ['b.ifc'];
-    const out = updateFilterModels([makeFilter('1', 'MEP')], '1', models);
+    const categories = ['IfcWall'];
+    const out = updateFilterSelection([makeFilter('1', 'MEP')], '1', models, categories);
     models.push('sneaky.ifc');
+    categories.push('sneaky');
     expect(out[0].models).toEqual(['b.ifc']);
+    expect(out[0].categories).toEqual(['IfcWall']);
   });
 });
 
@@ -110,9 +113,9 @@ describe('captureVisibleModels', () => {
 describe('localStorage glue', () => {
   beforeEach(() => localStorage.clear());
 
-  it('round-trips a list per project', () => {
-    saveFilters('p1', [makeFilter('1', 'MEP', ['m.ifc'])]);
-    expect(loadFilters('p1')).toEqual([{ id: '1', name: 'MEP', createdAt: 1, models: ['m.ifc'] }]);
+  it('round-trips a list per project, including categories', () => {
+    saveFilters('p1', [makeFilter('1', 'MEP', ['m.ifc'], ['IfcPipeSegment'])]);
+    expect(loadFilters('p1')).toEqual([{ id: '1', name: 'MEP', createdAt: 1, models: ['m.ifc'], categories: ['IfcPipeSegment'] }]);
   });
 
   it('scopes storage per project', () => {
@@ -138,6 +141,11 @@ describe('localStorage glue', () => {
     // One bad record must not take the whole panel down.
     localStorage.setItem('ifc.modelfilters.p1', '[{"id":"1","models":"oops"},{"id":"2","models":["a.ifc"]}]');
     expect(loadFilters('p1').map(f => f.id)).toEqual(['2']);
+  });
+
+  it('normalises a pre-category record to categories: [] instead of dropping it', () => {
+    localStorage.setItem('ifc.modelfilters.p1', '[{"id":"1","name":"old","createdAt":1,"models":["a.ifc"]}]');
+    expect(loadFilters('p1')).toEqual([{ id: '1', name: 'old', createdAt: 1, models: ['a.ifc'], categories: [] }]);
   });
 
   it('deletes a project bucket', () => {
