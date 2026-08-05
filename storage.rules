@@ -1,13 +1,28 @@
 rules_version = '2';
 
-// IFC Delta — Cloud Projects (Phase 12) / IFC file storage (Phase 13),
-// extended with per-project roles.
-// ACL reads from the Firestore `projects/{projectId}` doc (memberEmails +
-// memberRoles) so Storage and Firestore never drift out of sync with two
-// separate ACLs. Role semantics mirror firestore.rules exactly — see that
-// file's header comment for why a forged 'owner' entry in memberRoles is
-// inert (ownership is defined solely by the ownerEmail field, never read
-// from here).
+// IFC Delta — Cloud Projects (Phase 12) / IFC file storage (Phase 13).
+// ACL reads from the Firestore `projects/{projectId}` doc (memberEmails)
+// so Storage and Firestore never drift out of sync with two separate ACLs.
+//
+// DELIBERATELY membership-only, NOT role-aware — do not "fix" this to match
+// firestore.rules without testing it against real Firebase first.
+//
+// A role-gated version of this file (viewer = read-only, editor+ = write)
+// shipped and broke ALL uploads for every role including owner: Storage
+// Rules is a different dialect from Firestore Rules, and the `memberRoles`
+// lookup used `Map.get(key, default)` — valid in Firestore Rules, evidently
+// not in Storage Rules, and a rules evaluation error denies the request.
+// It could not be caught locally: the Storage emulator's cross-service
+// `firestore.get()/exists()` does not work under
+// @firebase/rules-unit-testing here — even THIS known-good file fails every
+// check there, so an emulator pass proves nothing about this file either way.
+//
+// The role restriction is not lost, only moved: firestore.rules gates the
+// `projects/{id}/files/{fileId}` metadata doc at editor+, and that IS
+// emulator-verified. A viewer who forced a raw blob upload would produce an
+// orphan the app never lists. The remaining gap versus firestore.rules is
+// blob delete, which any member can still do — the same behaviour this app
+// has always had, not a regression introduced by the roles work.
 service firebase.storage {
   match /b/{bucket}/o {
 
@@ -20,38 +35,11 @@ service firebase.storage {
         && firestore.exists(/databases/(default)/documents/allowedUsers/$(request.auth.token.email.lower()));
     }
 
-    function projectDoc(projectId) {
-      return firestore.get(/databases/(default)/documents/projects/$(projectId)).data;
-    }
-
     function isProjectMember(projectId) {
-      let proj = projectDoc(projectId);
+      let proj = firestore.get(/databases/(default)/documents/projects/$(projectId));
       // Lowercased to match how the client normalizes/stores memberEmails.
-      return proj.memberEmails is list
-        && request.auth.token.email.lower() in proj.memberEmails;
-    }
-
-    function storedRole(data, e) {
-      return data.get('memberRoles', {}).get(e, null);
-    }
-    function roleOf(data, e) {
-      return e == data.ownerEmail
-        ? 'owner'
-        : (
-            (storedRole(data, e) != null && storedRole(data, e) != 'owner')
-              ? storedRole(data, e)
-              : (data.memberEmails is list && e in data.memberEmails ? 'editor' : null)
-          );
-    }
-    function roleRank(role) {
-      return role == 'owner' ? 3 : role == 'admin' ? 2 : role == 'editor' ? 1 : role == 'viewer' ? 0 : -1;
-    }
-
-    // A viewer may read/download files but never upload, overwrite, or
-    // delete one — this is the storage-side half of the editor+ floor
-    // firestore.rules enforces on the parent project's files/{fileId} docs.
-    function canEditProject(projectId) {
-      return roleRank(roleOf(projectDoc(projectId), request.auth.token.email.lower())) >= roleRank('editor');
+      return proj.data.memberEmails is list
+        && request.auth.token.email.lower() in proj.data.memberEmails;
     }
 
     // Reasonable IFC-related content types — browsers send inconsistent
@@ -77,11 +65,11 @@ service firebase.storage {
       // null, so the size/contentType checks error out and every
       // deleteObject() was denied — orphaned blobs accrued forever.
       allow create, update: if isAllowed()
-        && canEditProject(projectId)
+        && isProjectMember(projectId)
         && request.resource.size < 500 * 1024 * 1024
         && isAllowedIfcContentType();
 
-      allow delete: if isAllowed() && canEditProject(projectId);
+      allow delete: if isAllowed() && isProjectMember(projectId);
     }
   }
 }

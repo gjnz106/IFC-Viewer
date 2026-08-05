@@ -69,6 +69,11 @@ service cloud.firestore {
     // See the file-level comment for why a non-owner's stored 'owner' value
     // is ignored rather than trusted. Mirrors
     // frontend/src/lib/cloud-projects.ts's roleOf() exactly.
+    //
+    // These helpers are Firestore-Rules-only. storage.rules deliberately does
+    // NOT mirror them — `Map.get(key, default)` below is not valid in the
+    // Storage Rules dialect and denied every upload when it was tried. See
+    // storage.rules' header before attempting to share this logic.
     function storedRole(data, e) {
       return data.get('memberRoles', {}).get(e, null);
     }
