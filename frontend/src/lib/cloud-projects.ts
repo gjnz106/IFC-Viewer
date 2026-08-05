@@ -310,9 +310,18 @@ export async function updateMemberRole(id: string, email: string, role: ProjectR
   const target = normEmail(email);
   if (!target) return false;
   try {
-    const { doc, updateDoc } = await import('firebase/firestore');
+    const { doc, updateDoc, FieldPath } = await import('firebase/firestore');
     const db = await getDb();
-    await updateDoc(doc(db, 'projects', id), { [`memberRoles.${target}`]: role, updatedAt: Date.now() });
+    // FieldPath(a, b) treats each argument as ONE literal segment. The object
+    // form — { [`memberRoles.${target}`]: role } — cannot be used here: a
+    // string key is parsed as a dotted FIELD PATH, and every email contains
+    // dots, so `memberRoles.bob@corp.com` wrote to
+    // memberRoles → 'bob@corp' → 'com' instead of the intended key. The
+    // update reported success, the real entry kept its old value, and the
+    // role change silently did nothing on every machine but the one that
+    // made it (whose in-memory copy had already been updated optimistically).
+    await updateDoc(doc(db, 'projects', id), new FieldPath('memberRoles', target), role,
+      'updatedAt', Date.now());
     return true;
   } catch (e) {
     console.warn('[cloud-projects] updateMemberRole failed:', e);

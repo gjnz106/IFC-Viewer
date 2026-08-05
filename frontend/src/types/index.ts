@@ -391,6 +391,7 @@ declare global {
     projAddMember?: () => Promise<void>;
     projRemoveMember?: (email: string) => Promise<void>;
     projSetMemberRole?: (email: string, role: string) => Promise<void>;
+    refreshMembershipPanels?: () => Promise<void>;
     ifcCacheClear?: () => Promise<void>;
 
     // Clash

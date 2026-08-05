@@ -120,7 +120,12 @@ window.colorizeSetProp = function (v: string): void {
     el.style.display = open ? 'none' : 'flex';
     // Fill with the active cloud project's real member list on open
     // (renderTeamPanel lives in projects.ts, which owns the cloud state).
-    if (!open) (window as any).renderTeamPanel?.();
+    // Paint from cache first, then refetch so a role changed by the owner
+    // shows up here without needing a full page reload.
+    if (!open) {
+      (window as any).renderTeamPanel?.();
+      (window as any).refreshMembershipPanels?.();
+    }
   }
 };
 
@@ -141,6 +146,9 @@ window.colorizeSetProp = function (v: string): void {
     const open = el.style.display !== 'none';
     if (!open) (window as any).renderMembersPanel?.();
     el.style.display = open ? 'none' : 'flex';
+    // Same staleness problem as the Team panel — repaint from the server once
+    // the overlay is visible so the role dropdowns reflect reality.
+    if (!open) (window as any).refreshMembershipPanels?.();
   }
 };
 

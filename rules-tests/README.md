@@ -1,11 +1,21 @@
 # Firestore Security Rules tests
 
-Emulator-backed tests for `../firestore.rules` — specifically the per-project
-role model (`owner` > `admin` > `editor` > `viewer`, see
-`frontend/src/lib/cloud-projects.ts`).
+Emulator-backed tests for the per-project role model (`owner` > `admin` >
+`editor` > `viewer`, see `frontend/src/lib/cloud-projects.ts`).
 
-These exist because a role-gating change shipped without them and broke every
-upload in production. Run them before touching `firestore.rules`.
+- **`firestore.test.mjs`** — `../firestore.rules`: who can read/write project
+  docs, files, and results at each role, including legacy documents with no
+  `memberRoles` field.
+- **`member-role-write.test.mjs`** — that `updateMemberRole()` writes to the
+  key it means to. `updateDoc()` parses a *string* key as a dotted field path
+  and every email contains dots, so the obvious
+  `{ ['memberRoles.' + email]: role }` wrote to `memberRoles → 'bob@corp' →
+  'com'`, reported success, and silently changed nothing. `FieldPath` is
+  required.
+
+These exist because two bugs shipped without them: a role-gating change that
+broke every upload in production, and the field-path bug above. Run them
+before touching `firestore.rules` or the membership write path.
 
 ## Run
 
