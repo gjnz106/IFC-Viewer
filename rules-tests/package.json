@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Emulator tests for firestore.rules (per-project roles)",
   "scripts": {
-    "test": "firebase emulators:exec --only firestore --project ifc-delta-test \"node firestore.test.mjs\""
+    "test": "firebase emulators:exec --only firestore --project ifc-delta-test \"node firestore.test.mjs && node member-role-write.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",

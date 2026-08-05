@@ -849,6 +849,25 @@ const ROLE_LABEL: Record<ProjectRole, string> = { owner: 'Owner', admin: 'Admin'
   (window as any).renderMembersPanel?.();
 };
 
+// The Team (👥) and Invite panels render from the cached `cloudList`, which is
+// only refetched on sign-in and when the Projects panel opens. A role change
+// made by the owner therefore stayed invisible to the affected user until they
+// reloaded the whole page — they would open Team, see their old role, and
+// reasonably conclude the change had not been applied. Re-fetch on open and
+// repaint whichever panel is showing. Fire-and-forget: the panel has already
+// painted from cache, so this only ever corrects it.
+(window as any).refreshMembershipPanels = async function (): Promise<void> {
+  const user = currentAuthUser();
+  if (!user) return;
+  const fetched = await fetchCloudProjects(user.email);
+  if (fetched === null) return; // fetch failed — keep showing the cached list
+  cloudList = fetched;
+  const teamOpen = document.getElementById('teamOverlay')?.style.display !== 'none';
+  const inviteOpen = document.getElementById('inviteOverlay')?.style.display !== 'none';
+  if (teamOpen) (window as any).renderTeamPanel?.();
+  if (inviteOpen) (window as any).renderMembersPanel?.();
+};
+
 (window as any).projSetMemberRole = async function (email: string, role: string): Promise<void> {
   const proj = activeCloudProject();
   if (!proj) return;
