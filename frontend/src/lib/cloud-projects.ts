@@ -18,13 +18,34 @@ export interface CloudProjectSettings {
   units?: 'mm' | 'm' | 'ftin';
 }
 
+// Per-project role, distinct from the app-wide `window.isAdmin` flag (which
+// only gates who may CREATE a cloud project — see auth.ts / firestore.rules
+// isAdmin()). Ordered least → most privileged so callers can compare with
+// ROLE_RANK instead of an if/else chain per permission.
+export type ProjectRole = 'viewer' | 'editor' | 'admin' | 'owner';
+
+const ROLE_RANK: Record<ProjectRole, number> = { viewer: 0, editor: 1, admin: 2, owner: 3 };
+
+export function roleAtLeast(role: ProjectRole | null | undefined, min: ProjectRole): boolean {
+  return !!role && ROLE_RANK[role] >= ROLE_RANK[min];
+}
+
 export interface CloudProject {
   id: string;
   name: string;
   code: string;
   ownerUid: string;
   ownerEmail: string;
+  /**
+   * Membership existence — kept as a flat string array (not folded into
+   * memberRoles) because Firestore can only run a cheap `array-contains`
+   * query against a primitive array; fetchCloudProjects() depends on that.
+   * Always a superset match of memberRoles' keys — every entry here has a
+   * role in memberRoles, enforced by normalizeMemberRoles below.
+   */
   memberEmails: string[];
+  /** email (lower-cased) -> role. The owner's entry is always 'owner'. */
+  memberRoles: Record<string, ProjectRole>;
   settings: CloudProjectSettings;
   createdAt: number;
   updatedAt: number;
@@ -85,6 +106,64 @@ export function isProjectOwner(project: Pick<CloudProject, 'ownerEmail'>, email:
   return !!target && normEmail(project.ownerEmail) === target;
 }
 
+// Fills in a role for every memberEmails entry that's missing one, and drops
+// stale roles for emails no longer in memberEmails. The owner's role is
+// always forced to 'owner' regardless of what's stored.
+//
+// This is also the migration path for docs written before memberRoles
+// existed (memberRoles: undefined): every existing member defaults to
+// 'editor', matching the full read/write access they already had — nobody
+// who could edit yesterday silently becomes a read-only viewer today just
+// because this field shipped.
+export function normalizeMemberRoles(
+  ownerEmail: string,
+  memberEmails: string[],
+  memberRoles: Record<string, ProjectRole> = {},
+): Record<string, ProjectRole> {
+  const owner = normEmail(ownerEmail);
+  const out: Record<string, ProjectRole> = {};
+  for (const raw of memberEmails) {
+    const email = normEmail(raw);
+    if (!email) continue;
+    out[email] = email === owner ? 'owner' : (memberRoles[email] || 'editor');
+  }
+  out[owner] = 'owner'; // present even if the caller forgot to include the owner in memberEmails
+  return out;
+}
+
+// Ownership is always read from ownerEmail, never trusted from memberRoles —
+// mirrors firestore.rules'/storage.rules' roleOf() exactly (see
+// firestore.rules' header comment), so a stray 'owner' string under a
+// non-owner key here is inert client-side too, not just server-side.
+// Callers are expected to pass an already-normalized project (every project
+// this module returns from Firestore has been through normalizeMemberRoles),
+// so a member absent from memberRoles is a genuine "not a member" rather
+// than the pre-normalization "assume editor" default.
+export function roleOf(
+  project: Pick<CloudProject, 'ownerEmail' | 'memberRoles'>,
+  email: string | null | undefined,
+): ProjectRole | null {
+  const target = normEmail(email || '');
+  if (!target) return null;
+  if (target === normEmail(project.ownerEmail)) return 'owner';
+  const stored = project.memberRoles?.[target];
+  return stored && stored !== 'owner' ? stored : null;
+}
+
+export function canManageMembers(
+  project: Pick<CloudProject, 'ownerEmail' | 'memberRoles'>,
+  email: string | null | undefined,
+): boolean {
+  return roleAtLeast(roleOf(project, email), 'admin');
+}
+
+export function canEditProject(
+  project: Pick<CloudProject, 'ownerEmail' | 'memberRoles'>,
+  email: string | null | undefined,
+): boolean {
+  return roleAtLeast(roleOf(project, email), 'editor');
+}
+
 // Builds the doc payload for `projects/{id}` create — pure, no Firestore.
 export function buildCloudProjectDoc(
   name: string,
@@ -96,12 +175,14 @@ export function buildCloudProjectDoc(
   const now = Date.now();
   const cleanSettings: CloudProjectSettings = {};
   if (settings.units) cleanSettings.units = settings.units;
+  const memberEmails = normalizeMemberEmails(ownerEmail, []);
   return {
     name: name.trim() || 'Untitled Project',
     code: code.trim(),
     ownerUid,
     ownerEmail: normEmail(ownerEmail),
-    memberEmails: normalizeMemberEmails(ownerEmail, []),
+    memberEmails,
+    memberRoles: normalizeMemberRoles(ownerEmail, memberEmails, {}),
     settings: cleanSettings,
     createdAt: now,
     updatedAt: now,
@@ -149,35 +230,92 @@ export function displayKey(item: MergedProjectItem): string {
   return item.source + ':' + item.id;
 }
 
-// ── Member sharing (Phase 14) ────────────────────────────────────────────
+// ── Member sharing + roles (Phase 14, extended with per-project roles) ──
 
-// Adds an email to memberEmails — dedupes case-insensitively, never grows
-// the array for a no-op add. Returns the SAME array reference when nothing
-// changed so callers can skip a Firestore write.
-export function addMemberEmail(memberEmails: string[], email: string): string[] {
+export interface MembershipUpdate {
+  memberEmails: string[];
+  memberRoles: Record<string, ProjectRole>;
+}
+
+// Adds a member with the given role (default 'editor' — the access level
+// every member had before roles existed, so the default add stays
+// behaviorally identical to the old addMemberEmail). 'owner' can't be
+// granted this way — ownership has no transfer UI/rules support yet — a
+// request for it silently downgrades to 'admin'. No-op (same references) if
+// already a member; use setMemberRole to change an existing member instead.
+export function addMember(
+  memberEmails: string[], memberRoles: Record<string, ProjectRole>, email: string, role: ProjectRole = 'editor',
+): MembershipUpdate {
   const target = normEmail(email);
-  if (!target || canAccess(memberEmails, target)) return memberEmails;
-  return [...memberEmails, target];
+  if (!target || canAccess(memberEmails, target)) return { memberEmails, memberRoles };
+  const grantedRole: ProjectRole = role === 'owner' ? 'admin' : role;
+  return {
+    memberEmails: [...memberEmails, target],
+    memberRoles: { ...memberRoles, [target]: grantedRole },
+  };
 }
 
 // Removing the owner's own email is never allowed — the owner is always a
-// member (see normalizeMemberEmails). No-op (same reference) if the email
+// member (see normalizeMemberEmails). No-op (same references) if the email
 // isn't a member or is the owner.
-export function removeMemberEmail(memberEmails: string[], ownerEmail: string, email: string): string[] {
+export function removeMember(
+  memberEmails: string[], memberRoles: Record<string, ProjectRole>, ownerEmail: string, email: string,
+): MembershipUpdate {
   const target = normEmail(email);
-  if (!target || target === normEmail(ownerEmail)) return memberEmails;
-  if (!canAccess(memberEmails, target)) return memberEmails;
-  return memberEmails.filter(m => normEmail(m) !== target);
+  if (!target || target === normEmail(ownerEmail)) return { memberEmails, memberRoles };
+  if (!canAccess(memberEmails, target)) return { memberEmails, memberRoles };
+  const nextRoles = { ...memberRoles };
+  delete nextRoles[target];
+  return { memberEmails: memberEmails.filter(m => normEmail(m) !== target), memberRoles: nextRoles };
 }
 
-export async function updateProjectMembers(id: string, memberEmails: string[]): Promise<boolean> {
+// Changes an existing member's role. Refuses to touch the owner (no
+// ownership-transfer flow yet) and refuses to grant 'owner' to anyone else —
+// the same two invariants firestore.rules enforces server-side, so a UI bug
+// here fails safe rather than relying on the rules alone. No-op (same
+// reference) if the target isn't a member or already has that role.
+export function setMemberRole(
+  memberRoles: Record<string, ProjectRole>, ownerEmail: string, email: string, role: ProjectRole,
+): Record<string, ProjectRole> {
+  const target = normEmail(email);
+  if (!target || target === normEmail(ownerEmail) || role === 'owner') return memberRoles;
+  if (!(target in memberRoles) || memberRoles[target] === role) return memberRoles;
+  return { ...memberRoles, [target]: role };
+}
+
+// Full membership replace — used for add/remove, where memberEmails and
+// memberRoles must land together (a partial write could leave an email in
+// one field but not the other).
+export async function updateProjectMembership(id: string, update: MembershipUpdate): Promise<boolean> {
   try {
     const { doc, updateDoc } = await import('firebase/firestore');
     const db = await getDb();
-    await updateDoc(doc(db, 'projects', id), { memberEmails, updatedAt: Date.now() });
+    await updateDoc(doc(db, 'projects', id), {
+      memberEmails: update.memberEmails,
+      memberRoles: update.memberRoles,
+      updatedAt: Date.now(),
+    });
     return true;
   } catch (e) {
-    console.warn('[cloud-projects] updateProjectMembers failed:', e);
+    console.warn('[cloud-projects] updateProjectMembership failed:', e);
+    return false;
+  }
+}
+
+// Patches a single member's role via a Firestore map-field path
+// (`memberRoles.<email>`) instead of rewriting the whole map, so two admins
+// changing different members' roles at the same time don't clobber each
+// other the way a full-object replace would.
+export async function updateMemberRole(id: string, email: string, role: ProjectRole): Promise<boolean> {
+  const target = normEmail(email);
+  if (!target) return false;
+  try {
+    const { doc, updateDoc } = await import('firebase/firestore');
+    const db = await getDb();
+    await updateDoc(doc(db, 'projects', id), { [`memberRoles.${target}`]: role, updatedAt: Date.now() });
+    return true;
+  } catch (e) {
+    console.warn('[cloud-projects] updateMemberRole failed:', e);
     return false;
   }
 }
@@ -221,7 +359,14 @@ export async function fetchCloudProjects(email: string): Promise<CloudProject[] 
     const db = await getDb();
     const q = query(collection(db, 'projects'), where('memberEmails', 'array-contains', target));
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<CloudProject, 'id'>) }));
+    // normalizeMemberRoles fills in 'editor' for any doc written before
+    // memberRoles existed (field absent → {} default) — this is the read-path
+    // migration, so projects created before this shipped don't need a
+    // one-off backfill script; every read just self-heals.
+    return snap.docs.map(d => {
+      const data = d.data() as Omit<CloudProject, 'id'>;
+      return { id: d.id, ...data, memberRoles: normalizeMemberRoles(data.ownerEmail, data.memberEmails, data.memberRoles) };
+    });
   } catch (e) {
     console.warn('[cloud-projects] fetchCloudProjects failed, falling back to local-only:', e);
     return null;

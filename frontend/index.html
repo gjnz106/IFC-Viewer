@@ -1240,11 +1240,16 @@
 
     <div id="inviteCloudBody" style="display:none">
       <div id="inviteReadOnlyNote" style="display:none;padding:8px 12px;border-radius:6px;background:rgba(0,88,190,0.06);font-size:13.8px;color:#0058be;margin-bottom:12px">
-        Only the project owner can add or remove members.
+        Only the project owner or an admin can add, remove, or change the role of members.
       </div>
       <div id="projMemberList" style="display:grid;gap:6px;max-height:260px;overflow-y:auto"></div>
       <div id="inviteAddRow" style="display:flex;gap:8px;margin-top:14px">
         <input type="email" id="projMemberEmail" placeholder="teammate@example.com" style="flex:1;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px" onkeydown="if(event.key==='Enter')projAddMember()">
+        <select id="projMemberRole" style="box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:8px;background:#fff">
+          <option value="viewer">Viewer</option>
+          <option value="editor" selected>Editor</option>
+          <option value="admin">Admin</option>
+        </select>
         <button class="btn btn-primary btn-sm" onclick="projAddMember()" style="padding:8px 14px;border:none;border-radius:6px;background:#0058be;color:#fff;cursor:pointer">Add</button>
       </div>
     </div>

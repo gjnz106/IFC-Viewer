@@ -18,8 +18,9 @@ import { deleteProjectViewpoints } from '../../lib/viewpoints-store.js';
 import { deleteProjectFilters } from '../../lib/model-filters-store.js';
 import {
   fetchCloudProjects, createCloudProject, renameCloudProject, isProjectOwner,
-  migrateLocalToCloud, addMemberEmail, removeMemberEmail, updateProjectMembers, syncProjectSettings,
-  type CloudProject, type CloudProjectFile,
+  migrateLocalToCloud, addMember, removeMember, setMemberRole, updateProjectMembership, updateMemberRole,
+  roleOf, canManageMembers, syncProjectSettings,
+  type CloudProject, type CloudProjectFile, type ProjectRole,
 } from '../../lib/cloud-projects.js';
 import {
   fetchProjectFiles, downloadProjectFile, uploadProjectFile, deleteCloudProjectDeep,
@@ -761,14 +762,16 @@ window.projSaveSettings = function (): void {
   chipLabel();
 };
 
-// ── Member sharing (Phase 14) ─────────────────────────────────────────────
+// ── Member sharing + roles ─────────────────────────────────────────────
 // The Invite button (index.html #btnInvite) opens this instead of the old
-// static demo dialog. Owner-only add/remove; non-owners viewing a shared
-// cloud project get a read-only list. No-op (shows the "not a cloud
+// static demo dialog. Owner/admin can add, remove, and change roles;
+// editor/viewer members see a read-only list. No-op (shows the "not a cloud
 // project" message) for local projects — there is no memberEmails to manage.
 function activeCloudProject(): CloudProject | undefined {
   return cloudList.find(c => c.id === appState.activeCloudProjectId);
 }
+
+const ROLE_LABEL: Record<ProjectRole, string> = { owner: 'Owner', admin: 'Admin', editor: 'Editor', viewer: 'Viewer' };
 
 (window as any).renderMembersPanel = function (): void {
   const notCloud = document.getElementById('inviteNotCloud');
@@ -788,18 +791,25 @@ function activeCloudProject(): CloudProject | undefined {
   body.style.display = 'block';
 
   const user = currentAuthUser();
-  const isOwner = !!user && user.email?.toLowerCase() === proj.ownerEmail.toLowerCase();
-  addRow.style.display = isOwner ? 'flex' : 'none';
-  readOnlyNote.style.display = isOwner ? 'none' : 'block';
+  const canManage = canManageMembers(proj, user?.email);
+  addRow.style.display = canManage ? 'flex' : 'none';
+  readOnlyNote.style.display = canManage ? 'none' : 'block';
 
   listEl.innerHTML = proj.memberEmails.map(email => {
     const owner = email === proj.ownerEmail;
-    const canRemove = isOwner && !owner;
+    const role = roleOf(proj, email) || 'editor';
+    const canRemove = canManage && !owner;
+    const canChangeRole = canManage && !owner;
+    const roleCell = canChangeRole
+      ? `<select class="proj-row-role" onchange="projSetMemberRole('${escapeHtml(email)}', this.value)">
+          ${(['viewer', 'editor', 'admin'] as ProjectRole[]).map(r => `<option value="${r}" ${r === role ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
+        </select>`
+      : `<div class="proj-row-sub">${ROLE_LABEL[role]}</div>`;
     return `<div class="proj-row">
       <div class="proj-row-dot" style="background:${owner ? '#2563eb' : '#8590a6'}"></div>
       <div class="proj-row-info">
         <div class="proj-row-name">${escapeHtml(email)}</div>
-        <div class="proj-row-sub">${owner ? 'Owner' : 'Member'}</div>
+        ${roleCell}
       </div>
       <div class="proj-row-actions">
         ${canRemove ? `<button class="proj-row-btn proj-row-btn-danger" onclick="projRemoveMember('${escapeHtml(email)}')" title="Remove">✕</button>` : ''}
@@ -812,13 +822,16 @@ function activeCloudProject(): CloudProject | undefined {
   const proj = activeCloudProject();
   if (!proj) return;
   const input = document.getElementById('projMemberEmail') as HTMLInputElement | null;
+  const roleSel = document.getElementById('projMemberRole') as HTMLSelectElement | null;
   const email = input?.value.trim() || '';
   if (!email) { input?.focus(); return; }
-  const updated = addMemberEmail(proj.memberEmails, email);
-  if (updated === proj.memberEmails) { if (input) input.value = ''; return; } // already a member
-  const ok = await updateProjectMembers(proj.id, updated);
+  const role = (roleSel?.value as ProjectRole) || 'editor';
+  const updated = addMember(proj.memberEmails, proj.memberRoles, email, role);
+  if (updated.memberEmails === proj.memberEmails) { if (input) input.value = ''; return; } // already a member
+  const ok = await updateProjectMembership(proj.id, updated);
   if (!ok) { alert('Could not add member. Check your connection and try again.'); return; }
-  proj.memberEmails = updated;
+  proj.memberEmails = updated.memberEmails;
+  proj.memberRoles = updated.memberRoles;
   if (input) input.value = '';
   (window as any).renderMembersPanel?.();
 };
@@ -827,11 +840,23 @@ function activeCloudProject(): CloudProject | undefined {
   const proj = activeCloudProject();
   if (!proj) return;
   if (!confirm(`Remove ${email} from this project?`)) return;
-  const updated = removeMemberEmail(proj.memberEmails, proj.ownerEmail, email);
-  if (updated === proj.memberEmails) return; // owner or not a member — no-op
-  const ok = await updateProjectMembers(proj.id, updated);
+  const updated = removeMember(proj.memberEmails, proj.memberRoles, proj.ownerEmail, email);
+  if (updated.memberEmails === proj.memberEmails) return; // owner or not a member — no-op
+  const ok = await updateProjectMembership(proj.id, updated);
   if (!ok) { alert('Could not remove member. Check your connection and try again.'); return; }
-  proj.memberEmails = updated;
+  proj.memberEmails = updated.memberEmails;
+  proj.memberRoles = updated.memberRoles;
+  (window as any).renderMembersPanel?.();
+};
+
+(window as any).projSetMemberRole = async function (email: string, role: string): Promise<void> {
+  const proj = activeCloudProject();
+  if (!proj) return;
+  const nextRoles = setMemberRole(proj.memberRoles, proj.ownerEmail, email, role as ProjectRole);
+  if (nextRoles === proj.memberRoles) { (window as any).renderMembersPanel?.(); return; } // refused (owner/self-owner/no-op) — re-render to snap the <select> back
+  const ok = await updateMemberRole(proj.id, email, role as ProjectRole);
+  if (!ok) { alert('Could not update role. Check your connection and try again.'); (window as any).renderMembersPanel?.(); return; }
+  proj.memberRoles = nextRoles;
   (window as any).renderMembersPanel?.();
 };
 
@@ -893,7 +918,7 @@ window.addEventListener('ifc:viewpointschange', (ev: any) => {
 
 // ── Team panel (topbar 👥) — real membership of the active cloud project ──
 // Replaces the old static demo table (fake names + workload bars). Shows the
-// actual memberEmails of the open cloud project: Owner badge, "You" marker,
+// actual membership of the open cloud project: a role badge, "You" marker,
 // and how many of the project's cloud files each member uploaded.
 window.renderTeamPanel = function (): void {
   const box = document.getElementById('teamPanelBody');
@@ -914,8 +939,10 @@ window.renderTeamPanel = function (): void {
 
   const row = (email: string, count: number | null) => {
     const initial = escapeHtml((email[0] || '?').toUpperCase());
+    const role = roleOf(p, email);
+    const roleColor = role === 'owner' ? '#0058be' : role === 'admin' ? '#7c3aed' : role === 'viewer' ? '#8590a6' : '#16a34a';
     const badges =
-      (email === owner ? '<span style="background:#0058be;color:#fff;padding:2px 6px;border-radius:4px;font-size:12px;margin-left:6px">Owner</span>' : '') +
+      (role ? `<span style="background:${roleColor};color:#fff;padding:2px 6px;border-radius:4px;font-size:12px;margin-left:6px">${ROLE_LABEL[role]}</span>` : '') +
       (email === me ? '<span style="background:rgba(0,0,0,0.08);padding:2px 6px;border-radius:4px;font-size:12px;margin-left:6px">You</span>' : '');
     const files = count === null
       ? '<span style="color:#8590a6">…</span>'
