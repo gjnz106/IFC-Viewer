@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildCloudProjectDoc, buildMigrationDoc, normalizeMemberEmails, canAccess,
-  mergeProjectRegistries, displayKey, addMemberEmail, removeMemberEmail, isProjectOwner, type CloudProject,
+  mergeProjectRegistries, displayKey, addMember, removeMember, setMemberRole, isProjectOwner,
+  normalizeMemberRoles, roleOf, roleAtLeast, canManageMembers, canEditProject, type CloudProject,
 } from './cloud-projects.js';
 import { createProject, type ProjectRegistry } from './projects-store.js';
 
@@ -17,6 +18,7 @@ describe('cloud-projects — buildCloudProjectDoc', () => {
     expect(doc.ownerUid).toBe('uid-1');
     expect(doc.ownerEmail).toBe('owner@example.com');
     expect(doc.memberEmails).toEqual(['owner@example.com']);
+    expect(doc.memberRoles).toEqual({ 'owner@example.com': 'owner' });
     expect(doc.settings).toEqual({ units: 'mm' });
     expect(typeof doc.createdAt).toBe('number');
     expect(doc.createdAt).toBe(doc.updatedAt);
@@ -76,7 +78,7 @@ describe('cloud-projects — canAccess', () => {
 describe('cloud-projects — mergeProjectRegistries', () => {
   it('dedupes by display key and never collides cloud/local ids', () => {
     const cloud: CloudProject[] = [
-      { id: 'same-id', name: 'Cloud One', code: 'C1', ownerUid: 'u', ownerEmail: 'a@b.com', memberEmails: ['a@b.com'], settings: {}, createdAt: 1, updatedAt: 1 },
+      { id: 'same-id', name: 'Cloud One', code: 'C1', ownerUid: 'u', ownerEmail: 'a@b.com', memberEmails: ['a@b.com'], memberRoles: { 'a@b.com': 'owner' }, settings: {}, createdAt: 1, updatedAt: 1 },
     ];
     let reg = createProject(emptyReg(), 'Local One', 'L1');
     reg.list[0].id = 'same-id'; // force a raw id collision on purpose
@@ -90,7 +92,7 @@ describe('cloud-projects — mergeProjectRegistries', () => {
 
   it('marks the correct item active depending on activeCloudId', () => {
     const cloud: CloudProject[] = [
-      { id: 'c1', name: 'Cloud', code: '', ownerUid: 'u', ownerEmail: 'a@b.com', memberEmails: ['a@b.com'], settings: {}, createdAt: 1, updatedAt: 1 },
+      { id: 'c1', name: 'Cloud', code: '', ownerUid: 'u', ownerEmail: 'a@b.com', memberEmails: ['a@b.com'], memberRoles: { 'a@b.com': 'owner' }, settings: {}, createdAt: 1, updatedAt: 1 },
     ];
     let reg = createProject(emptyReg(), 'Local', '');
     const localId = reg.list[0].id;
@@ -105,38 +107,142 @@ describe('cloud-projects — mergeProjectRegistries', () => {
   });
 });
 
-describe('cloud-projects — addMemberEmail', () => {
-  it('adds a new email, normalized to lower case', () => {
-    const out = addMemberEmail(['owner@x.com'], 'Bob@Y.com');
-    expect(out).toEqual(['owner@x.com', 'bob@y.com']);
+describe('cloud-projects — addMember', () => {
+  it('adds a new email as editor by default, normalized to lower case', () => {
+    const out = addMember(['owner@x.com'], { 'owner@x.com': 'owner' }, 'Bob@Y.com');
+    expect(out.memberEmails).toEqual(['owner@x.com', 'bob@y.com']);
+    expect(out.memberRoles).toEqual({ 'owner@x.com': 'owner', 'bob@y.com': 'editor' });
   });
 
-  it('is a no-op (same reference) for a duplicate, case-insensitive', () => {
-    const list = ['owner@x.com', 'bob@y.com'];
-    const out = addMemberEmail(list, 'BOB@Y.COM');
-    expect(out).toBe(list);
+  it('adds with an explicit role', () => {
+    const out = addMember(['owner@x.com'], { 'owner@x.com': 'owner' }, 'bob@y.com', 'viewer');
+    expect(out.memberRoles['bob@y.com']).toBe('viewer');
+  });
+
+  it('downgrades a requested "owner" role to "admin" — ownership is not grantable via add', () => {
+    const out = addMember(['owner@x.com'], { 'owner@x.com': 'owner' }, 'bob@y.com', 'owner');
+    expect(out.memberRoles['bob@y.com']).toBe('admin');
+  });
+
+  it('is a no-op (same references) for a duplicate, case-insensitive', () => {
+    const emails = ['owner@x.com', 'bob@y.com'];
+    const roles = { 'owner@x.com': 'owner' as const, 'bob@y.com': 'editor' as const };
+    const out = addMember(emails, roles, 'BOB@Y.COM');
+    expect(out.memberEmails).toBe(emails);
+    expect(out.memberRoles).toBe(roles);
   });
 
   it('is a no-op for a blank email', () => {
-    const list = ['owner@x.com'];
-    expect(addMemberEmail(list, '  ')).toBe(list);
+    const emails = ['owner@x.com'];
+    const roles = { 'owner@x.com': 'owner' as const };
+    expect(addMember(emails, roles, '  ').memberEmails).toBe(emails);
   });
 });
 
-describe('cloud-projects — removeMemberEmail', () => {
-  it('removes a non-owner member', () => {
-    const out = removeMemberEmail(['owner@x.com', 'bob@y.com'], 'owner@x.com', 'bob@y.com');
-    expect(out).toEqual(['owner@x.com']);
+describe('cloud-projects — removeMember', () => {
+  const roles = { 'owner@x.com': 'owner' as const, 'bob@y.com': 'editor' as const };
+
+  it('removes a non-owner member from both fields', () => {
+    const out = removeMember(['owner@x.com', 'bob@y.com'], roles, 'owner@x.com', 'bob@y.com');
+    expect(out.memberEmails).toEqual(['owner@x.com']);
+    expect(out.memberRoles).toEqual({ 'owner@x.com': 'owner' });
   });
 
   it('refuses to remove the owner, even with different case', () => {
-    const list = ['owner@x.com', 'bob@y.com'];
-    expect(removeMemberEmail(list, 'Owner@X.com', 'OWNER@X.COM')).toBe(list);
+    const emails = ['owner@x.com', 'bob@y.com'];
+    const out = removeMember(emails, roles, 'Owner@X.com', 'OWNER@X.COM');
+    expect(out.memberEmails).toBe(emails);
+    expect(out.memberRoles).toBe(roles);
   });
 
   it('is a no-op for a non-member email', () => {
-    const list = ['owner@x.com', 'bob@y.com'];
-    expect(removeMemberEmail(list, 'owner@x.com', 'eve@z.com')).toBe(list);
+    const emails = ['owner@x.com', 'bob@y.com'];
+    const out = removeMember(emails, roles, 'owner@x.com', 'eve@z.com');
+    expect(out.memberEmails).toBe(emails);
+  });
+});
+
+describe('cloud-projects — setMemberRole', () => {
+  const roles = { 'owner@x.com': 'owner' as const, 'bob@y.com': 'editor' as const };
+
+  it('changes an existing member to a new role', () => {
+    expect(setMemberRole(roles, 'owner@x.com', 'bob@y.com', 'viewer')).toEqual({ 'owner@x.com': 'owner', 'bob@y.com': 'viewer' });
+  });
+
+  it('refuses to touch the owner, even with different case', () => {
+    expect(setMemberRole(roles, 'Owner@X.com', 'OWNER@X.COM', 'viewer')).toBe(roles);
+  });
+
+  it('refuses to grant owner to anyone else', () => {
+    expect(setMemberRole(roles, 'owner@x.com', 'bob@y.com', 'owner')).toBe(roles);
+  });
+
+  it('is a no-op for a non-member', () => {
+    expect(setMemberRole(roles, 'owner@x.com', 'eve@z.com', 'admin')).toBe(roles);
+  });
+
+  it('is a no-op when the role is unchanged', () => {
+    expect(setMemberRole(roles, 'owner@x.com', 'bob@y.com', 'editor')).toBe(roles);
+  });
+});
+
+describe('cloud-projects — normalizeMemberRoles', () => {
+  it('assigns "editor" to members with no stored role — the pre-roles migration default', () => {
+    expect(normalizeMemberRoles('owner@x.com', ['owner@x.com', 'bob@y.com'])).toEqual({
+      'owner@x.com': 'owner', 'bob@y.com': 'editor',
+    });
+  });
+
+  it('forces the owner to "owner" even if a stale doc says otherwise', () => {
+    expect(normalizeMemberRoles('owner@x.com', ['owner@x.com'], { 'owner@x.com': 'viewer' }))
+      .toEqual({ 'owner@x.com': 'owner' });
+  });
+
+  it('drops roles for emails no longer in memberEmails', () => {
+    expect(normalizeMemberRoles('owner@x.com', ['owner@x.com'], { 'owner@x.com': 'owner', 'gone@y.com': 'editor' }))
+      .toEqual({ 'owner@x.com': 'owner' });
+  });
+
+  it('preserves an existing explicit role', () => {
+    expect(normalizeMemberRoles('owner@x.com', ['owner@x.com', 'bob@y.com'], { 'bob@y.com': 'viewer' }))
+      .toEqual({ 'owner@x.com': 'owner', 'bob@y.com': 'viewer' });
+  });
+});
+
+describe('cloud-projects — roleOf / roleAtLeast / canManageMembers / canEditProject', () => {
+  const proj = { ownerEmail: 'owner@x.com', memberRoles: { 'owner@x.com': 'owner' as const, 'bob@y.com': 'viewer' as const } };
+
+  it('roleOf reads the stored role', () => {
+    expect(roleOf(proj, 'bob@y.com')).toBe('viewer');
+    expect(roleOf(proj, 'BOB@Y.COM')).toBe('viewer');
+  });
+
+  it('roleOf falls back to owner for the owner even without a memberRoles entry', () => {
+    expect(roleOf({ ownerEmail: 'owner@x.com', memberRoles: {} }, 'owner@x.com')).toBe('owner');
+  });
+
+  it('roleOf returns null for a non-member or blank email', () => {
+    expect(roleOf(proj, 'eve@z.com')).toBeNull();
+    expect(roleOf(proj, '')).toBeNull();
+    expect(roleOf(proj, null)).toBeNull();
+  });
+
+  it('roleAtLeast ranks owner > admin > editor > viewer', () => {
+    expect(roleAtLeast('owner', 'admin')).toBe(true);
+    expect(roleAtLeast('admin', 'admin')).toBe(true);
+    expect(roleAtLeast('editor', 'admin')).toBe(false);
+    expect(roleAtLeast('viewer', 'editor')).toBe(false);
+    expect(roleAtLeast(null, 'viewer')).toBe(false);
+  });
+
+  it('canManageMembers requires admin or owner', () => {
+    expect(canManageMembers(proj, 'owner@x.com')).toBe(true);
+    expect(canManageMembers(proj, 'bob@y.com')).toBe(false);
+  });
+
+  it('canEditProject requires editor or above — a viewer cannot', () => {
+    expect(canEditProject(proj, 'owner@x.com')).toBe(true);
+    expect(canEditProject(proj, 'bob@y.com')).toBe(false);
   });
 });
 

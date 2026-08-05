@@ -1,10 +1,20 @@
 rules_version = '2';
 
-// IFC Delta — Cloud Projects (Phase 12).
+// IFC Delta — Cloud Projects (Phase 12), extended with per-project roles.
 // Single source of truth for membership: `projects/{projectId}.memberEmails`
 // (always includes ownerEmail — see frontend/src/lib/cloud-projects.ts's
 // normalizeMemberEmails). Storage rules cross-reference this same doc so
 // there is exactly one ACL to keep correct.
+//
+// Roles (frontend/src/lib/cloud-projects.ts's ProjectRole, least → most
+// privileged): viewer < editor < admin < owner. Stored in
+// `projects/{projectId}.memberRoles`, keyed by lower-cased email. Ownership
+// itself is NEVER read from memberRoles — it is defined solely by the
+// `ownerEmail` field, which this file makes immutable on update (see
+// `allow update` below). That means a forged 'owner' entry in memberRoles
+// for anyone other than ownerEmail is inert: roleOf() below ignores it and
+// falls back to the member-default 'editor', so there is no privilege-
+// escalation path through that field even for a hand-crafted write.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -21,9 +31,11 @@ service cloud.firestore {
     }
 
     // Admin = an allowed user whose allowedUsers/{email} doc has `admin: true`
-    // (set by the site admin in the Firebase console). Only admins may CREATE
-    // cloud projects; members can still read/update/switch the ones they're
-    // shared into. get().data.get(key, default) tolerates docs without the field.
+    // (set by the site admin in the Firebase console). This is the APP-WIDE
+    // flag — distinct from the per-project 'admin' role in memberRoles below.
+    // Only app-wide admins may CREATE cloud projects; members can still
+    // read/update the ones they're shared into per their per-project role.
+    // get().data.get(key, default) tolerates docs without the field.
     function isAdmin() {
       return isAllowed()
         && get(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email.lower())).data.get('admin', false) == true;
@@ -54,6 +66,28 @@ service cloud.firestore {
         && data.ownerEmail in data.memberEmails;
     }
 
+    // See the file-level comment for why a non-owner's stored 'owner' value
+    // is ignored rather than trusted. Mirrors
+    // frontend/src/lib/cloud-projects.ts's roleOf() exactly.
+    function storedRole(data, e) {
+      return data.get('memberRoles', {}).get(e, null);
+    }
+    function roleOf(data, e) {
+      return e == data.ownerEmail
+        ? 'owner'
+        : (
+            (storedRole(data, e) != null && storedRole(data, e) != 'owner')
+              ? storedRole(data, e)
+              : (e in data.memberEmails ? 'editor' : null)
+          );
+    }
+    function roleRank(role) {
+      return role == 'owner' ? 3 : role == 'admin' ? 2 : role == 'editor' ? 1 : role == 'viewer' ? 0 : -1;
+    }
+    function roleAtLeast(data, e, min) {
+      return roleRank(roleOf(data, e)) >= roleRank(min);
+    }
+
     // Admin-managed allowlist: one doc per permitted account, id = the
     // lowercased email. Created/edited by the admin in the Firebase console
     // (client writes are denied). A user may read only their own doc, which
@@ -80,10 +114,11 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
+      // Any role — including viewer — may read.
       allow read: if isAllowed() && isMember(resource.data);
 
-      // Creation is admin-only (members can still be shared into existing
-      // projects and read/update them).
+      // Creation is app-admin-only (members can still be shared into existing
+      // projects and read/update them per their per-project role).
       allow create: if isAdmin()
         && request.resource.data.ownerEmail == email()
         && memberEmailsIncludeOwner(request.resource.data)
@@ -92,20 +127,33 @@ service cloud.firestore {
       allow update: if isAllowed()
         && isMember(resource.data)
         && memberEmailsIncludeOwner(request.resource.data)
-        // Ownership can't be handed off by a plain update (no UI for it yet).
+        // Ownership can't be handed off by a plain update (no transfer UI
+        // yet) — this is also what makes a forged 'owner' value in
+        // memberRoles harmless (see roleOf's comment above).
         && request.resource.data.ownerEmail == resource.data.ownerEmail
-        // Phase 14: only the owner may change the member list itself — any
-        // member could otherwise add/remove others via the same field.
-        && (request.resource.data.memberEmails == resource.data.memberEmails
-            || email() == resource.data.ownerEmail);
+        // Changing membership (memberEmails) or roles (memberRoles) requires
+        // admin+ — anyone below that could otherwise add/remove members or
+        // grant themselves a higher role via the same field.
+        && (
+          (request.resource.data.memberEmails == resource.data.memberEmails
+              && request.resource.data.get('memberRoles', {}) == resource.data.get('memberRoles', {}))
+          || roleAtLeast(resource.data, email(), 'admin')
+        )
+        // Floor for ANY update, membership or not: a viewer may read but
+        // never write, including a plain rename/settings change.
+        && roleAtLeast(resource.data, email(), 'editor');
 
       // Owner-only: any member deleting the shared project (plus every
-      // teammate's files) is too destructive to leave open.
+      // teammate's files) is too destructive to leave open even to admins.
       allow delete: if isAllowed() && email() == resource.data.ownerEmail;
 
       match /files/{fileId} {
-        allow read, write: if isAllowed()
+        allow read: if isAllowed()
           && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        // Uploading/editing/deleting a file is content, not membership — same
+        // editor+ floor as the parent project doc's non-membership fields.
+        allow write: if isAllowed()
+          && roleAtLeast(get(/databases/$(database)/documents/projects/$(projectId)).data, email(), 'editor');
       }
 
       // Phase 15: saved Compare/Clash result metadata. Firestore rules don't
@@ -113,8 +161,10 @@ service cloud.firestore {
       // the default deny made saveResult()'s metadata write and
       // fetchResultMetadata()'s read both fail, so restore never fired.
       match /results/{resultId} {
-        allow read, write: if isAllowed()
+        allow read: if isAllowed()
           && isMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow write: if isAllowed()
+          && roleAtLeast(get(/databases/$(database)/documents/projects/$(projectId)).data, email(), 'editor');
       }
     }
   }

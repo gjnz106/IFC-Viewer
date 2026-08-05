@@ -178,6 +178,16 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
   font-size: 13.2px;
   color: #8590a6;
 }
+.proj-row-role {
+  margin-top: 2px;
+  font-size: 12.6px;
+  padding: 2px 6px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+}
 .proj-row-actions {
   display: flex;
   gap: 4px;

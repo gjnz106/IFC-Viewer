@@ -260,14 +260,16 @@ function showLoggedInUser(user: User) {
   return { uid: user.uid, email: user.email, emailVerified: user.emailVerified };
 };
 
-// ── Minimal role gate ────────────────────────────────────────────────────
-// No backend persistence/Firestore in this app today, so there is no shared
-// resource for a full RBAC system to protect — every viewer/export/delete
-// action only touches the user's own loaded model, locally. The one real
-// shared/billable resource is the AI proxy's provider+model choice, so that
-// is the only thing gated here. `window.isAdmin` is read by the AI chat
-// settings UI (src/app/22-ai.ts and frontend/.../integrations/ai.ts) to hide
-// the provider/model picker from non-admins.
+// ── App-wide admin flag ────────────────────────────────────────────────
+// `window.isAdmin` is APP-WIDE, not per-project — today it gates exactly one
+// thing: who may CREATE a cloud project (components/ui/projects.ts, enforced
+// server-side by firestore.rules' isAdmin()). It predates and is separate
+// from per-project roles (owner/admin/editor/viewer), which live in
+// `projects/{id}.memberRoles` — see lib/cloud-projects.ts's ProjectRole and
+// firestore.rules'/storage.rules' roleOf(). A user can be an app-wide admin
+// with no role on a given project (can't open it), or a project 'admin' role
+// without being an app-wide admin (can manage that project's members but
+// can't create new cloud projects) — the two are intentionally independent.
 const ADMIN_EMAILS = new Set(['trantienthanh909@gmail.com']);
 (window as any).isAdmin = false;
 

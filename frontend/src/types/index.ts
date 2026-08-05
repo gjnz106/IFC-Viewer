@@ -390,6 +390,7 @@ declare global {
     renderMembersPanel?: () => void;
     projAddMember?: () => Promise<void>;
     projRemoveMember?: (email: string) => Promise<void>;
+    projSetMemberRole?: (email: string, role: string) => Promise<void>;
     ifcCacheClear?: () => Promise<void>;
 
     // Clash
