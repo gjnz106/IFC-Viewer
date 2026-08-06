@@ -5,7 +5,9 @@ Emulator-backed tests for the per-project role model (`owner` > `admin` >
 
 - **`firestore.test.mjs`** — `../firestore.rules`: who can read/write project
   docs, files, and results at each role, including legacy documents with no
-  `memberRoles` field.
+  `memberRoles` field. Per-file *delete* is covered separately from write:
+  the UI hides its delete button from viewers, but only these rules enforce
+  it, and `allow write` grants delete implicitly rather than by name.
 - **`member-role-write.test.mjs`** — that `updateMemberRole()` writes to the
   key it means to. `updateDoc()` parses a *string* key as a dotted field path
   and every email contains dots, so the obvious

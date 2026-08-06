@@ -66,9 +66,19 @@ window.fedHandleFile = function(ev: Event){
   (ev.target as HTMLInputElement).value = '';
 };
 
-window.fedRemoveSlot = function(idx: number){
-  if(idx < 2) return;
+// Tears one slot out of the scene, for ANY slot index. fedRemoveSlot below is
+// the federation-only (2+) entry point kept for the ✕ button; the A/B slots
+// need the same teardown when a cloud file is deleted out from under them, so
+// the shared work lives here.
+export function unloadSlot(idx: number): void {
+  // Compare/clash render from slots 0 and 1 specifically — leaving their diff
+  // subsets in the scene after one side is gone shows geometry for a model
+  // that is no longer loaded.
+  if(idx < 2 && appState.compareResult){
+    try{ (window as any).exitCompare?.() }catch(e){ /* best-effort */ }
+  }
   if(appState.loadedModels[idx]){
+    invalidateCatScan((appState.loadedModels[idx] as any).modelID);
     disposeModel(appState.loadedModels[idx]);
     appState.scene.remove(appState.loadedModels[idx]!);
     appState.loadedModels[idx] = null;
@@ -82,10 +92,40 @@ window.fedRemoveSlot = function(idx: number){
   (window as any).clashHandleModelRemoved?.(idx);
   // Recompute model bounds from remaining models
   fedRecomputeBounds();
-  fedRenderSlots();
   // Invalidate SG context cache
   appState.sgState.cachedCtx = null;
+
+  if(idx < 2){
+    // Slots 0/1 have their own static upload-card DOM (the fed slots are all
+    // re-rendered wholesale by fedRenderSlots instead).
+    document.getElementById('uc' + idx)?.classList.remove('loaded');
+    const fn = document.getElementById('fn' + idx); if(fn) fn.textContent = '';
+    const fs = document.getElementById('fs' + idx); if(fs) fs.textContent = '';
+    const chip = document.getElementById('syncChip' + idx); if(chip) chip.textContent = '';
+    const us = document.getElementById('us' + idx);
+    if(us){ us.className = 'uc-badge-loaded'; us.textContent = 'Loading…'; }
+    const visRow = document.getElementById('visRow' + idx) as HTMLElement | null;
+    if(visRow) visRow.style.display = 'none';
+    // Compare needs both A and B — re-disable its buttons now one is missing.
+    const btnCompare = document.getElementById('btnCompare') as HTMLButtonElement | null;
+    if(btnCompare) btnCompare.disabled = true;
+    const panelBtn = document.getElementById('btnRunComparePanel') as HTMLButtonElement | null;
+    if(panelBtn){ panelBtn.disabled = true; panelBtn.style.opacity = '.35'; }
+  }
+  fedRenderSlots();
+  if(getLoadedModelCount() === 0){
+    const emptyVP = document.getElementById('emptyVP') as HTMLElement | null;
+    if(emptyVP) emptyVP.style.display = 'flex';
+  }
   if(window.requestPlanRebuild) window.requestPlanRebuild();
+}
+
+// Removes a federation file from THIS session's view only — it deliberately
+// does not touch the cloud copy, so a teammate's upload stays put. Deleting
+// the shared file is the separate, editor+ "Cloud files" action in projects.ts.
+window.fedRemoveSlot = function(idx: number){
+  if(idx < 2) return;
+  unloadSlot(idx);
 };
 
 window.fedToggleVis = function(idx: number){

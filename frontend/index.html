@@ -393,6 +393,13 @@
           <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>
           Run Compare
         </button>
+
+        <!-- Cloud file manager (delete / upload history) — shown only inside a cloud project -->
+        <button id="btnCloudFiles" onclick="toggleCloudFilesPanel()" title="Manage this project's cloud files and see who uploaded what"
+          style="display:none;margin-top:10px;width:100%;height:34px;border-radius:9px;border:1px solid var(--border);background:none;color:var(--text-dim);font-family:inherit;font-size:14.4px;font-weight:600;cursor:pointer;align-items:center;justify-content:center;gap:7px">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="12 9 12 15"/><polyline points="9.5 12.5 12 15 14.5 12.5"/></svg>
+          Cloud files &amp; history
+        </button>
       </div>
 
       <div id="mfPanelSep" data-pages="viewer compare clash validate" style="height:1px;background:var(--border);margin:0 16px"></div>
@@ -1256,6 +1263,31 @@
 
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn btn-sm" onclick="toggleInvitePanel()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:none;cursor:pointer">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cloud Files Dialog — per-file delete (editor+) and upload history -->
+<div class="modal-overlay" id="cloudFilesOverlay" style="display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);padding:16px" onclick="toggleCloudFilesPanel()">
+  <div class="modal-content" style="width:100%;max-width:560px;padding:24px 26px;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.15);color:#000" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0;font-size:19.2px;font-weight:700">Cloud Files</h3>
+      <button class="tb-icon-btn" onclick="toggleCloudFilesPanel()" style="font-size:21.6px;border:none;background:transparent;cursor:pointer">×</button>
+    </div>
+
+    <div id="cfNotCloud" style="display:none;padding:10px 12px;border-radius:8px;background:rgba(0,0,0,0.03);font-size:15px;color:#556">
+      File management is only available for <strong>☁ cloud projects</strong>. Switch to (or create) a cloud project first.
+    </div>
+
+    <div id="cfCloudBody" style="display:none">
+      <div id="cfReadOnlyNote" style="display:none;padding:8px 12px;border-radius:6px;background:rgba(0,88,190,0.06);font-size:13.8px;color:#0058be;margin-bottom:12px">
+        You have viewer access — you can see the upload history, but only an editor, admin, or the project owner can delete files.
+      </div>
+      <div id="cfList" style="display:grid;gap:6px;max-height:340px;overflow-y:auto"></div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
+      <button class="btn btn-sm" onclick="toggleCloudFilesPanel()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:none;cursor:pointer">Close</button>
     </div>
   </div>
 </div>
