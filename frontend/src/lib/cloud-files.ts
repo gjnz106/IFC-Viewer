@@ -9,10 +9,10 @@
    the SDKs never land in the main chunk for local-only users.
 ═══════════════════════════════════════════════════════════════════════ */
 
-import type { CloudProjectFile } from './cloud-projects.js';
+import type { CloudProjectFile, CloudFileVersion } from './cloud-projects.js';
 import { deleteCloudProject } from './cloud-projects.js';
 import { deleteResultRecord, resultStoragePath, ALL_RESULT_KINDS } from './cloud-results.js';
-import { getCachedFile, putCachedFile } from './ifc-cache.js';
+import { getCachedFile, putCachedFile, deleteCachedBlob, cacheKeyFor } from './ifc-cache.js';
 
 export type SyncStatus = 'local-only' | 'uploading' | 'synced' | 'error';
 
@@ -87,14 +87,61 @@ export function formatBytes(bytes: number): string {
   return (i === 0 ? val.toFixed(0) : val.toFixed(val < 10 ? 2 : 1)) + ' ' + units[i];
 }
 
+// ── Upload history ────────────────────────────────────────────────────────
+// Every re-upload into a slot overwrites the same Storage object, so history
+// is deliberately METADATA ONLY: it records who replaced the model and when,
+// and cannot restore earlier bytes. Kept as an array on the file doc rather
+// than a subcollection so reading a project's files stays one query and needs
+// no new security rules.
+
+// Capped so a slot re-uploaded daily for years can't grow the doc past
+// Firestore's 1 MiB limit (~55 bytes/entry, so this is ~1 KB).
+export const MAX_FILE_HISTORY = 20;
+
+// Newest first. A record written before history shipped has no `history`
+// array — its top-level fields still describe exactly one known upload, so
+// synthesize that as v1. (Any re-uploads it had before this feature existed
+// were never recorded and are genuinely unrecoverable, not hidden here.)
+export function fileHistory(record: CloudProjectFile | null | undefined): CloudFileVersion[] {
+  if (!record) return [];
+  if (record.history?.length) return record.history;
+  return [{
+    version: record.version || 1,
+    name: record.name,
+    size: record.size,
+    uploadedBy: record.uploadedBy,
+    uploadedAt: record.uploadedAt,
+  }];
+}
+
+// The version number a new upload into this slot should get. First upload
+// (no existing record) is v1; replacing a pre-history record makes v2.
+export function nextFileVersion(existing: CloudProjectFile | null | undefined): number {
+  if (!existing) return 1;
+  return (existing.version || fileHistory(existing).length || 1) + 1;
+}
+
+export function appendFileVersion(
+  history: CloudFileVersion[] | undefined,
+  entry: CloudFileVersion,
+): CloudFileVersion[] {
+  return [entry, ...(history || [])].slice(0, MAX_FILE_HISTORY);
+}
+
 // Builds the doc payload for `projects/{id}/files/{fileId}` create — pure.
+// `existing` is the record being replaced (null on a first upload); it is what
+// carries the previous versions forward. `now` is injectable for tests.
 export function buildCloudFileDoc(
   name: string,
   size: number,
   idx: number,
   storagePath: string,
   uploadedBy: string,
+  existing?: CloudProjectFile | null,
+  now: number = Date.now(),
 ): Omit<CloudProjectFile, 'id'> {
+  const version = nextFileVersion(existing);
+  const entry: CloudFileVersion = { version, name, size, uploadedBy, uploadedAt: now };
   return {
     name,
     size,
@@ -102,7 +149,9 @@ export function buildCloudFileDoc(
     storagePath,
     contentType: 'application/x-step',
     uploadedBy,
-    uploadedAt: Date.now(),
+    uploadedAt: now,
+    version,
+    history: appendFileVersion(existing ? fileHistory(existing) : undefined, entry),
   };
 }
 
@@ -223,7 +272,7 @@ export async function uploadProjectFile(
   try {
     const { doc, setDoc } = await import('firebase/firestore');
     const db = await getDb();
-    const payload = buildCloudFileDoc(file.name, file.size, idx, storagePath, uploadedBy);
+    const payload = buildCloudFileDoc(file.name, file.size, idx, storagePath, uploadedBy, existing);
     await setDoc(doc(db, 'projects', projectId, 'files', fileId), payload);
     if (existing && existing.storagePath && existing.storagePath !== storagePath) {
       deleteProjectFileBlob(existing.storagePath);
@@ -243,7 +292,11 @@ export async function uploadProjectFile(
 export async function deleteCloudProjectDeep(projectId: string): Promise<boolean> {
   const records = await fetchProjectFiles(projectId);
   for (const rec of records) {
-    await deleteProjectFileRecord(projectId, rec);
+    // If the record delete failed, its blob was left alone (so a surviving
+    // record never points at missing bytes) — but the project doc is about to
+    // go, taking the whole subcollection's reachability with it, so reclaim
+    // the storage here rather than orphaning it permanently.
+    if (!await deleteProjectFileRecord(projectId, rec)) await deleteProjectFileBlob(rec.storagePath);
   }
   for (const kind of ALL_RESULT_KINDS) {
     await deleteResultRecord(projectId, kind);
@@ -252,13 +305,28 @@ export async function deleteCloudProjectDeep(projectId: string): Promise<boolean
   return deleteCloudProject(projectId);
 }
 
-export async function deleteProjectFileRecord(projectId: string, record: CloudProjectFile): Promise<void> {
+// Returns whether the Firestore record was actually removed. The rules only
+// let editor+ delete (firestore.rules `match /files/{fileId}`), so a viewer
+// gets permission-denied here — callers must not report success or unload the
+// model on a false, or the file silently reappears for everyone on reload.
+//
+// The blob is only deleted once the record is gone: dropping it first would
+// leave a surviving record pointing at missing bytes, which every member's
+// auto-load would then fail on.
+export async function deleteProjectFileRecord(projectId: string, record: CloudProjectFile): Promise<boolean> {
   try {
     const { doc, deleteDoc } = await import('firebase/firestore');
     const db = await getDb();
     await deleteDoc(doc(db, 'projects', projectId, 'files', record.id));
   } catch (e) {
     console.warn('[cloud-files] deleteProjectFileRecord failed:', e);
+    return false;
   }
   await deleteProjectFileBlob(record.storagePath);
+  // Drop the local IndexedDB copy too — otherwise this browser keeps serving
+  // the deleted model from cache on the next project open.
+  try { await deleteCachedBlob(cacheKeyFor(record)); } catch (e) {
+    console.warn('[cloud-files] cache eviction after delete failed:', e);
+  }
+  return true;
 }

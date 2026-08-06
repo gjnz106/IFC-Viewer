@@ -8,7 +8,7 @@
 import { appState } from '../../store/index.js';
 import { escapeHtml } from '../../lib/escape.js';
 import { navigateTo } from './router.js';
-import { getLoadedModelCount, fedRenderSlots } from '../compare/federation-load.js';
+import { getLoadedModelCount, fedRenderSlots, unloadSlot } from '../compare/federation-load.js';
 import {
   loadRegistry, saveRegistry,
   createProject, renameProject, deleteProject, setActive, getActiveProject,
@@ -19,11 +19,12 @@ import { deleteProjectFilters } from '../../lib/model-filters-store.js';
 import {
   fetchCloudProjects, createCloudProject, renameCloudProject, isProjectOwner,
   migrateLocalToCloud, addMember, removeMember, setMemberRole, updateProjectMembership, updateMemberRole,
-  roleOf, canManageMembers, syncProjectSettings,
+  roleOf, canManageMembers, canEditProject, syncProjectSettings,
   type CloudProject, type CloudProjectFile, type ProjectRole,
 } from '../../lib/cloud-projects.js';
 import {
   fetchProjectFiles, downloadProjectFile, uploadProjectFile, deleteCloudProjectDeep,
+  deleteProjectFileRecord, fileHistory,
   orderFilesForAutoLoad, keyToSlotIndex, shouldConfirmOverwrite, syncChipLabel,
   exceedsUploadQuota, sumStorageUsage, formatBytes,
 } from '../../lib/cloud-files.js';
@@ -219,6 +220,10 @@ function chipLabel(): void {
   }
   if (el) el.textContent = name;
   if (subEl) subEl.textContent = rawName;
+  // Cloud file management only means anything inside a cloud project — this
+  // runs on every activation/switch/sign-out, so the button tracks that.
+  const cfBtn = document.getElementById('btnCloudFiles');
+  if (cfBtn) cfBtn.style.display = appState.activeCloudProjectId ? 'flex' : 'none';
 }
 
 function renderProjectList(): void {
@@ -879,6 +884,157 @@ const ROLE_LABEL: Record<ProjectRole, string> = { owner: 'Owner', admin: 'Admin'
   (window as any).renderMembersPanel?.();
 };
 
+// ── Cloud files: delete + upload history ──────────────────────────────────
+// Answers the two questions the sync chips can't: "I loaded the wrong file,
+// get it out of the project" and "when did this model change, and who
+// changed it". Deleting is editor+ (mirrors firestore.rules' files/{fileId}
+// write rule); every member can read the history.
+//
+// The list is always refetched on open rather than read from
+// appState.cloudFileRecords — that map only covers slots THIS session
+// loaded, and a teammate may have uploaded a new version since.
+let cloudFilesList: CloudProjectFile[] = [];
+let cloudFilesLoading = false;
+const expandedHistory = new Set<string>();
+
+function slotLabel(slot: 'A' | 'B' | number): string {
+  if (slot === 'A') return 'Version A';
+  if (slot === 'B') return 'Version B';
+  return 'File ' + (Number(slot) - 1);
+}
+
+function formatTimestamp(ts: number): string {
+  if (!ts) return 'unknown date';
+  try { return new Date(ts).toLocaleString(); } catch { return String(ts); }
+}
+
+(window as any).renderCloudFilesPanel = function (): void {
+  const notCloud = document.getElementById('cfNotCloud');
+  const body = document.getElementById('cfCloudBody');
+  const listEl = document.getElementById('cfList');
+  const readOnlyNote = document.getElementById('cfReadOnlyNote');
+  if (!notCloud || !body || !listEl || !readOnlyNote) return;
+
+  const proj = activeCloudProject();
+  if (!proj) {
+    notCloud.style.display = 'block';
+    body.style.display = 'none';
+    return;
+  }
+  notCloud.style.display = 'none';
+  body.style.display = 'block';
+
+  const canDelete = canEditProject(proj, currentAuthUser()?.email);
+  readOnlyNote.style.display = canDelete ? 'none' : 'block';
+
+  if (cloudFilesLoading && cloudFilesList.length === 0) {
+    listEl.innerHTML = '<div class="proj-empty">Loading files…</div>';
+    return;
+  }
+  if (cloudFilesList.length === 0) {
+    listEl.innerHTML = '<div class="proj-empty">No files uploaded to this project yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = orderFilesForAutoLoad(cloudFilesList).map(rec => {
+    const versions = fileHistory(rec);
+    const open = expandedHistory.has(rec.id);
+    const historyRows = versions.map(v => `<div class="cf-hist-row">
+      <span class="cf-hist-ver">v${v.version}</span>
+      <span class="cf-hist-when">${escapeHtml(formatTimestamp(v.uploadedAt))}</span>
+      <span class="cf-hist-who">${escapeHtml(v.uploadedBy || 'unknown')}</span>
+      <span class="cf-hist-size">${escapeHtml(formatBytes(v.size))}</span>
+    </div>`).join('');
+    return `<div class="proj-row cf-row">
+      <div class="proj-row-info">
+        <div class="proj-row-name">${escapeHtml(rec.name)} <span class="proj-row-code">${escapeHtml(slotLabel(rec.slot))}</span></div>
+        <div class="proj-row-sub">v${versions[0]?.version ?? 1} · ${escapeHtml(formatBytes(rec.size))} · ${escapeHtml(rec.uploadedBy || 'unknown')} · ${escapeHtml(formatTimestamp(rec.uploadedAt))}</div>
+        <div class="cf-hist" style="display:${open ? 'block' : 'none'}">
+          <div class="cf-hist-note">Upload log — metadata only; earlier file contents are not kept.</div>
+          ${historyRows}
+        </div>
+      </div>
+      <div class="proj-row-actions">
+        <button class="proj-row-btn" onclick="projToggleFileHistory('${escapeHtml(rec.id)}')" title="Upload history">${open ? '▴' : '▾'} History</button>
+        ${canDelete ? `<button class="proj-row-btn proj-row-btn-danger" onclick="projDeleteCloudFile('${escapeHtml(rec.id)}')" title="Delete from project">✕</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+};
+
+async function refreshCloudFiles(): Promise<void> {
+  const projectId = appState.activeCloudProjectId;
+  if (!projectId) { cloudFilesList = []; (window as any).renderCloudFilesPanel?.(); return; }
+  cloudFilesLoading = true;
+  (window as any).renderCloudFilesPanel?.();
+  const files = await fetchProjectFiles(projectId);
+  cloudFilesLoading = false;
+  // Another project may have been activated while this was in flight.
+  if (appState.activeCloudProjectId !== projectId) return;
+  cloudFilesList = files;
+  (window as any).renderCloudFilesPanel?.();
+}
+
+function closeCloudFilesPanel(): void {
+  const el = document.getElementById('cloudFilesOverlay');
+  if (el) el.style.display = 'none';
+  cloudFilesList = [];
+  expandedHistory.clear();
+}
+
+(window as any).toggleCloudFilesPanel = function (): void {
+  const el = document.getElementById('cloudFilesOverlay');
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  if (open) { closeCloudFilesPanel(); return; }
+  expandedHistory.clear();
+  cloudFilesList = [];
+  el.style.display = 'flex';
+  (window as any).renderCloudFilesPanel?.();
+  refreshCloudFiles().catch(e => console.warn('[cloud-files] refreshCloudFiles failed:', e));
+};
+
+(window as any).projToggleFileHistory = function (fileId: string): void {
+  if (expandedHistory.has(fileId)) expandedHistory.delete(fileId);
+  else expandedHistory.add(fileId);
+  (window as any).renderCloudFilesPanel?.();
+};
+
+(window as any).projDeleteCloudFile = async function (fileId: string): Promise<void> {
+  const proj = activeCloudProject();
+  const projectId = appState.activeCloudProjectId;
+  if (!proj || !projectId) return;
+  const rec = cloudFilesList.find(f => f.id === fileId);
+  if (!rec) return;
+  // Belt-and-braces: the button is hidden for viewers, but a stale panel (role
+  // changed while it was open) must not fire a request the rules will reject.
+  if (!canEditProject(proj, currentAuthUser()?.email)) {
+    alert('Only an editor, admin, or the project owner can delete files from this project.');
+    return;
+  }
+  if (!confirm(`Delete "${rec.name}" from "${proj.name}"?\n\nThis removes it for every member and cannot be undone — the file's ${fileHistory(rec).length > 1 ? 'earlier versions are' : 'contents are'} not recoverable.`)) return;
+
+  const ok = await deleteProjectFileRecord(projectId, rec);
+  if (!ok) { alert('Could not delete the file. Check your connection and permissions, then try again.'); return; }
+
+  cloudFilesList = cloudFilesList.filter(f => f.id !== fileId);
+  expandedHistory.delete(fileId);
+  // Clear the slot it occupied — leaving the model on screen after deleting it
+  // from the project is the state that made people re-upload by mistake. Only
+  // when this session actually loaded THAT record though: the slot may be
+  // holding a different file (or nothing), and unloading it would throw away
+  // work the delete never touched.
+  const idx = keyToSlotIndex(rec.slot);
+  if (appState.cloudFileRecords[idx]?.id === fileId) {
+    delete appState.cloudFileRecords[idx];
+    delete appState.cloudSyncStatus[idx];
+    unloadSlot(idx);
+  }
+  log(`Cloud: deleted ${rec.name} (slot ${idx}) from project ${proj.name}`);
+  (window as any).renderCloudFilesPanel?.();
+  refreshStorageUsage().catch(() => { /* display-only */ });
+};
+
 // ── Storage usage display (Phase 14) ──────────────────────────────────────
 async function refreshStorageUsage(): Promise<void> {
   const row = document.getElementById('projStorageUsageRow');
@@ -891,7 +1047,12 @@ async function refreshStorageUsage(): Promise<void> {
   const files = await fetchProjectFiles(projectId);
   el.textContent = formatBytes(sumStorageUsage(files));
 }
-window.addEventListener('ifc:projectchange', () => { refreshStorageUsage(); });
+window.addEventListener('ifc:projectchange', () => {
+  refreshStorageUsage();
+  // Whatever the Cloud Files dialog is showing belongs to the project we just
+  // left; its delete buttons would target the wrong project's records.
+  closeCloudFilesPanel();
+});
 
 // Sign-out (auth.ts) already nulled activeCloudProjectId + records and
 // unloaded models — drop this module's cached cloud list and reflect the
@@ -901,6 +1062,7 @@ window.addEventListener('ifc:signout', () => {
   appState.activeProjectId = registry.activeId; // back to the local project's camera
   cloudList = [];
   cloudLoadError = false;
+  closeCloudFilesPanel();
   // Wipe any locally-cached file bytes so the next user on a shared machine
   // can't F5 and restore this user's model (local-session is keyed by slot
   // index only, and _localSessionChecked resets on the fresh page load).

@@ -1,2 +1,5 @@
 node_modules
 dist/
+
+# rules-tests is a standalone package installed ad hoc (see rules-tests/README.md)
+rules-tests/package-lock.json

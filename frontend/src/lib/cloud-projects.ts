@@ -51,7 +51,22 @@ export interface CloudProject {
   updatedAt: number;
 }
 
+// One row of a cloud file's upload log: who replaced the model, with what,
+// and when. Metadata only — the previous BYTES are not retained (each upload
+// overwrites the same Storage object), so this answers "when did this change
+// and who did it", not "give me last week's model back".
+export interface CloudFileVersion {
+  version: number;
+  name: string;
+  size: number;
+  uploadedBy: string;
+  uploadedAt: number;
+}
+
 // Phase 13 fills in the actual upload/list/delete glue against this shape.
+// `version`/`history` are optional because docs written before upload history
+// shipped don't have them — cloud-files.ts's fileHistory() synthesizes a
+// single entry from the top-level fields for those.
 export interface CloudProjectFile {
   id: string;
   name: string;
@@ -61,6 +76,8 @@ export interface CloudProjectFile {
   contentType: string;
   uploadedBy: string;
   uploadedAt: number;
+  version?: number;
+  history?: CloudFileVersion[];
 }
 
 export interface MergedProjectItem {

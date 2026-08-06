@@ -1,7 +1,7 @@
 // Rules test for IFC Delta per-project roles.
 // Reproduces the reported bug: an EDITOR cannot upload a file.
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 
 const PROJECT_ID = 'ifc-delta-test';
@@ -60,6 +60,20 @@ await check('viewer CANNOT write a file doc', () =>
   assertFails(setDoc(doc(ctxFor(VIEWER), 'projects/p1/files/f4'), fileDoc)));
 await check('viewer CAN read a file doc', () =>
   assertSucceeds(getDoc(doc(ctxFor(VIEWER), 'projects/p1/files/f1'))));
+
+// The per-file delete UI (projects.ts's projDeleteCloudFile) hides its button
+// from viewers, but the rules are what actually enforce it. `allow write`
+// covers delete implicitly — pin that here so splitting the rule later can't
+// quietly open deletion to viewers or close it to editors.
+console.log('\n--- files/{fileId} delete (per-file removal) ---');
+await check('editor CAN delete a file doc', () =>
+  assertSucceeds(deleteDoc(doc(ctxFor(EDITOR), 'projects/p1/files/f3'))));
+await check('admin CAN delete a file doc', () =>
+  assertSucceeds(deleteDoc(doc(ctxFor(ADMIN), 'projects/p1/files/f2'))));
+await check('viewer CANNOT delete a file doc', () =>
+  assertFails(deleteDoc(doc(ctxFor(VIEWER), 'projects/p1/files/f1'))));
+await check('owner CAN delete a file doc', () =>
+  assertSucceeds(deleteDoc(doc(ctxFor(OWNER), 'projects/p1/files/f1'))));
 
 console.log('\n--- legacy project (no memberRoles field) ---');
 await check('legacy: editor-by-default CAN write a file doc', () =>

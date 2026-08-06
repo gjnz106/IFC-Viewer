@@ -212,6 +212,44 @@ body.resizing-row,body.resizing-row *{user-select:none !important;cursor:row-res
   font-size: 14.4px;
   color: #8590a6;
 }
+/* Cloud Files dialog — a file row carries an expandable upload log, so it
+   aligns to the top rather than centring like the single-line project rows. */
+.cf-row {
+  align-items: flex-start;
+}
+.cf-hist {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+.cf-hist-note {
+  font-size: 12.6px;
+  color: #8590a6;
+  margin-bottom: 6px;
+}
+.cf-hist-row {
+  display: grid;
+  grid-template-columns: 34px auto 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13.2px;
+  color: #556;
+  padding: 2px 0;
+}
+.cf-hist-ver {
+  font-weight: 700;
+  color: #0058be;
+}
+.cf-hist-who,
+.cf-hist-size {
+  color: #8590a6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cf-hist-size {
+  text-align: right;
+}
 .tb-title {
   min-width: 0;
   height: 30px;
