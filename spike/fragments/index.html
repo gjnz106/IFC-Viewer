@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IFC Delta — fragments spike</title>
+<!-- Empty data URI: stops the browser requesting /favicon.ico, which the dev
+     server 404s. The smoke test treats any console error as a failure, and
+     that stray 404 was the only one left. -->
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.55;
+    background: Canvas; color: CanvasText;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 28px 0 10px; }
+  .lede { color: color-mix(in srgb, CanvasText 60%, Canvas); margin: 0 0 24px; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    padding: 16px; border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
+    border-radius: 10px;
+  }
+  button {
+    font: inherit; font-weight: 600; padding: 8px 18px; border-radius: 8px;
+    border: none; background: #0058be; color: #fff; cursor: pointer;
+  }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  label.chk { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+  #status { margin: 14px 0; font-size: 14px; color: color-mix(in srgb, CanvasText 65%, Canvas); min-height: 20px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td { padding: 5px 8px; border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, Canvas); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  tr.sep td { border-bottom: none; padding: 3px; }
+  .verdict { display: flex; gap: 14px; align-items: flex-start; padding: 16px; border-radius: 10px; margin: 24px 0; }
+  .verdict-badge { font-weight: 800; letter-spacing: .05em; flex-shrink: 0; }
+  .verdict.PASS { background: color-mix(in srgb, #16a34a 14%, Canvas); }
+  .verdict.PARTIAL { background: color-mix(in srgb, #f59e0b 16%, Canvas); }
+  .verdict.FAIL { background: color-mix(in srgb, #dc2626 14%, Canvas); }
+  .check { border: 1px solid color-mix(in srgb, CanvasText 15%, Canvas); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .check-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .badge { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; letter-spacing: .04em; }
+  .badge.PASS { background: #16a34a; color: #fff; }
+  .badge.PARTIAL { background: #f59e0b; color: #000; }
+  .badge.FAIL { background: #dc2626; color: #fff; }
+  .blocking { font-size: 11px; font-weight: 700; color: #dc2626; border: 1px solid currentColor; padding: 1px 6px; border-radius: 999px; }
+  .headline { margin: 8px 0 6px; font-size: 14px; }
+  .check ul, .check li { font-size: 13px; }
+  .check ul { margin: 6px 0 0; padding-left: 20px; color: color-mix(in srgb, CanvasText 72%, Canvas); }
+  .foot { font-size: 12px; color: color-mix(in srgb, CanvasText 55%, Canvas); margin-top: 24px; }
+  code { font-family: ui-monospace, monospace; font-size: 12.5px; }
+</style>
+</head>
+<body>
+  <h1>IFC Delta → fragments: viability spike</h1>
+  <p class="lede">
+    Loads one IFC twice — through raw <code>web-ifc</code> (what the app does today) and through
+    <code>@thatopen/fragments</code> — then checks whether everything <strong>Compare</strong> depends on
+    survived the conversion. Throwaway diagnostic; not part of the app.
+  </p>
+
+  <div class="controls">
+    <input type="file" id="file" accept=".ifc">
+    <label class="chk">
+      <input type="checkbox" id="allAttrs" checked>
+      Include all attributes
+    </label>
+    <button id="run" disabled>Run</button>
+  </div>
+  <p class="foot" style="margin-top:8px">
+    Leave <em>Include all attributes</em> on for the first run. Untick it to see what the importer
+    defaults drop — the difference tells you whether a missing property is a config choice or a format limit.
+    Everything runs locally in this tab; no file is uploaded anywhere.
+  </p>
+
+  <div id="status"></div>
+  <div id="results"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

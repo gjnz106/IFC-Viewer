@@ -3,3 +3,9 @@ dist/
 
 # rules-tests is a standalone package installed ad hoc (see rules-tests/README.md)
 rules-tests/package-lock.json
+
+# Fragments spike (spike/fragments) — throwaway, see its README
+spike/fragments/node_modules/
+spike/fragments/dist/
+spike/fragments/public/wasm/
+spike/fragments/sample.ifc

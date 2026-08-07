@@ -1,0 +1,23 @@
+{
+  "name": "ifc-delta-fragments-spike",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway spike: can IFC Delta move from web-ifc-three to @thatopen/fragments without losing Compare? Not part of the app build — see README.md.",
+  "scripts": {
+    "predev": "node scripts/copy-wasm.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-wasm.mjs",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@thatopen/fragments": "3.4.7",
+    "three": "^0.182.0",
+    "web-ifc": "^0.0.77"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  }
+}
